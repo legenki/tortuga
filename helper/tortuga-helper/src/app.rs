@@ -13,6 +13,7 @@ use tokio::sync::{Mutex, OnceCell};
 use tokio::task::JoinHandle;
 
 use crate::config::{Paths, default_snowflake_lines, tor_config};
+use crate::moat::{self, LineKind, Route};
 use crate::protocol::{BridgeChoice, ErrorCode, Message, Outgoing, PROTOCOL_VERSION, Request, RequestBody, SourceMsg};
 use crate::tor::{Events, Tor};
 use crate::torrents::Torrents;
@@ -35,8 +36,9 @@ struct State {
     tor: Option<Arc<Tor>>,
     /// The bootstrap in progress, if any.
     starting: Option<JoinHandle<()>>,
-    /// The SOCKS listener while Tor is on.
+    /// The SOCKS listener while Tor is on, and its port.
     socks: Option<JoinHandle<()>>,
+    socks_port: Option<u16>,
 }
 
 #[derive(Clone)]
@@ -93,6 +95,40 @@ impl App {
             RequestBody::TorrentPause { id } => self.torrent(req.id, TorrentJob::Pause(id)),
             RequestBody::TorrentResume { id } => self.torrent(req.id, TorrentJob::Resume(id)),
             RequestBody::TorrentRemove { id, delete_files } => self.torrent(req.id, TorrentJob::Remove(id, delete_files)),
+            RequestBody::BridgesFetch { kind } => {
+                let app = self.clone();
+                let socks_port = state.socks_port;
+                tokio::spawn(async move {
+                    let reply = match app.fetch_bridges(kind, socks_port).await {
+                        Ok(fetched) => Message::reply(req.id, Outgoing::BridgesLines(fetched)),
+                        Err(e) => Message::error(Some(req.id), ErrorCode::BridgesFailed, format!("{e:#}")),
+                    };
+                    app.send(reply);
+                });
+            }
+        }
+    }
+
+    /// Ask Moat directly; if that fails and Tor is on, ask again through Tor.
+    /// `TORTUGA_MOAT_URL` replaces the service (tests); `TORTUGA_MOAT_NO_DIRECT`
+    /// skips the direct try, to exercise the way through Tor.
+    async fn fetch_bridges(&self, kind: LineKind, socks_port: Option<u16>) -> anyhow::Result<moat::Fetched> {
+        let base = std::env::var("TORTUGA_MOAT_URL").unwrap_or_else(|_| moat::MOAT.to_owned());
+        let direct = if std::env::var_os("TORTUGA_MOAT_NO_DIRECT").is_some() {
+            Err(anyhow::anyhow!("direct requests switched off"))
+        } else {
+            moat::fetch(kind, Route::Direct, &base).await
+        };
+        match (direct, socks_port) {
+            (Ok(fetched), _) => Ok(fetched),
+            // Moat answered: it has nothing for this network, and Tor won't change that.
+            (Err(e), _) if e.downcast_ref::<moat::NoLines>().is_some() => Err(e),
+            (Err(e), Some(port)) => moat::fetch(kind, Route::Tor { socks_port: port }, &base)
+                .await
+                .map_err(|via_tor| anyhow::anyhow!("bridges.torproject.org: {e:#}; through Tor: {via_tor:#}")),
+            (Err(e), None) => Err(anyhow::anyhow!(
+                "Can't reach bridges.torproject.org ({e:#}). Turn Tor on with Snowflake, then try again: the request will go through Tor."
+            )),
         }
     }
 
@@ -158,6 +194,7 @@ impl App {
         let mut state = self.state.lock().await;
         state.tor = Some(tor);
         state.socks = Some(socks);
+        state.socks_port = Some(port);
         state.starting = None;
         Ok(port)
     }
@@ -171,6 +208,7 @@ fn stop(state: &mut State) {
     if let Some(s) = state.socks.take() {
         s.abort();
     }
+    state.socks_port = None;
     if let Some(tor) = &state.tor {
         tor.sleep();
     }

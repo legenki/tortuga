@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::hops::Hop;
+use crate::moat::{Fetched, LineKind};
 use crate::torrents::{Progress, Source, TorrentInfo};
 
 /// Bumped whenever a message changes incompatibly.
@@ -37,6 +38,8 @@ pub enum RequestBody {
     TorrentResume { id: String },
     #[serde(rename = "torrent.remove", rename_all = "camelCase")]
     TorrentRemove { id: String, delete_files: bool },
+    #[serde(rename = "bridges.fetch")]
+    BridgesFetch { kind: LineKind },
 }
 
 /// A torrent as the extension names it: `{ url }` (magnet or http(s) link to a
@@ -114,6 +117,8 @@ pub enum Outgoing {
     TorrentInfo(TorrentInfo),
     #[serde(rename = "torrent.progress")]
     TorrentProgress { torrents: Vec<Progress> },
+    #[serde(rename = "bridges.lines")]
+    BridgesLines(Fetched),
     #[serde(rename = "error")]
     Error { code: ErrorCode, message: String },
 }
@@ -127,6 +132,7 @@ pub enum ErrorCode {
     TorFailed,
     NotRunning,
     TorrentFailed,
+    BridgesFailed,
 }
 
 impl Message {
@@ -205,6 +211,20 @@ mod tests {
         assert_eq!(
             serde_json::to_value(Message::event(Outgoing::TorrentProgress { torrents: vec![row] })).unwrap(),
             json!({"type": "torrent.progress", "payload": {"torrents": [{"id": "ab", "name": "Sintel", "done": 5, "size": 10, "downRate": 1, "upRate": 0, "state": "downloading", "error": null}]}})
+        );
+    }
+
+    #[test]
+    fn bridge_requests_and_answers() {
+        assert_eq!(
+            parse(json!({"id": 8, "type": "bridges.fetch", "payload": {"kind": "webtunnel"}})),
+            Request { id: 8, body: RequestBody::BridgesFetch { kind: LineKind::Webtunnel } }
+        );
+        assert!(serde_json::from_value::<Request>(json!({"id": 8, "type": "bridges.fetch", "payload": {"kind": "snowflake"}})).is_err());
+        let fetched = Fetched { lines: vec!["obfs4 a".into()], source: "builtin".into(), country: Some("it".into()), via_tor: false };
+        assert_eq!(
+            serde_json::to_value(Message::reply(8, Outgoing::BridgesLines(fetched))).unwrap(),
+            json!({"id": 8, "type": "bridges.lines", "payload": {"lines": ["obfs4 a"], "source": "builtin", "country": "it", "viaTor": false}})
         );
     }
 

@@ -1009,10 +1009,11 @@ main()
 - [ ] **Step 4: Run it**
 
 ```bash
-cd helper && D=$(mktemp -d) && TORTUGA_PT_DIR="$(pwd)/resources/pt" TORTUGA_DATA_DIR=$D/data \
+cd helper && rm -rf target/moat-e2e target/moat-e2e-obfs4 && TORTUGA_PT_DIR="$(pwd)/resources/pt" TORTUGA_DATA_DIR="$(pwd)/target/moat-e2e" \
 perl -e 'alarm 1200; exec @ARGV' python3 -I scripts/moat_check.py target/release/tortuga-helper
 ```
 
+The data dir lives under `target/`: Arti refuses state under a group- or world-writable parent, and on this machine `$TMPDIR` is `rwxrwxrwx`, so `mktemp -d` dirs fail with `problem with filesystem permissions`.
 Expected (planning run, from Italy): `1. obfs4 direct: bridges.lines` with the 3 built-in lines in about a second; `2. webtunnel: error … has no webtunnel bridges for this network (it) — it says none are needed here`; `3a. no direct, Tor off: error Can't reach bridges.torproject.org (direct requests switched off). Turn Tor on with Snowflake, then try again…`; `3b` Tor on Snowflake (about 1–2 min cold); `3c. obfs4 through Tor: bridges.lines … "viaTor": true`; `4.` Tor in a fresh process on the fetched obfs4 lines → `{"IsTor":true,…}` and a circuit with `"bridge": "obfs4"` whose first hop is role `bridge`; `PASS`. Step 4 can take several minutes when some built-in bridges don't answer from the network. From a censored network step 1 gets BridgeDB lines (`"source": "bridgedb"`) and step 2 gets WebTunnel lines.
 
 - [ ] **Step 5: Commit**
