@@ -40,9 +40,10 @@ Spec: `docs/superpowers/specs/2026-11-05-tortuga-design.md` (*Extension → Rout
 | `extension/src/popup/view.ts` | State → what the popup shows |
 | `extension/src/popup/index.{html,ts}`, `style.css` | The popup |
 | `extension/tests/*.test.ts`, `tests/fake-port.ts` | Unit tests |
-| `extension/scripts/register-dev-host.sh`, `helper/scripts/dev-host.sh` | Development native host |
+| `extension/scripts/register-dev-host.sh` | Development native host (a copy of the helper outside `~/Documents`) |
+| `extension/scripts/live-check/{run.sh,check.mjs}` | Automated Firefox live check |
 
-For every task: write the test file, run it and see it fail because the module doesn't exist yet (`Failed to resolve import`), then write the module and see it pass.
+For every task: write the test file, run it and see it fail because the module doesn't exist yet (Vitest 1.6: `Failed to load url … Does the file exist?`), then write the module and see it pass.
 
 ---
 
@@ -433,7 +434,7 @@ describe('topSiteOf', () => {
 ```
 
 Run: `cd extension && npx vitest run tests/site.test.ts`
-Expected: FAIL — `Failed to resolve import "../src/lib/site"`.
+Expected: FAIL — `Failed to load url ../src/lib/site`.
 
 - [ ] **Step 3: Implement**
 
@@ -559,7 +560,7 @@ describe('routedPort', () => {
 ```
 
 Run: `cd extension && npx vitest run tests/state.test.ts`
-Expected: FAIL — `Failed to resolve import "../src/lib/state"`.
+Expected: FAIL — `Failed to load url ../src/lib/state`.
 
 - [ ] **Step 2: Implement**
 
@@ -774,7 +775,7 @@ describe('isMissingHost', () => {
 ```
 
 Run: `cd extension && npx vitest run tests/helper.test.ts`
-Expected: FAIL — `Failed to resolve import "../src/background/helper"`.
+Expected: FAIL — `Failed to load url ../src/background/helper`.
 
 - [ ] **Step 2: Implement**
 
@@ -919,7 +920,7 @@ describe('chromeConfig', () => {
 ```
 
 Run: `cd extension && npx vitest run tests/routing.test.ts`
-Expected: FAIL — `Failed to resolve import "../src/background/routing"`.
+Expected: FAIL — `Failed to load url ../src/background/routing`.
 
 - [ ] **Step 2: Implement**
 
@@ -1178,7 +1179,7 @@ describe('Controller', () => {
 ```
 
 Run: `cd extension && npx vitest run tests/controller.test.ts`
-Expected: FAIL — `Failed to resolve import "../src/background/controller"`.
+Expected: FAIL — `Failed to load url ../src/background/controller`.
 
 - [ ] **Step 3: Implement**
 
@@ -1382,7 +1383,7 @@ describe('viewFor', () => {
 ```
 
 Run: `cd extension && npx vitest run tests/view.test.ts`
-Expected: FAIL — `Failed to resolve import "../src/popup/view"`.
+Expected: FAIL — `Failed to load url ../src/popup/view`.
 
 - [ ] **Step 2: Implement the view**
 
@@ -1694,97 +1695,38 @@ git commit -m "extension: background wiring and popup"
 ### Task 8: Development native host and live check
 
 **Files:**
-- Create: `helper/scripts/dev-host.sh`, `extension/scripts/register-dev-host.sh`
+- Create: `extension/scripts/register-dev-host.sh`, `extension/scripts/live-check/run.sh`, `extension/scripts/live-check/check.mjs`
+- Modify: `extension/src/background/helper.ts` (`connectHelper` also reads Firefox's `port.error`)
 
-- [ ] **Step 1: Write the scripts**
+What running this found (2026-11-05):
+- macOS won't let a browser start a program inside `~/Documents` (`Operation not permitted`), so the dev host is a copy of the helper in `~/Library/Application Support/Tortuga/dev/` with `pt/` next to it, not a script in the repo.
+- Firefox reports a closed native port in `port.error`, not `runtime.lastError` (and gives no reason at all when the program can't be started); the helper's stderr shows in the browser console.
+- WebDriver BiDi can't navigate to `moz-extension://`; the live check opens the popup page from the browser's privileged scope (`MOZ_REMOTE_ALLOW_SYSTEM_ACCESS=1`, `--remote-allow-system-access`).
+- Firefox's own background requests (`mozilla.org`, `devtools`) also go through Tor, each with its own circuit.
 
-`helper/scripts/dev-host.sh` (then `chmod +x`):
+- [ ] **Step 1: Write the scripts** — `register-dev-host.sh` copies `helper/target/release/tortuga-helper` and `helper/resources/pt/{lyrebird,pt_config.json}` to the dev dir and writes the host manifest for Firefox, and for Chrome when given an extension id. `live-check/run.sh` builds the Firefox extension, registers the host, starts headless Firefox through `web-ext` with BiDi on port 9222, and runs `check.mjs`. See the files in the repository for their content.
 
-```sh
-#!/bin/sh
-# The native host during development: the release build of the helper, with
-# the transports that scripts/fetch-pt.sh put in resources/pt.
-HELPER="$(cd "$(dirname "$0")/.." && pwd)"
-export TORTUGA_PT_DIR="$HELPER/resources/pt"
-exec "$HELPER/target/release/tortuga-helper" "$@"
-```
+- [ ] **Step 2: Live check in Firefox (automated)**
 
-`extension/scripts/register-dev-host.sh` (then `chmod +x`):
+Run: `(cd helper && cargo build --release -p tortuga-helper && scripts/fetch-pt.sh) && extension/scripts/live-check/run.sh`
+Expected, ending with `ALL PASSED` (measured: Tor on via Snowflake in about 10 s on a cold profile):
+`PASS starts off`, `PASS Tor on`, check.torproject.org `IsTor true`, `PASS circuit events for both sites`, `PASS different circuits per site`, `PASS first hop is the Snowflake bridge`, `PASS resistFingerprinting: sites see UTC`, `PASS new circuit has a new path`, `PASS popup shows failed`, `PASS nothing loads (cache-busted) while failed` (`NS_ERROR_PROXY_CONNECTION_REFUSED`), `PASS back on after Restart`, `PASS off`, `PASS pages load directly again`, `PASS resistFingerprinting released`.
+Pages visited before the helper died can still show from the browser cache; nothing new goes out.
 
-```bash
-#!/usr/bin/env bash
-# Register helper/scripts/dev-host.sh as the org.tortuga.helper native host
-# for development. Firefox always; Chrome when given the unpacked extension's
-# id (chrome://extensions, with Developer mode on).
-# Usage: extension/scripts/register-dev-host.sh [CHROME_EXTENSION_ID]
-set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HOST="$ROOT/helper/scripts/dev-host.sh"
-[ -x "$HOST" ] || { echo "missing $HOST" >&2; exit 1; }
-case "$(uname -s)" in
-  Darwin) FF="$HOME/Library/Application Support/Mozilla/NativeMessagingHosts"
-          CR="$HOME/Library/Application Support/Google/Chrome/NativeMessagingHosts" ;;
-  Linux)  FF="$HOME/.mozilla/native-messaging-hosts"
-          CR="$HOME/.config/google-chrome/NativeMessagingHosts" ;;
-  *) echo "unsupported OS" >&2; exit 1 ;;
-esac
-mkdir -p "$FF"
-cat > "$FF/org.tortuga.helper.json" <<JSON
-{
-  "name": "org.tortuga.helper",
-  "description": "Tortuga helper (development)",
-  "path": "$HOST",
-  "type": "stdio",
-  "allowed_extensions": ["tortuga@legenki.com"]
-}
-JSON
-echo "Firefox: $FF/org.tortuga.helper.json"
-if [ $# -ge 1 ]; then
-  mkdir -p "$CR"
-  cat > "$CR/org.tortuga.helper.json" <<JSON
-{
-  "name": "org.tortuga.helper",
-  "description": "Tortuga helper (development)",
-  "path": "$HOST",
-  "type": "stdio",
-  "allowed_origins": ["chrome-extension://$1/"]
-}
-JSON
-  echo "Chrome:  $CR/org.tortuga.helper.json"
-fi
-```
+- [ ] **Step 3: Live check in Chrome (by hand)**
 
-- [ ] **Step 2: Build the helper and register it for Firefox**
-
-Run: `(cd helper && cargo build --release -p tortuga-helper && scripts/fetch-pt.sh) && extension/scripts/register-dev-host.sh`
-Expected: `Firefox: …/Mozilla/NativeMessagingHosts/org.tortuga.helper.json`.
-
-- [ ] **Step 3: Live check in Firefox**
-
-Run: `cd extension && npm run build:firefox && npm run start:firefox`. In the Firefox window that opens:
-1. Open the Tortuga popup: status `Direct — Tortuga is off`.
-2. Pick **Snowflake**, click **Tor**. Expected: `Connecting via Snowflake… N%` rising, then `Tor on via Snowflake` (cold start 11–22 s measured for the helper).
-3. Visit `https://check.torproject.org/` — "Congratulations. This browser is configured to use Tor." Open the popup there: the hop list shows Bridge / Middle / Exit.
-4. Open `https://www.wikipedia.org/` in another tab and the popup there: different Middle / Exit than on check.torproject.org.
-5. Click **New circuit**, reload the page: the hop list changes.
-6. Quit the helper: `pkill -f target/release/tortuga-helper`. Expected: popup red `Tor stopped — traffic is blocked`, with **Restart**; any page load fails (`Proxy server is refusing connections`), nothing loads directly. **Restart** brings Tor back.
-7. Click **Direct**: pages load normally; `about:config` → `privacy.resistFingerprinting` is back to `false`.
-
-- [ ] **Step 4: Live check in Chrome**
-
+Branded Chrome 137+ ignores `--load-extension`, so this one stays manual:
 1. `cd extension && npm run build`; in `chrome://extensions` turn on Developer mode, **Load unpacked** → `extension/dist`, copy the extension id, open **Details** → turn on **Allow in Incognito**.
 2. Run: `extension/scripts/register-dev-host.sh <that id>`.
-3. Turn Tor on from the popup; open an incognito window → `https://check.torproject.org/` says Tor; a regular window says not Tor.
-4. Turn off **Allow in Incognito** and turn Tor on again: the popup shows the incognito message and nothing starts.
+3. Turn Tor on from the popup; in an incognito window `https://check.torproject.org/` says Tor; a regular window says not Tor.
+4. Turn off **Allow in Incognito**, turn Tor on again: the popup shows the incognito message and nothing starts.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add helper/scripts/dev-host.sh extension/scripts
-git commit -m "dev: native host registration for Firefox and Chrome"
+git add extension/scripts extension/src/background/helper.ts
+git commit -m "dev: native host install outside Documents and a Firefox live check"
 ```
-
-Record anything in Steps 3–4 that didn't match in the commit message body or as a follow-up note for plan 3b.
 
 ---
 

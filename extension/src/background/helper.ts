@@ -76,6 +76,7 @@ export class HelperClient {
 }
 
 export function connectHelper(onEvent: (m: HelperMessage) => void, onGone: (reason: string) => void): HelperClient {
-  const port = chrome.runtime.connectNative(HOST_NAME) as unknown as PortLike;
-  return new HelperClient(port, onEvent, onGone, () => chrome.runtime.lastError?.message);
+  const port = chrome.runtime.connectNative(HOST_NAME) as unknown as PortLike & { error?: { message?: string } };
+  // Chrome reports why a port closed in runtime.lastError, Firefox in port.error.
+  return new HelperClient(port, onEvent, onGone, () => chrome.runtime.lastError?.message ?? port.error?.message);
 }
