@@ -150,13 +150,13 @@ mod tests {
         let circuit = serde_json::to_value(Message::event(Outgoing::Circuit {
             site: "github.com".into(),
             bridge: Some(BridgeKind::Snowflake),
-            hops: vec![Hop { role: Role::Bridge, id: "abc".into(), country: None }],
+            hops: vec![Hop { role: Role::Bridge, id: "abc".into(), addr: Some("192.0.2.3".into()), country: None }],
         }))
         .unwrap();
         assert_eq!(
             circuit,
             json!({"type": "circuit", "payload": {"site": "github.com", "bridge": "snowflake",
-                   "hops": [{"role": "bridge", "id": "abc", "country": null}]}})
+                   "hops": [{"role": "bridge", "id": "abc", "addr": "192.0.2.3", "country": null}]}})
         );
 
         let err = serde_json::to_value(Message::error(Some(5), ErrorCode::ProtocolMismatch, "want 1")).unwrap();

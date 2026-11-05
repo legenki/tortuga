@@ -14,12 +14,14 @@ pub enum Role {
     Exit,
 }
 
-/// One hop: its role, the relay's Ed25519 identity, and its country when known
-/// (a Snowflake bridge never has one).
+/// One hop: its role, the relay's Ed25519 identity, its address and its
+/// country when known (a Snowflake bridge has a placeholder address and no
+/// country).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Hop {
     pub role: Role,
     pub id: String,
+    pub addr: Option<String>,
     pub country: Option<String>,
 }
 
@@ -59,7 +61,7 @@ mod tests {
     use super::*;
 
     fn hop(role: Role, id: &str) -> Hop {
-        Hop { role, id: id.into(), country: Some("DE".into()) }
+        Hop { role, id: id.into(), addr: Some("192.0.2.1".into()), country: Some("DE".into()) }
     }
 
     #[test]

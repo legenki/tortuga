@@ -112,13 +112,12 @@ impl Tor {
                 .zip(roles)
                 .filter_map(|(hop, role)| {
                     let target = hop.as_chan_target()?;
-                    let country = target
-                        .addrs()
-                        .next()
-                        .and_then(|a| self.geoip.lookup_country_code(a.ip()))
+                    let ip = target.addrs().next().map(|a| a.ip());
+                    let country = ip
+                        .and_then(|ip| self.geoip.lookup_country_code(ip))
                         .map(|c| c.get().to_string());
                     let id = target.ed_identity().map(|e| e.to_string()).unwrap_or_default();
-                    Some(Hop { role, id, country })
+                    Some(Hop { role, id, addr: ip.map(|ip| ip.to_string()), country })
                 })
                 .collect(),
         )
