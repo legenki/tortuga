@@ -2,6 +2,7 @@
 # Live checks in headless Firefox with the extension and the dev helper.
 #   extension/scripts/live-check/run.sh            Tor mode (check.mjs)
 #   extension/scripts/live-check/run.sh downloads  torrents (downloads.mjs)
+#   extension/scripts/live-check/run.sh bridges    Get … lines on the settings page (bridges.mjs)
 # Both need network access; the Tor check needs Tor to be reachable.
 set -euo pipefail
 WHAT="${1:-tor}"
@@ -17,7 +18,7 @@ case "$(uname -s)" in
           HELPER="$HOME/.local/share/tortuga/dev/tortuga-helper" ;;
 esac
 SERVER=""
-if [ "$WHAT" = downloads ]; then
+if [ "$WHAT" = downloads ] || [ "$WHAT" = bridges ]; then
   # Keep test downloads and helper data out of ~/Downloads and the real data
   # dir: point the host at a wrapper that sets them, and put it back on exit.
   mkdir -p "$TMP/downloads" "$TMP/data"
@@ -30,6 +31,8 @@ exec "$HELPER" "\$@"
 SH
   chmod +x "$TMP/host.sh"
   python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); m["path"]=sys.argv[2]; open(sys.argv[1],"w").write(json.dumps(m, indent=2))' "$MANIFEST" "$TMP/host.sh"
+fi
+if [ "$WHAT" = downloads ]; then
   (cd "$HERE/site" && exec python3 -I -m http.server 8765 --bind 127.0.0.1) >/dev/null 2>&1 &
   SERVER=$!
 fi
@@ -50,6 +53,8 @@ sleep 2
 if [ "$WHAT" = downloads ]; then
   mkdir -p "$TMP/shots"
   node "$HERE/downloads.mjs" "$TMP/shots" "$TMP/downloads"
+elif [ "$WHAT" = bridges ]; then
+  node "$HERE/bridges.mjs" "${SHOTS:-}"
 else
   node "$HERE/check.mjs"
 fi

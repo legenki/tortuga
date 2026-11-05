@@ -44,9 +44,14 @@ itself, so the helper is required. Without it the Tor switch is disabled.
   Pluggable transports come from a bundled `lyrebird` binary, launched by Arti
   as a managed transport.
 - Bridge lines for obfs4 / WebTunnel are either pasted by the user or fetched
-  with **Get a bridge**: the helper asks the Tor Project's Moat service over
-  the meek transport, as Tor Browser's Connection Assist does. Snowflake needs
-  no bridge lines.
+  with **Get … lines** on the settings page: the helper asks the Tor Project's
+  Moat service (`circumvention/settings`, which hands out BridgeDB lines where
+  Tor is blocked, then `circumvention/builtin`) directly, or through Tor's own
+  SOCKS port when that fails and Tor already runs. Snowflake needs no bridge
+  lines, so it is the way in where bridges.torproject.org is blocked. No
+  domain fronting: meek's front parameters change too often to rely on.
+  Moat has no built-in WebTunnel bridges; where it says none are needed, the
+  user pastes WebTunnel lines.
 - Relay countries come from Arti's offline GeoIP data (`tor-geoip`); no lookup
   service is called. Bridge countries are often unknown (Snowflake always),
   so the bridge station shows its transport, not a country.
@@ -108,7 +113,7 @@ Extension → helper:
 | `tor.start` | `{ bridge: { kind: 'none' \| 'snowflake' \| 'obfs4' \| 'webtunnel', lines?: string[] } }` |
 | `tor.stop` | — |
 | `tor.newCircuit` | `{ site }` — new isolation token for that site (`default` in Chrome) |
-| `bridges.fetch` | `{ kind: 'obfs4' \| 'webtunnel' }` → reply `{ lines }` |
+| `bridges.fetch` | `{ kind: 'obfs4' \| 'webtunnel' }` → reply `bridges.lines { lines, source: 'bridgedb' \| 'builtin', country, viaTor }`; failures → `error { code: 'bridges_failed' }` (Moat's "none needed here" is passed on as is, without retrying through Tor) |
 | `torrent.inspect` | `{ source: { url } \| { torrentFile: base64 } }` → reply `torrent.info { id, name, size, files, folder }`, nothing downloaded |
 | `torrent.add` | same `source` → reply `torrent.info` |
 | `torrent.pause` / `torrent.resume` | `{ id }` → `ok` |
@@ -215,6 +220,19 @@ The rule from Nomada: nothing leaks, and the popup says why.
   **Restart**, which reconnects and starts Tor again.
 - **Torrent errors** (no peers, disk full, bad link) show in that download's
   row.
+
+Known limitations (found while testing):
+
+- Changing bridges on a running client reports ready at once — the directory
+  is cached — before the new bridges are proven. Traffic still can't leak, but
+  the popup can say *on* while circuits fail. Fix: build a circuit after a
+  bridge change before reporting ready.
+- Built-in obfs4 bridges don't all answer from every network (1 of 3 from the
+  test network); Arti tries them in turn, so a first start on them took 1½–5
+  minutes.
+- Arti refuses to keep state under a group- or world-writable directory
+  (`problem with filesystem permissions`); the default data dir is fine, test
+  runs keep their data under `helper/target/`.
 
 ## Testing
 
