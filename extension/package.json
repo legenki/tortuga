@@ -12,6 +12,8 @@
     "build:options": "vite build --config vite.config.options.ts",
     "build:confirm": "vite build --config vite.config.confirm.ts",
     "build:firefox": "TARGET=firefox npm run build",
+    "package": "npm run build && node scripts/package.mjs chrome",
+    "package:firefox": "npm run build:firefox && node scripts/package.mjs firefox",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint:firefox": "npx --yes web-ext@10.8.0 lint --source-dir dist-firefox",
