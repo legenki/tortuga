@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::hops::Hop;
+use crate::torrents::{Progress, Source, TorrentInfo};
 
 /// Bumped whenever a message changes incompatibly.
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -26,6 +27,39 @@ pub enum RequestBody {
     TorStop,
     #[serde(rename = "tor.newCircuit")]
     TorNewCircuit { site: String },
+    #[serde(rename = "torrent.inspect")]
+    TorrentInspect { source: SourceMsg },
+    #[serde(rename = "torrent.add")]
+    TorrentAdd { source: SourceMsg },
+    #[serde(rename = "torrent.pause")]
+    TorrentPause { id: String },
+    #[serde(rename = "torrent.resume")]
+    TorrentResume { id: String },
+    #[serde(rename = "torrent.remove", rename_all = "camelCase")]
+    TorrentRemove { id: String, delete_files: bool },
+}
+
+/// A torrent as the extension names it: `{ url }` (magnet or http(s) link to a
+/// `.torrent`) or `{ torrentFile }` (the file, base64).
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged, rename_all = "camelCase")]
+pub enum SourceMsg {
+    Url { url: String },
+    #[serde(rename_all = "camelCase")]
+    File { torrent_file: String },
+}
+
+impl SourceMsg {
+    pub fn decode(&self) -> anyhow::Result<Source> {
+        use base64::Engine as _;
+        match self {
+            SourceMsg::Url { url } if url.starts_with("magnet:") || url.starts_with("http://") || url.starts_with("https://") => {
+                Ok(Source::Url(url.clone()))
+            }
+            SourceMsg::Url { url } => anyhow::bail!("not a magnet or http(s) link: {url}"),
+            SourceMsg::File { torrent_file } => Ok(Source::File(base64::engine::general_purpose::STANDARD.decode(torrent_file)?)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -76,6 +110,10 @@ pub enum Outgoing {
     TorReady { socks_port: u16 },
     #[serde(rename = "circuit")]
     Circuit { site: String, bridge: Option<BridgeKind>, hops: Vec<Hop> },
+    #[serde(rename = "torrent.info")]
+    TorrentInfo(TorrentInfo),
+    #[serde(rename = "torrent.progress")]
+    TorrentProgress { torrents: Vec<Progress> },
     #[serde(rename = "error")]
     Error { code: ErrorCode, message: String },
 }
@@ -88,6 +126,7 @@ pub enum ErrorCode {
     ProtocolMismatch,
     TorFailed,
     NotRunning,
+    TorrentFailed,
 }
 
 impl Message {
@@ -128,6 +167,44 @@ mod tests {
         assert_eq!(
             parse(json!({"id": 4, "type": "tor.newCircuit", "payload": {"site": "github.com"}})),
             Request { id: 4, body: RequestBody::TorNewCircuit { site: "github.com".into() } }
+        );
+    }
+
+    #[test]
+    fn parses_torrent_requests() {
+        assert_eq!(
+            parse(json!({"id": 5, "type": "torrent.inspect", "payload": {"source": {"url": "magnet:?xt=urn:btih:abc"}}})),
+            Request { id: 5, body: RequestBody::TorrentInspect { source: SourceMsg::Url { url: "magnet:?xt=urn:btih:abc".into() } } }
+        );
+        assert_eq!(
+            parse(json!({"id": 6, "type": "torrent.add", "payload": {"source": {"torrentFile": "ZDQ6aW5mb2Vl"}}})),
+            Request { id: 6, body: RequestBody::TorrentAdd { source: SourceMsg::File { torrent_file: "ZDQ6aW5mb2Vl".into() } } }
+        );
+        assert_eq!(
+            parse(json!({"id": 7, "type": "torrent.remove", "payload": {"id": "ab", "deleteFiles": true}})),
+            Request { id: 7, body: RequestBody::TorrentRemove { id: "ab".into(), delete_files: true } }
+        );
+    }
+
+    #[test]
+    fn decodes_sources() {
+        assert_eq!(SourceMsg::Url { url: "magnet:?xt=urn:btih:abc".into() }.decode().unwrap(), Source::Url("magnet:?xt=urn:btih:abc".into()));
+        assert_eq!(SourceMsg::File { torrent_file: "ZDQ6aW5mb2Vl".into() }.decode().unwrap(), Source::File(b"d4:infoee".to_vec()));
+        assert!(SourceMsg::Url { url: "javascript:alert(1)".into() }.decode().is_err());
+        assert!(SourceMsg::File { torrent_file: "%%%".into() }.decode().is_err());
+    }
+
+    #[test]
+    fn serializes_torrent_messages() {
+        let info = TorrentInfo { id: "ab".into(), name: "Sintel".into(), size: 10, files: 2, folder: "/d".into() };
+        assert_eq!(
+            serde_json::to_value(Message::reply(5, Outgoing::TorrentInfo(info))).unwrap(),
+            json!({"id": 5, "type": "torrent.info", "payload": {"id": "ab", "name": "Sintel", "size": 10, "files": 2, "folder": "/d"}})
+        );
+        let row = Progress { id: "ab".into(), name: "Sintel".into(), done: 5, size: 10, down_rate: 1, up_rate: 0, state: crate::torrents::TorrentState::Downloading, error: None };
+        assert_eq!(
+            serde_json::to_value(Message::event(Outgoing::TorrentProgress { torrents: vec![row] })).unwrap(),
+            json!({"type": "torrent.progress", "payload": {"torrents": [{"id": "ab", "name": "Sintel", "done": 5, "size": 10, "downRate": 1, "upRate": 0, "state": "downloading", "error": null}]}})
         );
     }
 

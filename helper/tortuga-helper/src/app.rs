@@ -1,15 +1,33 @@
-//! Handles requests from the extension: hello, then starting, stopping and
-//! renewing Tor. Long work runs in tasks so a `tor.stop` can cancel a start.
+//! Handles requests from the extension: hello, then Tor (start, stop, new
+//! circuit) and torrents. Long work runs in tasks, so a `tor.stop` can cancel
+//! a start and a slow magnet lookup doesn't hold up other requests.
+//!
+//! The extension uses one helper process for Tor and another for torrents
+//! (two native ports), so each part is opened only when first asked for.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 use tokio::task::JoinHandle;
 
 use crate::config::{Paths, default_snowflake_lines, tor_config};
-use crate::protocol::{BridgeChoice, ErrorCode, Message, Outgoing, PROTOCOL_VERSION, Request, RequestBody};
+use crate::protocol::{BridgeChoice, ErrorCode, Message, Outgoing, PROTOCOL_VERSION, Request, RequestBody, SourceMsg};
 use crate::tor::{Events, Tor};
+use crate::torrents::Torrents;
+
+/// How often the Downloads tab gets fresh numbers.
+const PROGRESS_EVERY: Duration = Duration::from_secs(1);
+
+/// A torrent request, run in its own task.
+enum TorrentJob {
+    Inspect(SourceMsg),
+    Add(SourceMsg),
+    Pause(String),
+    Resume(String),
+    Remove(String, bool),
+}
 
 #[derive(Default)]
 struct State {
@@ -26,11 +44,12 @@ pub struct App {
     state: Arc<Mutex<State>>,
     paths: Paths,
     events: Events,
+    torrents: Arc<OnceCell<Arc<Torrents>>>,
 }
 
 impl App {
     pub fn new(paths: Paths, events: Events) -> Self {
-        Self { state: Arc::default(), paths, events }
+        Self { state: Arc::default(), paths, events, torrents: Arc::default() }
     }
 
     fn send(&self, m: Message) {
@@ -69,7 +88,47 @@ impl App {
                 }
                 _ => self.send(Message::error(Some(req.id), ErrorCode::NotRunning, "Tor is off")),
             },
+            RequestBody::TorrentInspect { source } => self.torrent(req.id, TorrentJob::Inspect(source)),
+            RequestBody::TorrentAdd { source } => self.torrent(req.id, TorrentJob::Add(source)),
+            RequestBody::TorrentPause { id } => self.torrent(req.id, TorrentJob::Pause(id)),
+            RequestBody::TorrentResume { id } => self.torrent(req.id, TorrentJob::Resume(id)),
+            RequestBody::TorrentRemove { id, delete_files } => self.torrent(req.id, TorrentJob::Remove(id, delete_files)),
         }
+    }
+
+    fn torrent(&self, id: u64, job: TorrentJob) {
+        let app = self.clone();
+        tokio::spawn(async move {
+            let reply = match app.run_torrent(job).await {
+                Ok(body) => Message::reply(id, body),
+                Err(e) => Message::error(Some(id), ErrorCode::TorrentFailed, format!("{e:#}")),
+            };
+            app.send(reply);
+        });
+    }
+
+    async fn run_torrent(&self, job: TorrentJob) -> anyhow::Result<Outgoing> {
+        let torrents = self.open_torrents().await?;
+        Ok(match job {
+            TorrentJob::Inspect(source) => Outgoing::TorrentInfo(torrents.inspect(&source.decode()?).await?),
+            TorrentJob::Add(source) => Outgoing::TorrentInfo(torrents.add(&source.decode()?).await?),
+            TorrentJob::Pause(id) => torrents.pause(&id).await.map(|_| Outgoing::Ok)?,
+            TorrentJob::Resume(id) => torrents.resume(&id).await.map(|_| Outgoing::Ok)?,
+            TorrentJob::Remove(id, delete_files) => torrents.remove(&id, delete_files).await.map(|_| Outgoing::Ok)?,
+        })
+    }
+
+    /// The torrent session, opened (and its saved downloads resumed) on first use.
+    async fn open_torrents(&self) -> anyhow::Result<Arc<Torrents>> {
+        let torrents = self
+            .torrents
+            .get_or_try_init(|| async {
+                let t = Arc::new(Torrents::open(self.paths.downloads.clone(), self.paths.torrent_state.clone()).await?);
+                tokio::spawn(report_progress(t.clone(), self.events.clone()));
+                anyhow::Ok(t)
+            })
+            .await?;
+        Ok(torrents.clone())
     }
 
     async fn start(&self, id: u64, bridge: BridgeChoice) {
@@ -114,6 +173,21 @@ fn stop(state: &mut State) {
     }
     if let Some(tor) = &state.tor {
         tor.sleep();
+    }
+}
+
+/// Send the torrent list every second while there is something to show, and
+/// once more when it becomes empty.
+async fn report_progress(torrents: Arc<Torrents>, events: Events) {
+    let mut last_empty = false;
+    loop {
+        let list = torrents.progress();
+        let empty = list.is_empty();
+        if !(empty && last_empty) && events.send(Message::event(Outgoing::TorrentProgress { torrents: list })).is_err() {
+            return;
+        }
+        last_empty = empty;
+        tokio::time::sleep(PROGRESS_EVERY).await;
     }
 }
 
