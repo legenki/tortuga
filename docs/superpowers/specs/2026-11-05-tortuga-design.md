@@ -48,7 +48,10 @@ itself, so the helper is required. Without it the Tor switch is disabled.
   the meek transport, as Tor Browser's Connection Assist does. Snowflake needs
   no bridge lines.
 - Relay countries come from Arti's offline GeoIP data (`tor-geoip`); no lookup
-  service is called.
+  service is called. Bridge countries are often unknown (Snowflake always),
+  so the bridge station shows its transport, not a country.
+- Arti's state and cache go to the helper's own directories
+  (`storage.state_dir`, `storage.cache_dir`), not the shared Arti defaults.
 
 ### Own SOCKS5 server
 
@@ -109,7 +112,7 @@ Helper → extension (events):
 |---|---|
 | `tor.status` | `{ phase: 'bridge' \| 'directory' \| 'circuit' \| 'ready', percent }` |
 | `tor.ready` | `{ socksPort }` |
-| `circuit` | `{ site, bridge?: { kind }, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', nickname, country }] }` |
+| `circuit` | `{ site, bridge?: { kind }, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', id, country? }] }` |
 | `torrent.progress` | `{ id, done, size, downRate, upRate, peers, state }` |
 | `error` | `{ code, message, torrentId? }` |
 
@@ -139,8 +142,8 @@ Helper → extension (events):
 
 - Top: the Nomada-style segmented switch **Direct / Tor**.
 - **Route** tab: the metro diagram for the active tab's site — You → bridge or
-  guard → middle → exit → site. Stations carry country flags (Twemoji font, as
-  in Nomada). The bridge station's shape and the line segment it covers show
+  guard → middle → exit → site. Relay stations carry country flags (Twemoji font,
+  as in Nomada) and a shortened relay id. The bridge station's shape and the line segment it covers show
   the transport: dotted for Snowflake, wavy for obfs4, tube for WebTunnel.
   When the circuit changes, stations slide to their new places. Below: the
   bridge picker (opens the bridge list with a mini diagram per type), **New

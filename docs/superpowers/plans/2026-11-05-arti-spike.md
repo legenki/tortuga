@@ -342,7 +342,7 @@ Expected: builds; `6 passed`. (Unused-code warnings are fine.)
 
 - [ ] **Step 3: Run directly against the Tor network**
 
-Run: `cd helper/spike && timeout 180 cargo run --release`
+Run: `cd helper/spike && cargo build --release && perl -e 'alarm 180; exec @ARGV' ./target/release/arti-probe`
 Expected, if Tor is reachable from this network (ids, countries and timings will differ):
 
 ```
@@ -386,9 +386,9 @@ git commit -m "spike: print isolated stream paths with countries"
 
 - [ ] **Step 2: Get the pluggable transport binary**
 
-Download the Tor Expert Bundle for macOS (aarch64) from https://www.torproject.org/download/tor/ into `helper/spike/bridges/` and unpack it there. Then:
+Download the Tor Expert Bundle for macOS (aarch64) from https://www.torproject.org/download/tor/ into `helper/spike/bridges/` and unpack it into `helper/spike/bridges/bundle/`. Then:
 
-Run: `ls helper/spike/bridges/tor/pluggable_transports/ && cat helper/spike/bridges/tor/pluggable_transports/pt_config.json`
+Run: `ls helper/spike/bridges/bundle/tor/pluggable_transports/ && cat helper/spike/bridges/bundle/tor/pluggable_transports/pt_config.json`
 Expected: a `lyrebird` binary (and any others listed), plus `pt_config.json` whose `pluggableTransports` entry for `snowflake` names the binary that serves it. Use that binary path as `PT_BINARY` below. On macOS, if the binary is quarantined: `xattr -d com.apple.quarantine <binary>`.
 
 - [ ] **Step 3: Get Snowflake bridge lines**
@@ -400,7 +400,7 @@ Expected: 2 or more lines, each starting `Bridge snowflake 192.0.2.`.
 
 - [ ] **Step 4: Run through Snowflake**
 
-Run: `cd helper/spike && timeout 300 cargo run --release -- bridges/snowflake.txt "$(pwd)/bridges/tor/pluggable_transports/lyrebird" snowflake`
+Run: `cd helper/spike && cargo build --release && perl -e 'alarm 300; exec @ARGV' ./target/release/arti-probe bridges/snowflake.txt "$(pwd)/bridges/bundle/tor/pluggable_transports/lyrebird" snowflake`
 (Replace the binary path if `pt_config.json` named a different one.)
 Expected: `bootstrapped in …`, then the same three blocks as Task 3, with the first hop printed as `Bridge:`. Save the output to `helper/spike/bridges/snowflake.log`.
 
