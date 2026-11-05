@@ -3,6 +3,7 @@
 #   extension/scripts/live-check/run.sh            Tor mode (check.mjs)
 #   extension/scripts/live-check/run.sh downloads  torrents (downloads.mjs)
 #   extension/scripts/live-check/run.sh bridges    Get … lines on the settings page (bridges.mjs)
+#   extension/scripts/live-check/run.sh screenshots  README screenshots into docs/screenshots (screenshots.mjs)
 # Both need network access; the Tor check needs Tor to be reachable.
 set -euo pipefail
 WHAT="${1:-tor}"
@@ -18,21 +19,25 @@ case "$(uname -s)" in
           HELPER="$HOME/.local/share/tortuga/dev/tortuga-helper" ;;
 esac
 SERVER=""
-if [ "$WHAT" = downloads ] || [ "$WHAT" = bridges ]; then
+DATA=""
+if [ "$WHAT" = downloads ] || [ "$WHAT" = bridges ] || [ "$WHAT" = screenshots ]; then
   # Keep test downloads and helper data out of ~/Downloads and the real data
   # dir: point the host at a wrapper that sets them, and put it back on exit.
-  mkdir -p "$TMP/downloads" "$TMP/data"
+  mkdir -p "$TMP/downloads"
+  # Not under $TMPDIR: on macOS it can be world-writable, and Arti refuses
+  # state there. Next to the dev helper, which is out of ~/Documents.
+  DATA="$(mktemp -d "$(dirname "$HELPER")/live-check-data.XXXXXX")"
   cp "$MANIFEST" "$TMP/manifest.json"
   cat > "$TMP/host.sh" <<SH
 #!/bin/sh
 export TORTUGA_DOWNLOADS="$TMP/downloads"
-export TORTUGA_DATA_DIR="$TMP/data"
+export TORTUGA_DATA_DIR="$DATA"
 exec "$HELPER" "\$@"
 SH
   chmod +x "$TMP/host.sh"
   python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); m["path"]=sys.argv[2]; open(sys.argv[1],"w").write(json.dumps(m, indent=2))' "$MANIFEST" "$TMP/host.sh"
 fi
-if [ "$WHAT" = downloads ]; then
+if [ "$WHAT" = downloads ] || [ "$WHAT" = screenshots ]; then
   (cd "$HERE/site" && exec python3 -I -m http.server 8765 --bind 127.0.0.1) >/dev/null 2>&1 &
   SERVER=$!
 fi
@@ -46,6 +51,7 @@ cleanup() {
   pkill -f 'Tortuga/dev/tortuga-helper|tortuga/dev/tortuga-helper' 2>/dev/null || true
   [ -f "$TMP/manifest.json" ] && cp "$TMP/manifest.json" "$MANIFEST"
   rm -rf "$TMP"
+  [ -n "$DATA" ] && rm -rf "$DATA"
 }
 trap cleanup EXIT
 for _ in $(seq 1 60); do nc -z 127.0.0.1 9222 2>/dev/null && break; sleep 0.5; done
@@ -53,6 +59,8 @@ sleep 2
 if [ "$WHAT" = downloads ]; then
   mkdir -p "$TMP/shots"
   node "$HERE/downloads.mjs" "$TMP/shots" "$TMP/downloads"
+elif [ "$WHAT" = screenshots ]; then
+  node "$HERE/screenshots.mjs" "$EXT/../docs/screenshots"
 elif [ "$WHAT" = bridges ]; then
   node "$HERE/bridges.mjs" "${SHOTS:-}"
 else

@@ -40,9 +40,14 @@ Set the repository variable `DEB_MAINTAINER` ("Name <email>") for the .deb.
 3. CI publishes the release with `Tortuga-Helper-<v>-macos.pkg`,
    `tortuga-helper_<v>_amd64.deb`, `tortuga-helper_<v>_arm64.deb`,
    `Tortuga-Helper-<v>-windows-x86_64.zip` and the extension zips.
+   Its notes are `.github/release-notes.md` (install steps; `{{VERSION}}`
+   becomes `<v>`) followed by GitHub's list of changes.
 4. Upload `tortuga-chrome-<v>.zip` to the Chrome Web Store and
    `tortuga-firefox-<v>.zip` with `tortuga-firefox-<v>-source.zip` to AMO
    (reviewers build it with `extension/BUILD.md`).
+
+README screenshots: `extension/scripts/live-check/run.sh screenshots` retakes
+them into `docs/screenshots/` (light theme, Tor on, local paths hidden).
 
 ## Checks before tagging
 

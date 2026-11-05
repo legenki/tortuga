@@ -147,10 +147,17 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/release-notes.md
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+      # Install steps from .github/release-notes.md, then GitHub's list of changes.
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "Tortuga $GITHUB_REF_NAME" --generate-notes
+        run: |
+          sed "s/{{VERSION}}/${GITHUB_REF_NAME#v}/g" .github/release-notes.md > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "Tortuga $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
