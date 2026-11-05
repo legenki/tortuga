@@ -76,7 +76,7 @@ check((await state(popup)).phase === 'off', 'starts off');
 const tzOff = new Date().getTimezoneOffset();
 
 log('2. Snowflake → Tor');
-await evaluate(popup, `(() => { const b = document.getElementById('bridge'); b.value = 'snowflake'; document.getElementById('connTor').click(); })()`);
+await evaluate(popup, `chrome.runtime.sendMessage({ type: 'SET_BRIDGE', bridge: 'snowflake' }).then(() => { document.getElementById('connTor').click(); return 1; })`);
 let s;
 for (let i = 0; i < 120; i++) {
   s = await state(popup);
@@ -125,8 +125,9 @@ log('   example.com (visited before) while failed:', cached.slice(0, 60));
 
 log('   Restart');
 await evaluate(popup, `document.getElementById('restart').click()`);
-for (let i = 0; i < 120; i++) { s = await state(popup); if (s.phase !== 'connecting') break; await sleep(1000); }
-check(s.phase === 'on', `back on after Restart (${s.phase})`);
+// The click only sends TOR_ON: the state may still read 'failed' for a moment.
+for (let i = 0; i < 120; i++) { s = await state(popup); if (s.phase === 'on') break; await sleep(1000); }
+check(s.phase === 'on', `back on after Restart (${s.phase}${s.error ? ': ' + s.error : ''})`);
 
 log('7. Direct');
 await evaluate(popup, `document.getElementById('connDirect').click()`);

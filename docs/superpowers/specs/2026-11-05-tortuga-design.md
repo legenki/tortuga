@@ -116,7 +116,7 @@ Helper → extension (events):
 | type | payload |
 |---|---|
 | `tor.status` | `{ phase: 'bridge' \| 'directory' \| 'ready', percent, blocked }` |
-| `circuit` | `{ site, bridge: 'snowflake' \| 'obfs4' \| 'webtunnel' \| null, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', id, country }] }` |
+| `circuit` | `{ site, bridge: 'snowflake' \| 'obfs4' \| 'webtunnel' \| null, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', id, addr, country }] }` — `addr` is the relay's address (a placeholder for Snowflake) |
 | `torrent.progress` | `{ id, done, size, downRate, upRate, peers, state }` |
 | `error` | `{ code, message, torrentId? }` |
 
@@ -152,14 +152,20 @@ Arti's own reason when it thinks bootstrap is stuck, else `null`. `country` is
 - Top: the Nomada-style segmented switch **Direct / Tor**.
 - **Route** tab: the metro diagram for the active tab's site — You → bridge or
   guard → middle → exit → site. Relay stations carry country flags (Twemoji font,
-  as in Nomada) and a shortened relay id. The bridge station's shape and the line segment it covers show
+  as in Nomada) and the country code; the bridge station shows its transport
+  instead. The bridge station's shape and the line segment it covers show
   the transport: dotted for Snowflake, wavy for obfs4, tube for WebTunnel.
-  When the circuit changes, stations slide to their new places. Below: the
-  bridge picker (opens the bridge list with a mini diagram per type), **New
-  circuit**, and the exit IP sites see.
+  When the circuit changes, a station whose relay changed fades in (stations
+  are keyed `role:relayId`). The site's name sits above the end station,
+  right-aligned; a long one drops its last label (`wikipedia.org` →
+  `wikipedia`) before it is cut. A tab that isn't a web page shows "No site"
+  (Firefox); Chrome's shared circuit shows "Incognito". Below: the bridge
+  picker (the bridge list with a mini diagram per type; obfs4 and WebTunnel
+  only with saved lines), **New circuit**, and "Exit relay ‹addr› · ‹country›"
+  — the exit relay's address, which is normally the address sites see.
 - While connecting, the same line lights up station by station from
-  `tor.status` phases (first hop, directory, ready), with a percentage and
-  **Cancel**.
+  `tor.status` phases (first hop, directory, ready), with a percentage;
+  **Direct** cancels.
 - **Downloads** tab (badge shows active count): one row per torrent with
   name, progress bar, speed and state, pause/resume/remove, and the
   "from your IP" warning.
@@ -177,7 +183,10 @@ and the "from your IP, not through Tor" note.
 
 ### Settings page
 
-Download folder, bridge lines, helper status and version, theme.
+Download folder, bridge lines, helper status and version, theme (System /
+Light / Dark). Bridge lines are checked on Save — transport, address:port,
+40-character fingerprint, with the failing line named — and stored as
+`Bridge …` lines under `tortugaBridgeLines`.
 
 ## Errors
 
