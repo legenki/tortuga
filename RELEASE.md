@@ -45,6 +45,8 @@ Set the repository variable `DEB_MAINTAINER` ("Name <email>") for the .deb.
 4. Upload `tortuga-chrome-<v>.zip` to the Chrome Web Store and
    `tortuga-firefox-<v>.zip` with `tortuga-firefox-<v>-source.zip` to AMO
    (reviewers build it with `extension/BUILD.md`).
+   The first store submission, listing texts and reviewer notes:
+   [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 README screenshots: `extension/scripts/live-check/run.sh screenshots` retakes
 them into `docs/screenshots/` (light theme, Tor on, local paths hidden).

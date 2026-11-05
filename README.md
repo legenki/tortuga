@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="extension/public/icons/icon-128.png" width="96" height="96" alt="Tortuga logo: a turtle whose green shell carries a route line">
+
 # Tortuga
 
 **Tor routing and torrent downloads, right in the browser you already use.**
@@ -64,7 +66,7 @@ Tortuga has two parts: the **helper**, a small program that runs Tor and downloa
 
 | Browser | Needs |
 |---|---|
-| **Firefox** | Firefox 140+ |
+| **Firefox** | Firefox 142+ (desktop) |
 | **Chrome** and Chromium browsers | Chrome 120+ |
 
 ## Get started
@@ -110,6 +112,8 @@ Tortuga has no account, no analytics and no server of its own. It doesn't collec
 - **The Tor network.** While Tor is on, the helper connects to Tor relays, or to the bridge you picked, and your browsing goes through them.
 - **bridges.torproject.org**, only when you click **Get obfs4 lines** or **Get WebTunnel lines**. It goes through Tor when Tor is on.
 - **Torrent peers and trackers**, directly, only while you download or seed. A `.torrent` link is fetched by the helper, without your browser's cookies.
+
+The [privacy policy](PRIVACY.md) has the details.
 
 ## Build it yourself
 
