@@ -15,7 +15,12 @@
     </div>
   </header>
 
-  <main>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" id="tabRoute" type="button" role="tab" aria-selected="true" aria-controls="route">Route</button>
+    <button class="tab" id="tabDownloads" type="button" role="tab" aria-selected="false" aria-controls="downloads">Downloads <span class="badge" id="badge" hidden></span></button>
+  </nav>
+
+  <main id="route" role="tabpanel" aria-labelledby="tabRoute">
     <svg class="metro" id="metro" role="img" aria-label="Route through Tor" hidden></svg>
 
     <div class="status" id="status" data-state="off" aria-live="polite">
@@ -55,6 +60,19 @@
     </div>
 
     <button class="btn btn-primary" id="restart" type="button" hidden>Restart</button>
+  </main>
+
+  <main id="downloads" role="tabpanel" aria-labelledby="tabDownloads" hidden>
+    <p class="warn">⚠ Torrents download from your own IP, not through Tor.</p>
+    <form class="add" id="addForm">
+      <input class="add-input" id="addInput" type="text" placeholder="Paste a magnet or .torrent link" spellcheck="false" autocomplete="off">
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <label class="file">or open a .torrent file <input id="addFile" type="file" accept=".torrent,application/x-bittorrent"></label>
+    <p class="dl-error" id="dlError" role="alert" hidden></p>
+    <ul class="rows" id="rows"></ul>
+    <p class="empty" id="empty">No downloads yet. Click a magnet or .torrent link on any page, or paste one here.</p>
+    <p class="folder" id="folder" hidden></p>
   </main>
 
   <footer class="foot"><a href="#" id="settings">Settings</a><span>Hides your IP. Not Tor Browser.</span></footer>

@@ -1,8 +1,13 @@
 import { linesFor } from '../lib/bridges';
-import { LINES_KEY, NO_LINES, STORAGE_KEY, type BgBroadcast, type BgMessage, type BridgeLines, type Stored } from '../lib/messages';
-import type { BridgeKind } from '../lib/protocol';
+import { isTorrentLink } from '../lib/downloads';
+import {
+  DOWNLOADS_KEY, LINES_KEY, NO_LINES, STORAGE_KEY,
+  type BgBroadcast, type BgMessage, type BridgeLines, type DlMessage, type DlResult, type Stored,
+} from '../lib/messages';
+import type { BridgeKind, TorrentInfo, TorrentSource } from '../lib/protocol';
 import type { TorState } from '../lib/state';
 import { Controller } from './controller';
+import { Downloads } from './downloads';
 import { connectHelper } from './helper';
 import { applyPrivacy } from './privacy';
 import { applyChromeRoute, firefoxAnswer } from './routing';
@@ -13,11 +18,55 @@ const controller = new Controller({
   applyRoute: port => (__TARGET__ === 'firefox' ? Promise.resolve() : applyChromeRoute(port)),
   applyPrivacy,
   save: stored => chrome.storage.local.set({ [STORAGE_KEY]: stored }),
-  broadcast: (state: TorState) => {
-    const msg: BgBroadcast = { type: 'STATE', state };
-    chrome.runtime.sendMessage(msg).catch(() => { /* no popup open */ });
-  },
+  broadcast: (state: TorState) => broadcast({ type: 'STATE', state }),
   incognitoAllowed: () => (__TARGET__ === 'firefox' ? Promise.resolve(true) : chrome.extension.isAllowedIncognitoAccess()),
+});
+
+function broadcast(msg: BgBroadcast): void {
+  chrome.runtime.sendMessage(msg).catch(() => { /* no popup open */ });
+}
+
+const downloads = new Downloads({
+  connect: connectHelper,
+  broadcast: state => broadcast({ type: 'DOWNLOADS', state }),
+  saveActive: active => chrome.storage.local.set({ [DOWNLOADS_KEY]: active }),
+});
+
+// Downloads stop with the browser; if there were some, pick them up again.
+void chrome.storage.local.get(DOWNLOADS_KEY).then(r => {
+  if (r[DOWNLOADS_KEY]) void downloads.resume();
+});
+
+/** Torrents waiting in a confirm window, by the window's token. */
+const pending = new Map<string, TorrentSource>();
+
+/** Put a torrent up for confirmation in a small window of its own. */
+async function openConfirm(source: TorrentSource): Promise<void> {
+  const token = crypto.randomUUID();
+  pending.set(token, source);
+  await chrome.windows.create({ url: chrome.runtime.getURL(`confirm.html?t=${token}`), type: 'popup', width: 440, height: 420 });
+}
+
+async function result(run: () => Promise<TorrentInfo>): Promise<DlResult> {
+  try {
+    return { ok: true, info: await run() };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+function sourceOf(token: string): TorrentSource {
+  const source = pending.get(token);
+  if (!source) throw new Error('This link has expired. Click it again.');
+  return source;
+}
+
+const MENU_ID = 'tortuga-download';
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({ id: MENU_ID, title: 'Download with Tortuga', contexts: ['link'] });
+});
+chrome.contextMenus.onClicked.addListener(info => {
+  if (info.menuItemId === MENU_ID && info.linkUrl) void openConfirm({ url: info.linkUrl });
 });
 
 /** Bridge lines saved on the settings page for `kind`. */
@@ -44,9 +93,13 @@ if (__TARGET__ === 'firefox') {
   }, { urls: ['<all_urls>'] });
 }
 
-chrome.runtime.onMessage.addListener((msg: BgMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg: BgMessage | DlMessage, _sender, sendResponse) => {
   const reply = (p: Promise<TorState>) => {
     p.then(sendResponse, () => sendResponse(controller.current));
+    return true;
+  };
+  const answer = (p: Promise<unknown>) => {
+    p.then(sendResponse, e => sendResponse({ ok: false, error: (e as Error).message }));
     return true;
   };
   switch (msg.type) {
@@ -60,6 +113,29 @@ chrome.runtime.onMessage.addListener((msg: BgMessage, _sender, sendResponse) => 
       return reply(savedLines(msg.bridge).then(lines => controller.chooseBridge(msg.bridge, lines)));
     case 'NEW_CIRCUIT':
       return reply(controller.newCircuit(msg.site));
+    case 'GET_DOWNLOADS':
+      return answer(Promise.resolve(downloads.current));
+    case 'TORRENT_OPEN':
+      // Pages only ever ask for links that look like torrents; refuse anything else.
+      if ('url' in msg.source && !isTorrentLink(msg.source.url)) return answer(Promise.resolve({ ok: false, error: 'Not a magnet or .torrent link' }));
+      return answer(openConfirm(msg.source).then(() => ({ ok: true })));
+    case 'TORRENT_INSPECT':
+      return answer(result(() => downloads.inspect(sourceOf(msg.token))));
+    case 'TORRENT_CONFIRM':
+      return answer(result(async () => {
+        const info = await downloads.add(sourceOf(msg.token));
+        pending.delete(msg.token);
+        return info;
+      }));
+    case 'TORRENT_CANCEL':
+      pending.delete(msg.token);
+      return answer(Promise.resolve({ ok: true }));
+    case 'TORRENT_PAUSE':
+      return answer(downloads.pause(msg.id).then(() => downloads.current));
+    case 'TORRENT_RESUME':
+      return answer(downloads.resumeOne(msg.id).then(() => downloads.current));
+    case 'TORRENT_REMOVE':
+      return answer(downloads.remove(msg.id, msg.deleteFiles).then(() => downloads.current));
   }
   return false;
 });

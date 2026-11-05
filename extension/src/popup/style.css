@@ -99,3 +99,37 @@ main { display: grid; gap: 10px; padding: 0 16px 12px; }
 
 .foot { display: flex; justify-content: space-between; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--line); font-size: 11px; color: var(--text-3); }
 .foot a { color: var(--focus); text-decoration: none; font-weight: 600; }
+
+/* ── Tabs ──────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 18px; padding: 0 16px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.tab { position: relative; padding: 6px 0 8px; border: 0; background: none; color: var(--text-3); font-weight: 600; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--text); }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.badge { display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 2px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 10px; }
+
+/* ── Downloads ─────────────────────────────────────────────────── */
+.warn { padding: 7px 10px; border-radius: 10px; background: var(--warn-soft); color: var(--caution); font-size: 12px; }
+.add { display: flex; gap: 6px; }
+.add-input { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font: 12px var(--font); }
+.file { font-size: 11px; color: var(--text-3); cursor: pointer; }
+.file input { font-size: 11px; color: var(--text-2); max-width: 100%; margin-top: 4px; display: block; }
+.dl-error { color: var(--warn); font-size: 12px; }
+.empty, .folder { font-size: 12px; color: var(--text-3); }
+.folder { font-family: var(--mono); font-size: 11px; word-break: break-all; }
+
+.rows { list-style: none; display: grid; gap: 8px; }
+.row { display: grid; gap: 5px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.row-head { display: flex; align-items: center; gap: 8px; }
+.row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.row-actions { display: flex; gap: 4px; }
+.btn.icon { width: 24px; height: 24px; padding: 0; font-size: 11px; line-height: 1; }
+.progress { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.progress i { display: block; height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.4s; }
+.row-paused .progress i { background: var(--text-3); }
+.row-seeding .progress i { background: var(--focus); }
+.row-error .progress i { background: var(--warn); }
+.row-line { font-size: 11px; color: var(--text-3); }
+.row-error .row-line { color: var(--warn); }
+.row-remove { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); }
+.btn.small { padding: 3px 9px; font-size: 11px; }
+.btn.danger { border-color: var(--warn); color: var(--warn); }

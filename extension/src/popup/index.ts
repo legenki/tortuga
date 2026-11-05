@@ -1,8 +1,9 @@
 import { bridgeReady } from '../lib/bridges';
-import { LINES_KEY, NO_LINES, type BgBroadcast, type BgMessage, type BridgeLines } from '../lib/messages';
+import { LINES_KEY, NO_LINES, type BgBroadcast, type BgMessage, type BridgeLines, type DownloadsState } from '../lib/messages';
 import type { BridgeKind } from '../lib/protocol';
 import { DEFAULT_SITE, siteOf } from '../lib/site';
 import type { TorState } from '../lib/state';
+import { renderDownloads } from './downloads';
 import { layoutMetro, renderMetro } from './metro';
 import { BRIDGE_NAMES, viewFor } from './view';
 
@@ -86,7 +87,23 @@ $('settings').addEventListener('click', e => {
 
 chrome.runtime.onMessage.addListener((msg: BgBroadcast) => {
   if (msg.type === 'STATE') render(msg.state);
+  else if (msg.type === 'DOWNLOADS') renderDownloads(msg.state);
 });
+
+// Route / Downloads tabs; the last one picked opens next time.
+const TAB_KEY = 'tortuga-tab';
+const tabs = { route: $<HTMLButtonElement>('tabRoute'), downloads: $<HTMLButtonElement>('tabDownloads') };
+function showTab(name: keyof typeof tabs): void {
+  for (const [key, tab] of Object.entries(tabs)) {
+    const on = key === name;
+    tab.setAttribute('aria-selected', String(on));
+    $(key).hidden = !on;
+  }
+  try { localStorage.setItem(TAB_KEY, name); } catch { /* storage off */ }
+}
+tabs.route.addEventListener('click', () => showTab('route'));
+tabs.downloads.addEventListener('click', () => showTab('downloads'));
+try { if (localStorage.getItem(TAB_KEY) === 'downloads') showTab('downloads'); } catch { /* storage off */ }
 chrome.storage.onChanged.addListener(changes => {
   if (LINES_KEY in changes && state) {
     lines = (changes[LINES_KEY].newValue as BridgeLines | undefined) ?? NO_LINES;
@@ -101,6 +118,7 @@ async function init(): Promise<void> {
   }
   lines = ((await chrome.storage.local.get(LINES_KEY))[LINES_KEY] as BridgeLines | undefined) ?? NO_LINES;
   render(await send({ type: 'GET_STATE' }));
+  renderDownloads(await chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' }) as DownloadsState);
 }
 
 void init();

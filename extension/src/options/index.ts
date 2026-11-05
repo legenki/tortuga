@@ -1,5 +1,5 @@
 import { parseLines, type LineKind } from '../lib/bridges';
-import { LINES_KEY, NO_LINES, type BgMessage, type BridgeLines } from '../lib/messages';
+import { LINES_KEY, NO_LINES, type BgMessage, type BridgeLines, type DlMessage, type DownloadsState } from '../lib/messages';
 import type { TorState } from '../lib/state';
 import { chooseTheme, chosenTheme, clearTheme } from '../lib/theme';
 import { helperText } from './helper-text';
@@ -10,6 +10,11 @@ const KINDS: LineKind[] = ['obfs4', 'webtunnel'];
 async function showHelper(): Promise<void> {
   const s: TorState = await chrome.runtime.sendMessage({ type: 'GET_STATE' } satisfies BgMessage);
   $('helper').textContent = helperText(s);
+}
+
+async function showDownloads(): Promise<void> {
+  const d: DownloadsState = await chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' } satisfies DlMessage);
+  if (d.folder) $('downloads').textContent = `Torrents are saved in ${d.folder}.`;
 }
 
 async function loadLines(): Promise<void> {
@@ -51,3 +56,4 @@ $('save').addEventListener('click', () => void saveLines());
 initTheme();
 void loadLines();
 void showHelper();
+void showDownloads();
