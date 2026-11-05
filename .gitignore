@@ -1,0 +1,7 @@
+.superpowers/
+node_modules/
+dist/
+dist-firefox/
+target/
+*.zip
+.DS_Store

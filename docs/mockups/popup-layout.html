@@ -1,0 +1,85 @@
+<style>
+  .pp { width: 340px; margin: 0 auto; background: #fbfbfc; border: 1px solid #e6e8ec; border-radius: 14px; padding: 14px; font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif; color: #15181d; font-size: 13px; }
+  .pp.dark { background: #0e1013; border-color: #262b32; color: #eef0f3; }
+  .row { display: flex; justify-content: space-between; align-items: center; }
+  .seg { display: flex; background: #f2f4f7; border-radius: 10px; padding: 3px; gap: 3px; }
+  .dark .seg { background: #1d2127; }
+  .seg span { flex: 1; text-align: center; padding: 6px 0; border-radius: 8px; font-weight: 600; color: #5d6673; }
+  .seg span.on { background: #fff; color: #15181d; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .dark .seg span.on { background: #16191e; color: #eef0f3; }
+  .seg span.tor.on { color: #16a34a; } .dark .seg span.tor.on { color: #34d399; }
+  .card2 { background: #fff; border: 1px solid #e6e8ec; border-radius: 12px; padding: 10px; margin-top: 10px; }
+  .dark .card2 { background: #16191e; border-color: #262b32; }
+  .muted { color: #8b939e; font-size: 11px; }
+  .tabs { display: flex; gap: 16px; border-bottom: 1px solid #e6e8ec; margin: 4px 0 8px; }
+  .dark .tabs { border-color: #262b32; }
+  .tabs span { padding: 6px 0; color: #8b939e; font-weight: 600; }
+  .tabs span.on { color: inherit; border-bottom: 2px solid #16a34a; }
+  .bar { height: 5px; background: #f2f4f7; border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .dark .bar { background: #1d2127; }
+  .bar i { display: block; height: 100%; background: #16a34a; border-radius: 3px; }
+  .warn { font-size: 11px; color: #d97706; margin-top: 6px; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid #e6e8ec; }
+  .dark .chip { border-color: #262b32; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+</style>
+
+<h2>Как устроить попап?</h2>
+<p class="subtitle">Схема — метро (вариант A). Здесь вопрос, где живут загрузки: на отдельной вкладке или одной лентой под схемой.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="tabs" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div class="pp">
+        <div class="row" style="margin-bottom:10px"><b>🐢 Tortuga</b><span class="muted">⚙</span></div>
+        <div class="seg"><span>Напрямую</span><span class="tor on">Tor</span></div>
+        <div class="tabs"><span class="on">Маршрут</span><span>Загрузки · 2</span></div>
+        <svg viewBox="0 0 312 100" width="312" height="100">
+          <line x1="20" y1="40" x2="292" y2="40" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+          <line x1="88" y1="40" x2="156" y2="40" stroke="#fff" stroke-width="2" stroke-dasharray="3 6"/>
+          <g font-size="11" text-anchor="middle" fill="#5d6673">
+            <circle cx="20" cy="40" r="9" fill="#fff" stroke="#15181d" stroke-width="3"/><text x="20" y="70">Ты</text>
+            <rect x="77" y="29" width="22" height="22" rx="6" fill="#fff" stroke="#2563eb" stroke-width="3"/><text x="88" y="44" font-size="12">❄</text><text x="88" y="70">Мост</text>
+            <circle cx="156" cy="40" r="9" fill="#fff" stroke="#16a34a" stroke-width="3"/><text x="156" y="20" font-size="14">🇩🇪</text><text x="156" y="70">Средний</text>
+            <circle cx="224" cy="40" r="9" fill="#fff" stroke="#16a34a" stroke-width="3"/><text x="224" y="20" font-size="14">🇳🇱</text><text x="224" y="70">Выход</text>
+            <circle cx="292" cy="40" r="11" fill="#16a34a"/><text x="292" y="70">github.com</text>
+          </g>
+        </svg>
+        <div class="row"><span class="chip">❄ Snowflake ▾</span><span class="chip">↻ Новая цепочка</span></div>
+        <div class="card2"><div class="row"><span>IP для сайтов</span><b>185.220.101.4</b></div><div class="muted" style="margin-top:4px">Отдельная цепочка для каждого сайта · защита отпечатка включена</div></div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Две вкладки</h3><p>«Маршрут» и «Загрузки». Схема получает весь экран, загрузки не мешают. Счётчик на вкладке показывает активные.</p></div>
+  </div>
+
+  <div class="card" data-choice="feed" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div class="pp">
+        <div class="row" style="margin-bottom:10px"><b>🐢 Tortuga</b><span class="muted">⚙</span></div>
+        <div class="seg"><span>Напрямую</span><span class="tor on">Tor</span></div>
+        <svg viewBox="0 0 312 84" width="312" height="84" style="margin-top:8px">
+          <line x1="20" y1="34" x2="292" y2="34" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
+          <g font-size="10" text-anchor="middle" fill="#5d6673">
+            <circle cx="20" cy="34" r="8" fill="#fff" stroke="#15181d" stroke-width="3"/><text x="20" y="62">Ты</text>
+            <rect x="78" y="24" width="20" height="20" rx="5" fill="#fff" stroke="#2563eb" stroke-width="3"/><text x="88" y="38" font-size="11">❄</text><text x="88" y="62">Мост</text>
+            <circle cx="156" cy="34" r="8" fill="#fff" stroke="#16a34a" stroke-width="3"/><text x="156" y="16" font-size="13">🇩🇪</text>
+            <circle cx="224" cy="34" r="8" fill="#fff" stroke="#16a34a" stroke-width="3"/><text x="224" y="16" font-size="13">🇳🇱</text>
+            <circle cx="292" cy="34" r="10" fill="#16a34a"/><text x="292" y="62">github.com</text>
+          </g>
+        </svg>
+        <div class="row"><span class="chip">❄ Snowflake ▾</span><span class="chip">↻ Новая цепочка</span></div>
+        <div class="card2">
+          <div class="row"><b>Загрузки</b><span class="muted">2 активных</span></div>
+          <div style="margin-top:8px">ubuntu-24.04.iso <span class="muted">· 2.1 МБ/с</span></div>
+          <div class="bar"><i style="width:62%"></i></div>
+          <div style="margin-top:8px">blender-4.2.tar.xz <span class="muted">· пауза</span></div>
+          <div class="bar"><i style="width:18%;background:#8b939e"></i></div>
+          <div class="warn">⚠ Торренты качаются с твоего IP, мимо Tor</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Одна лента</h3><p>Схема сверху, под ней карточка загрузок. Всё видно сразу, но попап длиннее, а схема мельче.</p></div>
+  </div>
+
+</div>

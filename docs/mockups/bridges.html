@@ -1,0 +1,63 @@
+<style>
+  .pp { width: 340px; background: #fbfbfc; border: 1px solid #e6e8ec; border-radius: 14px; padding: 14px; font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif; color: #15181d; font-size: 13px; }
+  .row { display: flex; justify-content: space-between; align-items: center; }
+  .muted { color: #8b939e; font-size: 11px; }
+  .br { background: #fff; border: 1px solid #e6e8ec; border-radius: 12px; padding: 10px; margin-top: 8px; }
+  .br.on { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
+  .br b { font-size: 13px; }
+  .split { gap: 24px; }
+</style>
+
+<h2>Мосты и подключение</h2>
+<p class="subtitle">Слева выбор моста: у каждого типа мини-схема того, как он маскирует трафик. Справа подключение, где станции метро загораются по мере bootstrap Tor.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Выбор моста (на вкладке «Маршрут», по кнопке ❄ ▾)</div>
+    <div class="mockup-body">
+      <div class="pp">
+        <div class="br">
+          <div class="row"><b>Без моста</b><span class="muted">быстрее всего</span></div>
+          <svg viewBox="0 0 300 30" width="300" height="30"><g stroke="#8b939e" stroke-width="3" stroke-linecap="round"><line x1="10" y1="15" x2="290" y2="15"/></g><circle cx="10" cy="15" r="6" fill="#fff" stroke="#15181d" stroke-width="2.5"/><circle cx="150" cy="15" r="6" fill="#fff" stroke="#8b939e" stroke-width="2.5"/><circle cx="290" cy="15" r="6" fill="#8b939e"/></svg>
+          <div class="muted">Провайдер видит, что ты подключаешься к Tor</div>
+        </div>
+        <div class="br on">
+          <div class="row"><b>❄ Snowflake</b><span class="muted">рекомендуем при блокировках</span></div>
+          <svg viewBox="0 0 300 34" width="300" height="34"><line x1="10" y1="17" x2="120" y2="17" stroke="#2563eb" stroke-width="3" stroke-dasharray="1 6" stroke-linecap="round"/><line x1="120" y1="17" x2="290" y2="17" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="17" r="6" fill="#fff" stroke="#15181d" stroke-width="2.5"/><g font-size="9" fill="#5d6673" text-anchor="middle"><circle cx="65" cy="17" r="5" fill="#fff" stroke="#2563eb" stroke-width="2"/><text x="65" y="8">браузер волонтёра</text></g><rect x="110" y="7" width="20" height="20" rx="5" fill="#fff" stroke="#2563eb" stroke-width="2.5"/><text x="120" y="21" font-size="11" text-anchor="middle">❄</text><circle cx="290" cy="17" r="6" fill="#16a34a"/></svg>
+          <div class="muted">Похоже на видеозвонок (WebRTC) через случайного волонтёра</div>
+        </div>
+        <div class="br">
+          <div class="row"><b>◆ obfs4</b><span class="muted">свой или выданный мост</span></div>
+          <svg viewBox="0 0 300 30" width="300" height="30"><path d="M10 15 q8 -8 16 0 t16 0 t16 0 t16 0 t16 0 t16 0 t16 0" fill="none" stroke="#2563eb" stroke-width="3"/><line x1="122" y1="15" x2="290" y2="15" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="15" r="6" fill="#fff" stroke="#15181d" stroke-width="2.5"/><rect x="112" y="5" width="20" height="20" rx="5" fill="#fff" stroke="#2563eb" stroke-width="2.5"/><text x="122" y="19" font-size="10" text-anchor="middle">◆</text><circle cx="290" cy="15" r="6" fill="#16a34a"/></svg>
+          <div class="muted">Трафик выглядит как случайный шум</div>
+        </div>
+        <div class="br">
+          <div class="row"><b>🔒 WebTunnel</b><span class="muted">свой или выданный мост</span></div>
+          <svg viewBox="0 0 300 30" width="300" height="30"><rect x="10" y="9" width="110" height="12" rx="6" fill="rgba(37,99,235,.12)" stroke="#2563eb" stroke-width="2"/><line x1="122" y1="15" x2="290" y2="15" stroke="#16a34a" stroke-width="3" stroke-linecap="round"/><circle cx="10" cy="15" r="6" fill="#fff" stroke="#15181d" stroke-width="2.5"/><rect x="112" y="5" width="20" height="20" rx="5" fill="#fff" stroke="#2563eb" stroke-width="2.5"/><text x="122" y="19" font-size="10" text-anchor="middle">🔒</text><circle cx="290" cy="15" r="6" fill="#16a34a"/></svg>
+          <div class="muted">Выглядит как обычный HTTPS-сайт</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Подключение: станции загораются по шагам</div>
+    <div class="mockup-body">
+      <div class="pp">
+        <div class="row" style="margin-bottom:8px"><b>Подключаемся… 62%</b><span class="muted">Отмена</span></div>
+        <svg viewBox="0 0 312 96" width="312" height="96">
+          <line x1="20" y1="40" x2="292" y2="40" stroke="#e6e8ec" stroke-width="6" stroke-linecap="round"/>
+          <line x1="20" y1="40" x2="170" y2="40" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+          <g font-size="11" text-anchor="middle" fill="#5d6673">
+            <circle cx="20" cy="40" r="9" fill="#fff" stroke="#15181d" stroke-width="3"/><text x="20" y="70">Ты</text>
+            <rect x="77" y="29" width="22" height="22" rx="6" fill="#fff" stroke="#2563eb" stroke-width="3"/><text x="88" y="44" font-size="12">❄</text><text x="88" y="70">✓ Мост</text>
+            <circle cx="156" cy="40" r="9" fill="#fff" stroke="#16a34a" stroke-width="3"/><text x="156" y="70">✓ Каталог</text>
+            <circle cx="224" cy="40" r="9" fill="#fff" stroke="#d6d9de" stroke-width="3"><animate attributeName="stroke" values="#d6d9de;#16a34a;#d6d9de" dur="1.2s" repeatCount="indefinite"/></circle><text x="224" y="70">Цепочка</text>
+            <circle cx="292" cy="40" r="11" fill="#e6e8ec"/><text x="292" y="70">Готово</text>
+          </g>
+        </svg>
+        <div class="muted">Загружаем список узлов Tor. Если мост не отвечает 30 с — предложим другой тип.</div>
+      </div>
+    </div>
+  </div>
+</div>

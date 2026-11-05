@@ -1,0 +1,102 @@
+<style>
+  .pp { width: 340px; margin: 0 auto; background: #fbfbfc; border: 1px solid #e6e8ec; border-radius: 14px; padding: 14px; font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif; color: #15181d; }
+  .pp.dark { background: #0e1013; border-color: #262b32; color: #eef0f3; }
+  .pp .top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 10px; }
+  .pp .pill { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: rgba(22,163,74,.12); color: #16a34a; font-weight: 600; }
+  .pp.dark .pill { background: rgba(52,211,153,.14); color: #34d399; }
+  .pp .cap { font-size: 11px; color: #8b939e; margin-top: 8px; line-height: 1.4; }
+  .pp svg text { font-family: ui-sans-serif, -apple-system, system-ui, sans-serif; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+</style>
+
+<h2>Как рисовать маршрут в попапе?</h2>
+<p class="subtitle">Три способа показать цепочку текущей вкладки: ты → мост → средний → выходной → сайт. Цвета и шрифты взяты из Nomada. Кликни на понравившийся, можно на несколько.</p>
+
+<div class="cards" data-multiselect>
+
+  <div class="card" data-choice="metro" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div class="pp">
+        <div class="top"><b>Tortuga</b><span class="pill">● Tor · github.com</span></div>
+        <svg viewBox="0 0 312 120" width="312" height="120">
+          <line x1="20" y1="50" x2="292" y2="50" stroke="#16a34a" stroke-width="6" stroke-linecap="round"/>
+          <line x1="88" y1="50" x2="156" y2="50" stroke="#16a34a" stroke-width="6" stroke-dasharray="2 8" stroke-linecap="round" opacity=".9"/>
+          <g font-size="11" text-anchor="middle" fill="#5d6673">
+            <circle cx="20" cy="50" r="9" fill="#fff" stroke="#15181d" stroke-width="3"/>
+            <text x="20" y="80">Ты</text><text x="20" y="94" fill="#8b939e">скрыт</text>
+            <rect x="77" y="39" width="22" height="22" rx="6" fill="#fff" stroke="#2563eb" stroke-width="3"/>
+            <text x="88" y="54" font-size="12">❄</text>
+            <text x="88" y="80">Мост</text><text x="88" y="94" fill="#8b939e">Snowflake</text>
+            <circle cx="156" cy="50" r="9" fill="#fff" stroke="#16a34a" stroke-width="3"/>
+            <text x="156" y="28" font-size="14">🇩🇪</text>
+            <text x="156" y="80">Средний</text><text x="156" y="94" fill="#8b939e">Франкфурт</text>
+            <circle cx="224" cy="50" r="9" fill="#fff" stroke="#16a34a" stroke-width="3"/>
+            <text x="224" y="28" font-size="14">🇳🇱</text>
+            <text x="224" y="80">Выход</text><text x="224" y="94" fill="#8b939e">185.220.x.x</text>
+            <circle cx="292" cy="50" r="11" fill="#16a34a"/>
+            <text x="292" y="80">Сайт</text><text x="292" y="94" fill="#8b939e">github.com</text>
+          </g>
+        </svg>
+        <div class="cap">Пунктир — участок, замаскированный мостом. Новая цепочка: станции «переезжают» анимацией.</div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A. Схема метро</h3><p>Одна линия, узлы — станции с флагами. Самая читаемая и компактная.</p></div>
+  </div>
+
+  <div class="card" data-choice="onion" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div class="pp">
+        <div class="top"><b>Tortuga</b><span class="pill">● Tor · github.com</span></div>
+        <svg viewBox="0 0 312 130" width="312" height="130">
+          <g font-size="10" fill="#5d6673">
+            <rect x="6" y="8" width="300" height="104" rx="16" fill="rgba(22,163,74,.06)" stroke="#16a34a" stroke-opacity=".35"/>
+            <rect x="72" y="22" width="234" height="76" rx="13" fill="rgba(22,163,74,.08)" stroke="#16a34a" stroke-opacity=".5"/>
+            <rect x="138" y="36" width="168" height="48" rx="10" fill="rgba(22,163,74,.12)" stroke="#16a34a" stroke-opacity=".7"/>
+            <rect x="204" y="48" width="102" height="24" rx="7" fill="#fff" stroke="#15181d" stroke-opacity=".25"/>
+            <text x="16" y="64">❄ Мост</text>
+            <text x="82" y="64">🇩🇪 Средн.</text>
+            <text x="148" y="64">🇳🇱 Выход</text>
+            <text x="214" y="64" fill="#15181d">github.com</text>
+            <text x="16" y="126" fill="#8b939e">3 слоя шифрования снимаются по одному на каждом узле</text>
+          </g>
+        </svg>
+        <div class="cap">Вложенные «луковые» слои: видно, кто что знает о запросе.</div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B. Слои луковицы</h3><p>Объясняет, как работает Tor: каждый узел снимает свой слой. Красиво, но меньше места для деталей.</p></div>
+  </div>
+
+  <div class="card" data-choice="tree" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px">
+      <div class="pp">
+        <div class="top"><b>Tortuga</b><span class="pill">● 3 сайта · 3 цепочки</span></div>
+        <svg viewBox="0 0 312 140" width="312" height="140">
+          <g fill="none" stroke-width="2.5" stroke-linecap="round">
+            <path d="M24 70 L84 70" stroke="#16a34a"/>
+            <path d="M84 70 C120 70 120 24 156 24 L222 24" stroke="#16a34a"/>
+            <path d="M84 70 L222 70" stroke="#2563eb"/>
+            <path d="M84 70 C120 70 120 116 156 116 L222 116" stroke="#d97706"/>
+          </g>
+          <g font-size="10" fill="#5d6673" text-anchor="middle">
+            <circle cx="24" cy="70" r="8" fill="#fff" stroke="#15181d" stroke-width="2.5"/><text x="24" y="94">Ты</text>
+            <rect x="73" y="59" width="22" height="22" rx="6" fill="#fff" stroke="#15181d" stroke-width="2.5"/><text x="84" y="74" font-size="11">❄</text><text x="84" y="98">Мост</text>
+            <circle cx="156" cy="24" r="7" fill="#fff" stroke="#16a34a" stroke-width="2.5"/><text x="156" y="12" font-size="11">🇩🇪</text>
+            <circle cx="156" cy="70" r="7" fill="#fff" stroke="#2563eb" stroke-width="2.5"/><text x="156" y="58" font-size="11">🇫🇷</text>
+            <circle cx="156" cy="116" r="7" fill="#fff" stroke="#d97706" stroke-width="2.5"/><text x="156" y="104" font-size="11">🇸🇪</text>
+            <circle cx="222" cy="24" r="7" fill="#fff" stroke="#16a34a" stroke-width="2.5"/><text x="222" y="12" font-size="11">🇳🇱</text>
+            <circle cx="222" cy="70" r="7" fill="#fff" stroke="#2563eb" stroke-width="2.5"/><text x="222" y="58" font-size="11">🇨🇭</text>
+            <circle cx="222" cy="116" r="7" fill="#fff" stroke="#d97706" stroke-width="2.5"/><text x="222" y="104" font-size="11">🇷🇴</text>
+          </g>
+          <g font-size="10" fill="#15181d">
+            <text x="236" y="28">github.com</text>
+            <text x="236" y="74">wikipedia</text>
+            <text x="236" y="120">duckduck…</text>
+          </g>
+        </svg>
+        <div class="cap">Общий мост, а дальше у каждого сайта своя ветка. Видно изоляцию по сайтам (в Chrome — одна ветка).</div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C. Дерево сайтов</h3><p>Все открытые сайты сразу и у каждого своя цепочка. Показывает главную фишку Firefox-версии.</p></div>
+  </div>
+
+</div>
