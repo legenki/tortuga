@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tortuga metro preview</title>
+  <link rel="stylesheet" href="../src/popup/style.css">
+  <style>
+    body { width: auto; padding: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, 340px); gap: 16px; }
+    .card { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+    .card h3 { font-size: 12px; color: var(--text-3); margin-bottom: 6px; font-weight: 600; }
+    .top { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="top"><b>Metro preview</b><button class="btn" id="theme" type="button">Toggle dark</button></div>
+  <div class="grid" id="grid"></div>
+  <script type="module" src="./preview.ts"></script>
+</body>
+</html>

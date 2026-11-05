@@ -4,15 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "npm run typecheck && npm run build:background && npm run build:theme && npm run build:popup",
+    "build": "npm run typecheck && npm run build:background && npm run build:theme && npm run build:popup && npm run build:options",
     "build:background": "vite build --config vite.config.background.ts",
     "build:theme": "vite build --config vite.config.theme.ts",
     "build:popup": "vite build --config vite.config.popup.ts",
+    "build:options": "vite build --config vite.config.options.ts",
     "build:firefox": "TARGET=firefox npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint:firefox": "npx --yes web-ext@10.8.0 lint --source-dir dist-firefox",
-    "start:firefox": "npx --yes web-ext@10.8.0 run --source-dir dist-firefox"
+    "start:firefox": "npx --yes web-ext@10.8.0 run --source-dir dist-firefox",
+    "preview:metro": "vite build --config vite.config.preview.ts"
   },
   "dependencies": {
     "tldts": "^7.4.19"

@@ -1,0 +1,20 @@
+/* Country flags as emoji in a bundled font, so they look the same on every OS
+   (Windows has no flag emoji). Twemoji, CC-BY 4.0 — see public/fonts/LICENSE.md. */
+
+@font-face {
+  font-family: "Twemoji Country Flags";
+  src: url("/fonts/TwemojiCountryFlags.woff2") format("woff2");
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E007F;
+  font-display: block;
+}
+
+.flag {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  font: 18px/1 "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+.flag-unknown { color: var(--text-3); }
+.flag-unknown svg { width: 17px; height: 17px; fill: currentColor; }
