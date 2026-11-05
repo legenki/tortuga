@@ -38,13 +38,13 @@ impl Paths {
                 (dirs.data_dir().join("arti-state"), dirs.cache_dir().join("arti-cache"), dirs.data_dir().join("torrents"))
             }
         };
-        let downloads = match std::env::var_os("TORTUGA_DOWNLOADS") {
-            Some(d) => PathBuf::from(d),
-            None => directories::UserDirs::new()
-                .and_then(|u| u.download_dir().map(|d| d.to_path_buf()))
-                .ok_or_else(|| anyhow::anyhow!("no Downloads folder"))?
-                .join("Tortuga"),
-        };
+        let user = directories::UserDirs::new();
+        let downloads = downloads_dir(
+            std::env::var_os("TORTUGA_DOWNLOADS").map(PathBuf::from),
+            user.as_ref().and_then(|u| u.download_dir().map(|d| d.to_path_buf())),
+            user.as_ref().map(|u| u.home_dir().to_path_buf()),
+        )
+        .ok_or_else(|| anyhow::anyhow!("no home folder for downloads"))?;
         let pt_dir = match std::env::var_os("TORTUGA_PT_DIR") {
             Some(d) => PathBuf::from(d),
             None => std::env::current_exe()?
@@ -62,6 +62,13 @@ impl Paths {
             torrent_state,
         })
     }
+}
+
+/// Where torrents go: `TORTUGA_DOWNLOADS`, else `Tortuga` in the user's
+/// Downloads folder — `~/Downloads` when the system names none (servers and
+/// containers often don't set XDG user dirs; the helper must still start).
+pub fn downloads_dir(env: Option<PathBuf>, downloads: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {
+    env.or_else(|| downloads.or_else(|| home.map(|h| h.join("Downloads"))).map(|d| d.join("Tortuga")))
 }
 
 /// The default Snowflake bridge lines from the Expert Bundle's `pt_config.json`.
@@ -156,6 +163,16 @@ mod tests {
     #[test]
     fn bad_line_is_an_error() {
         assert!(tor_config(&choice(BridgeKind::Obfs4, &["Bridge nonsense"]), &paths(), &[]).is_err());
+    }
+
+    #[test]
+    fn downloads_folder_falls_back_to_home() {
+        let some = |s: &str| Some(PathBuf::from(s));
+        assert_eq!(downloads_dir(some("/x"), some("/home/u/Downloads"), some("/home/u")), some("/x"));
+        assert_eq!(downloads_dir(None, some("/home/u/Downloads"), some("/home/u")), some("/home/u/Downloads/Tortuga"));
+        // No XDG download dir (servers, containers): ~/Downloads, not a failure.
+        assert_eq!(downloads_dir(None, None, some("/home/u")), some("/home/u/Downloads/Tortuga"));
+        assert_eq!(downloads_dir(None, None, None), None);
     }
 
     #[test]
