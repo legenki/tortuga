@@ -1,0 +1,155 @@
+# Build, test and package the helper on every platform; on a v* tag, also
+# build the extension packages and publish everything as a GitHub release.
+#
+# macOS signing and notarisation run only when these secrets exist:
+#   APPLE_CERTIFICATES_P12   base64 of a .p12 with both Developer ID certificates
+#   APPLE_CERTIFICATES_PASSWORD, APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD
+#   DEVELOPER_ID_APP, DEVELOPER_ID_INSTALLER   (the certificate names)
+# Without them the .pkg is unsigned (fine for testing, blocked by Gatekeeper).
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Unit tests
+        run: |
+          (cd helper && cargo test -p tortuga-helper)
+          python3 -m unittest discover -s helper/packaging
+      - name: Signing keychain
+        env:
+          P12: ${{ secrets.APPLE_CERTIFICATES_P12 }}
+          P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATES_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          DEVELOPER_ID_APP: ${{ secrets.DEVELOPER_ID_APP }}
+          DEVELOPER_ID_INSTALLER: ${{ secrets.DEVELOPER_ID_INSTALLER }}
+        if: ${{ env.P12 != '' }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/certs.p12"
+          security import "$RUNNER_TEMP/certs.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign -T /usr/bin/productbuild
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KEYCHAIN"
+          # Put the signing keychain first in the search list, keeping the others.
+          security list-keychains -d user | tr -d '"' | xargs security list-keychains -d user -s "$KEYCHAIN"
+          xcrun notarytool store-credentials tortuga --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --keychain "$KEYCHAIN"
+          {
+            echo "DEVELOPER_ID_APP=$DEVELOPER_ID_APP"
+            echo "DEVELOPER_ID_INSTALLER=$DEVELOPER_ID_INSTALLER"
+            echo "NOTARY_PROFILE=tortuga"
+          } >> "$GITHUB_ENV"
+      - name: Package
+        run: helper/packaging/macos/build-pkg.sh --universal
+      - name: Smoke test the packaged helper
+        run: |
+          pkgutil --expand-full helper/dist/*.pkg "$RUNNER_TEMP/pkg"
+          BIN="$(find "$RUNNER_TEMP/pkg" -path '*Tortuga/tortuga-helper' | head -1)"
+          lipo -archs "$BIN"
+          python3 helper/packaging/smoke.py "$BIN"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-macos
+          path: helper/dist/*.pkg
+
+  linux:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: |
+          (cd helper && cargo test -p tortuga-helper)
+          python3 -m unittest discover -s helper/packaging
+      - name: Package
+        env:
+          DEB_MAINTAINER: ${{ vars.DEB_MAINTAINER }}
+        run: helper/packaging/linux/build-deb.sh
+      - name: Install and smoke test
+        run: |
+          sudo apt-get install -y ./helper/dist/tortuga-helper_*.deb
+          cat /usr/lib/mozilla/native-messaging-hosts/org.tortuga.helper.json
+          python3 helper/packaging/smoke.py /usr/lib/tortuga/tortuga-helper
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-${{ matrix.runner }}
+          path: helper/dist/*.deb
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: |
+          (cd helper && cargo test -p tortuga-helper)
+          python -m unittest discover -s helper/packaging
+      - name: Package
+        run: helper/packaging/windows/build-zip.sh
+      - name: Install and smoke test
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem helper/dist/*.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath $env:RUNNER_TEMP
+          & (Get-ChildItem "$env:RUNNER_TEMP/Tortuga-Helper-*/install.ps1").FullName
+          (Get-Item 'HKCU:\Software\Mozilla\NativeMessagingHosts\org.tortuga.helper').GetValue('')
+          python helper/packaging/smoke.py "$env:LOCALAPPDATA\Tortuga\tortuga-helper.exe"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: helper-windows
+          path: helper/dist/*.zip
+
+  extension:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - run: npm run package
+      - run: npm run package:firefox
+      - run: npm run lint:firefox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension
+          path: 'extension/tortuga-*.zip'
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, linux, windows, extension]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --title "Tortuga $GITHUB_REF_NAME" --generate-notes
