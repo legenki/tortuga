@@ -11,6 +11,10 @@ describe('siteOf', () => {
     expect(siteOf('https://alice.github.io/')).toBe('alice.github.io');
   });
 
+  it('keeps WebSocket hosts', () => {
+    expect(siteOf('wss://ws.example.co.uk/socket')).toBe('example.co.uk');
+  });
+
   it('uses the bare host for IPs and single labels', () => {
     expect(siteOf('http://192.168.1.1/')).toBe('192.168.1.1');
     expect(siteOf('http://[::1]:8080/')).toBe('::1');
@@ -21,6 +25,8 @@ describe('siteOf', () => {
     expect(siteOf(undefined)).toBe(DEFAULT_SITE);
     expect(siteOf('not a url')).toBe(DEFAULT_SITE);
     expect(siteOf('about:blank')).toBe(DEFAULT_SITE);
+    expect(siteOf('moz-extension://2d73f80d-c4aa-4b8b/popup.html')).toBe(DEFAULT_SITE);
+    expect(siteOf('chrome://newtab/')).toBe(DEFAULT_SITE);
   });
 });
 

@@ -5,14 +5,16 @@ export const DEFAULT_SITE = 'default';
 
 /**
  * The registrable domain of `url` ("github.com" for "https://api.github.com/x"),
- * or the bare host for IPs and single-label names, or DEFAULT_SITE for URLs
- * without a host.
+ * or the bare host for IPs and single-label names, or DEFAULT_SITE for
+ * anything that isn't a web address (about:, extension pages, files).
  */
 export function siteOf(url: string | undefined): string {
   if (!url) return DEFAULT_SITE;
   let host: string;
   try {
-    host = new URL(url).hostname;
+    const u = new URL(url);
+    if (!/^(https?|wss?):$/.test(u.protocol)) return DEFAULT_SITE;
+    host = u.hostname;
   } catch {
     return DEFAULT_SITE;
   }
