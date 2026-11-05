@@ -256,11 +256,23 @@ Known limitations (found while testing):
 
 ## Release
 
-- Extension: Chrome Web Store and AMO.
-- Helper: GitHub Releases — `.pkg` for macOS (signed and notarized, needs an
-  Apple Developer ID), `.msi` for Windows, `.deb` and AppImage for Linux. Each
-  installer registers the native messaging host manifest for Chrome and
-  Firefox and bundles `lyrebird`.
+- Extension: Chrome Web Store (`tortuga-chrome-<v>.zip`, without the
+  manifest's "key") and AMO (`tortuga-firefox-<v>.zip` plus a source zip that
+  rebuilds it byte for byte).
+- Helper, from the GitHub release: macOS `.pkg` (universal; signed and
+  notarised when the Developer ID secrets exist) installing to
+  `/Library/Application Support/Tortuga/`; Debian `.deb` for amd64 and arm64
+  installing to `/usr/lib/tortuga/`; Windows zip with `install.ps1`, a
+  per-user install to `%LOCALAPPDATA%\Tortuga` registered in `HKCU` (no admin
+  rights). No AppImage: a native host must be registered in fixed places,
+  which an AppImage doesn't do. Each installer bundles `lyrebird` and
+  `pt_config.json` from Tor Expert Bundle 16.0 for its platform.
+- Native host manifests come from `helper/packaging/hosts.py`. The Chrome
+  extension ID is pinned with a key generated once (`hosts.py
+  set-chrome-key`); until then installers register Firefox only.
+- `RELEASE.md` has the steps; CI (`.github/workflows/release.yml`) builds,
+  installs and smoke-tests every package and publishes the release on a
+  `v*` tag.
 
 ## Not in the first version
 
