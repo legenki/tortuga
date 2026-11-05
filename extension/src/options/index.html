@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tortuga settings</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page">
+    <h1>Tortuga</h1>
+    <p class="lead">Hides your IP and opens .onion sites. It is not Tor Browser: sites can still recognise this browser by its fingerprint.</p>
+
+    <section class="card">
+      <h2>Helper</h2>
+      <p id="helper" class="muted">Checking…</p>
+    </section>
+
+    <section class="card">
+      <h2>Bridge lines</h2>
+      <p class="muted">obfs4 and WebTunnel need bridge addresses. Get them from bridges.torproject.org (or the Tor Project’s Telegram bot) and paste them here, one per line. Snowflake needs none.</p>
+      <label class="field" for="obfs4">obfs4</label>
+      <textarea id="obfs4" rows="4" spellcheck="false" placeholder="obfs4 192.0.2.1:443 0123…ABCD cert=… iat-mode=0"></textarea>
+      <ul class="errors" id="obfs4Errors" hidden></ul>
+      <label class="field" for="webtunnel">WebTunnel</label>
+      <textarea id="webtunnel" rows="4" spellcheck="false" placeholder="webtunnel [2001:db8::1]:443 0123…ABCD url=https://… ver=0.0.1"></textarea>
+      <ul class="errors" id="webtunnelErrors" hidden></ul>
+      <div class="actions"><button class="btn btn-primary" id="save" type="button">Save</button><span id="saved" class="muted" role="status"></span></div>
+    </section>
+
+    <section class="card">
+      <h2>Theme</h2>
+      <div class="conn" role="radiogroup" aria-label="Theme">
+        <label><input type="radio" name="theme" value="system"><span>System</span></label>
+        <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+        <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="index.ts"></script>
+</body>
+</html>

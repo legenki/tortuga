@@ -1,0 +1,33 @@
+/* Tortuga settings — the popup's look on a page. */
+
+@import '../styles/tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* `hidden` must win over any display rule (and works on SVG too). */
+[hidden] { display: none !important; }
+
+body { background: var(--bg); color: var(--text); font: 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+button, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.page { display: grid; gap: 16px; max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+h1 { font-size: 22px; }
+h2 { font-size: 15px; margin-bottom: 6px; }
+.lead, .muted { color: var(--text-2); }
+.muted { font-size: 13px; }
+
+.card { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.field { font-size: 12px; font-weight: 600; color: var(--text-2); margin-top: 4px; }
+textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font: 12px/1.5 var(--mono); resize: vertical; }
+.errors { list-style: none; color: var(--warn); font-size: 12px; }
+.actions { display: flex; align-items: center; gap: 12px; }
+
+.btn { padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; font-weight: 600; font-size: 13px; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.conn { display: inline-grid; grid-auto-flow: column; justify-self: start; padding: 3px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; }
+.conn label { position: relative; cursor: pointer; }
+.conn input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: inherit; }
+.conn span { display: block; padding: 4px 14px; border-radius: 999px; color: var(--text-3); }
+.conn input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
+.conn input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }

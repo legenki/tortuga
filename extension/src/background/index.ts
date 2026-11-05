@@ -1,4 +1,6 @@
-import { STORAGE_KEY, type BgBroadcast, type BgMessage, type Stored } from '../lib/messages';
+import { linesFor } from '../lib/bridges';
+import { LINES_KEY, NO_LINES, STORAGE_KEY, type BgBroadcast, type BgMessage, type BridgeLines, type Stored } from '../lib/messages';
+import type { BridgeKind } from '../lib/protocol';
 import type { TorState } from '../lib/state';
 import { Controller } from './controller';
 import { connectHelper } from './helper';
@@ -18,11 +20,19 @@ const controller = new Controller({
   incognitoAllowed: () => (__TARGET__ === 'firefox' ? Promise.resolve(true) : chrome.extension.isAllowedIncognitoAccess()),
 });
 
-// If Tortuga was on when the background last stopped, start again. Until Tor
-// is ready, routedPort() blocks traffic instead of letting it out directly.
+/** Bridge lines saved on the settings page for `kind`. */
+async function savedLines(kind: BridgeKind): Promise<string[]> {
+  const r = await chrome.storage.local.get(LINES_KEY);
+  return linesFor(kind, (r[LINES_KEY] as BridgeLines | undefined) ?? NO_LINES);
+}
+
+// Back to how it was when the background last stopped. If Tortuga was on, it
+// starts again; until Tor is ready, routedPort() blocks traffic instead of
+// letting it out directly.
 const restored = chrome.storage.local.get(STORAGE_KEY).then(async r => {
   const stored = r[STORAGE_KEY] as Stored | undefined;
-  if (stored?.enabled) await controller.turnOn(stored.bridge);
+  if (stored?.enabled) await controller.turnOn(stored.bridge, await savedLines(stored.bridge));
+  else if (stored) await controller.chooseBridge(stored.bridge);
 });
 
 if (__TARGET__ === 'firefox') {
@@ -43,9 +53,11 @@ chrome.runtime.onMessage.addListener((msg: BgMessage, _sender, sendResponse) => 
     case 'GET_STATE':
       return reply(restored.then(() => controller.current));
     case 'TOR_ON':
-      return reply(controller.turnOn(msg.bridge));
+      return reply(savedLines(msg.bridge).then(lines => controller.turnOn(msg.bridge, lines)));
     case 'TOR_OFF':
       return reply(controller.turnOff());
+    case 'SET_BRIDGE':
+      return reply(savedLines(msg.bridge).then(lines => controller.chooseBridge(msg.bridge, lines)));
     case 'NEW_CIRCUIT':
       return reply(controller.newCircuit(msg.site));
   }

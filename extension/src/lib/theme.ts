@@ -30,6 +30,12 @@ export function chooseTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
 }
 
+/** Follow the system again. */
+export function clearTheme(): void {
+  try { localStorage.removeItem(THEME_KEY); } catch { /* nothing stored */ }
+  applyTheme();
+}
+
 /** Set the theme now, then follow the system and picks made on another page. */
 export function watchTheme(): void {
   applyTheme();
