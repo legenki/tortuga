@@ -9,6 +9,7 @@ mod isolation;
 mod protocol;
 mod socks;
 mod tor;
+mod torrents;
 
 use protocol::{ErrorCode, Message, Request};
 
