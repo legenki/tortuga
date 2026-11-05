@@ -19,6 +19,19 @@ export function isMissingHost(reason: string): boolean {
   return /native messaging host not found|no such native application/i.test(reason);
 }
 
+/**
+ * Chrome says "forbidden" when the helper is installed for another extension ID:
+ * an unpacked copy without the manifest's "key" (the store zip from a release)
+ * gets an ID of its own.
+ */
+export const HOST_FORBIDDEN =
+  'The Tortuga helper is installed for another copy of Tortuga. Install the extension from the Chrome Web Store, or load extension/dist from the repository (it keeps the right ID).';
+
+/** A port's close reason, in words a person can act on. */
+export function explainHostError(reason: string): string {
+  return /native messaging host is forbidden/i.test(reason) ? HOST_FORBIDDEN : reason;
+}
+
 type Pending = { resolve: (m: HelperMessage) => void; reject: (e: Error) => void };
 
 /**
@@ -45,7 +58,7 @@ export class HelperClient {
       else waiting.resolve(m);
     });
     port.onDisconnect.addListener(() => {
-      const reason = lastError() ?? 'The helper stopped';
+      const reason = explainHostError(lastError() ?? 'The helper stopped');
       this.fail(reason);
       if (!this.closed) onGone(reason);
       this.closed = true;

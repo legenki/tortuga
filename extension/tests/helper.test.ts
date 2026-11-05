@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HelperClient, HelperError, isMissingHost } from '../src/background/helper';
+import { HelperClient, HelperError, HOST_FORBIDDEN, explainHostError, isMissingHost } from '../src/background/helper';
 import { FakePort } from './fake-port';
 
 describe('HelperClient', () => {
@@ -54,5 +54,14 @@ describe('isMissingHost', () => {
     expect(isMissingHost('Specified native messaging host not found.')).toBe(true);
     expect(isMissingHost('No such native application org.tortuga.helper')).toBe(true);
     expect(isMissingHost('Native host has exited.')).toBe(false);
+  });
+});
+
+describe('explainHostError', () => {
+  it('turns Chrome\'s "forbidden" (an extension ID the helper wasn\'t installed for) into what to do', () => {
+    expect(explainHostError('Access to the specified native messaging host is forbidden.')).toBe(HOST_FORBIDDEN);
+  });
+  it('leaves other reasons as they are', () => {
+    expect(explainHostError('Native host has exited.')).toBe('Native host has exited.');
   });
 });

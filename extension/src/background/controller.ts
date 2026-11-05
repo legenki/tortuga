@@ -60,6 +60,7 @@ export class Controller {
         await this.commit({ type: 'failed', error: INCOGNITO_NEEDED });
         return this.state;
       }
+      if (this.state.phase === 'failed') return this.state; // the browser refused the route
       const helper = this.deps.connect(
         m => void this.serial(() => this.onEvent(m)),
         reason => void this.serial(() => this.onGone(helper, reason)),
@@ -156,8 +157,18 @@ export class Controller {
     this.state = reduce(this.state, e);
     const port = routedPort(this.state);
     if (port !== this.appliedPort) {
-      await this.deps.applyRoute(port);
-      this.appliedPort = port;
+      try {
+        await this.deps.applyRoute(port);
+        this.appliedPort = port;
+      } catch (e) {
+        // Say so rather than wait forever. A state that already failed keeps
+        // its own reason (Chrome without Incognito access can't set either).
+        if (this.state.phase !== 'failed') {
+          this.state = reduce(this.state, { type: 'failed', error: `The browser refused the proxy setting: ${(e as Error).message}` });
+        }
+        this.deps.broadcast(this.state);
+        return;
+      }
     }
     const privacy = this.state.phase !== 'off';
     if (privacy !== this.privacyOn) {

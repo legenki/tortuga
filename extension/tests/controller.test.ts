@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { Controller, HELPER_MISSING, INCOGNITO_NEEDED, type Deps } from '../src/background/controller';
-import { HelperClient } from '../src/background/helper';
+import { HelperClient, HOST_FORBIDDEN } from '../src/background/helper';
 import type { Stored } from '../src/lib/messages';
 import { BLACKHOLE_PORT, type TorState } from '../src/lib/state';
 import { FakePort, flush } from './fake-port';
 
-function setup(opts: { incognito?: boolean; lastError?: string } = {}) {
+function setup(opts: { incognito?: boolean; lastError?: string; routeError?: string } = {}) {
   const ports: FakePort[] = [];
   const routes: (number | null)[] = [];
   const privacy: boolean[] = [];
@@ -17,7 +17,10 @@ function setup(opts: { incognito?: boolean; lastError?: string } = {}) {
       ports.push(port);
       return new HelperClient(port, onEvent, onGone, () => opts.lastError);
     },
-    applyRoute: async p => void routes.push(p),
+    applyRoute: async p => {
+      if (opts.routeError) throw new Error(opts.routeError);
+      routes.push(p);
+    },
     applyPrivacy: async on => void privacy.push(on),
     save: async s => void saved.push(s),
     broadcast: s => void states.push(s),
@@ -121,6 +124,15 @@ describe('Controller', () => {
     expect(c.current).toMatchObject({ phase: 'failed', helperMissing: true, error: HELPER_MISSING });
   });
 
+  it('explains a helper installed for another extension ID', async () => {
+    const { c, ports } = setup({ lastError: 'Access to the specified native messaging host is forbidden.' });
+    await c.turnOn('none');
+    ports[0].die();
+    await flush();
+    await flush();
+    expect(c.current).toMatchObject({ phase: 'failed', error: HOST_FORBIDDEN });
+  });
+
   it('asks to update an older helper', async () => {
     const { c, ports } = setup();
     await c.turnOn('none');
@@ -134,6 +146,22 @@ describe('Controller', () => {
 
   it('Chrome without incognito access fails before starting the helper', async () => {
     const { c, ports } = setup({ incognito: false });
+    await c.turnOn('none');
+    expect(ports).toEqual([]);
+    expect(c.current).toMatchObject({ phase: 'failed', error: INCOGNITO_NEEDED });
+  });
+
+  it('fails, instead of waiting forever, when the browser refuses the proxy setting', async () => {
+    const { c, ports, states } = setup({ routeError: 'You cannot set a preference' });
+    await c.turnOn('none');
+    expect(ports).toEqual([]);
+    expect(c.current.phase).toBe('failed');
+    expect(c.current.error).toContain('You cannot set a preference');
+    expect(states.at(-1)?.phase).toBe('failed');
+  });
+
+  it('without Incognito access, says how to grant it even though the proxy setting fails too', async () => {
+    const { c, ports } = setup({ incognito: false, routeError: 'You do not have permission to access incognito preferences.' });
     await c.turnOn('none');
     expect(ports).toEqual([]);
     expect(c.current).toMatchObject({ phase: 'failed', error: INCOGNITO_NEEDED });

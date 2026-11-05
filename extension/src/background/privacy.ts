@@ -1,8 +1,9 @@
 // Browser settings that go with Tor mode, set while it's on and released when
 // it's off. A setting another extension or a policy controls is left alone.
+import { INCOGNITO_SCOPE } from './routing';
 
 type Setting = chrome.types.ChromeSetting;
-type Scope = 'regular' | 'incognito_session_only';
+type Scope = 'regular' | typeof INCOGNITO_SCOPE;
 
 async function set(setting: Setting | undefined, value: unknown, scope?: Scope): Promise<void> {
   try {
@@ -34,7 +35,7 @@ export async function applyPrivacy(on: boolean): Promise<void> {
   } else {
     // Only the incognito session goes through Tor, so only it gets the WebRTC rule.
     const webrtc = chrome.privacy.network.webRTCIPHandlingPolicy;
-    if (on) await set(webrtc, 'disable_non_proxied_udp', 'incognito_session_only');
-    else await clear(webrtc, 'incognito_session_only');
+    if (on) await set(webrtc, 'disable_non_proxied_udp', INCOGNITO_SCOPE);
+    else await clear(webrtc, INCOGNITO_SCOPE);
   }
 }

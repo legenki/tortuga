@@ -153,7 +153,9 @@ Arti's own reason when it thinks bootstrap is stuck, else `null`. `country` is
   `privacy.network.peerConnectionEnabled = false`, and restores them when Tor
   is turned off. These apply to the whole browser.
 - **Chrome:** Tor applies only to incognito windows:
-  `chrome.proxy.settings.set({ scope: 'incognito_session_only' })` with a
+  `chrome.proxy.settings.set({ scope: 'incognito_persistent' })` (not
+  `incognito_session_only`: Chrome refuses it while no Incognito window is open
+  and drops it when the last one closes) with a
   fixed SOCKS5 server, and `webRTCIPHandlingPolicy = disable_non_proxied_udp`.
   The extension needs "Allow in Incognito"; until it has it, the popup explains
   how to grant it. One circuit for everything; the popup says protection is
