@@ -11,8 +11,13 @@ export type Role = 'guard' | 'bridge' | 'middle' | 'exit';
 export interface Hop {
   role: Role;
   id: string;
+  /** The relay's address; a Snowflake bridge's is a placeholder. */
+  addr: string | null;
   country: string | null;
 }
+
+/** Bootstrap stage reported by `tor.status`. */
+export type Stage = 'bridge' | 'directory' | 'ready';
 
 export interface Circuit {
   site: string;
@@ -26,7 +31,7 @@ export type ErrorCode = 'bad_request' | 'hello_required' | 'protocol_mismatch' |
 export type HelperMessage =
   | { id?: number; type: 'hello'; payload: { protocol: number; version: string } }
   | { id?: number; type: 'ok' }
-  | { id?: number; type: 'tor.status'; payload: { phase: 'bridge' | 'directory' | 'ready'; percent: number; blocked: string | null } }
+  | { id?: number; type: 'tor.status'; payload: { phase: Stage; percent: number; blocked: string | null } }
   | { id?: number; type: 'tor.ready'; payload: { socksPort: number } }
   | { id?: number; type: 'circuit'; payload: Circuit }
   | { id?: number; type: 'error'; payload: { code: ErrorCode; message: string } };

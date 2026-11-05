@@ -42,7 +42,8 @@ export class Controller {
     return routedPort(this.state);
   }
 
-  turnOn(bridge: BridgeKind): Promise<TorState> {
+  /** `lines`: bridge lines for obfs4 / WebTunnel (Snowflake uses the bundled defaults). */
+  turnOn(bridge: BridgeKind, lines: string[] = []): Promise<TorState> {
     return this.serial(async () => {
       const gen = ++this.generation;
       this.helper?.close();
@@ -58,7 +59,7 @@ export class Controller {
         reason => void this.serial(() => this.onGone(helper, reason)),
       );
       this.helper = helper;
-      void this.start(helper, bridge, gen);
+      void this.start(helper, bridge, lines, gen);
       return this.state;
     });
   }
@@ -74,6 +75,16 @@ export class Controller {
     });
   }
 
+  /** Pick a bridge: remembered while off, applied by restarting Tor while on. */
+  chooseBridge(bridge: BridgeKind, lines: string[] = []): Promise<TorState> {
+    if (this.state.phase !== 'off') return this.turnOn(bridge, lines);
+    return this.serial(async () => {
+      await this.commit({ type: 'choose', bridge });
+      await this.deps.save({ enabled: false, bridge });
+      return this.state;
+    });
+  }
+
   newCircuit(site: string): Promise<TorState> {
     return this.serial(async () => {
       if (this.state.phase === 'on' && this.helper) {
@@ -83,10 +94,16 @@ export class Controller {
     });
   }
 
-  private async start(helper: HelperClient, bridge: BridgeKind, gen: number): Promise<void> {
+  private async start(helper: HelperClient, bridge: BridgeKind, lines: string[], gen: number): Promise<void> {
     try {
-      await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
-      const reply = await helper.request({ type: 'tor.start', payload: { bridge: { kind: bridge } } });
+      const hello = await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
+      if (hello.type === 'hello') {
+        await this.serial(async () => {
+          if (gen === this.generation) await this.commit({ type: 'hello', version: hello.payload.version });
+        });
+      }
+      const kind = { kind: bridge, ...(lines.length ? { lines } : {}) };
+      const reply = await helper.request({ type: 'tor.start', payload: { bridge: kind } });
       if (reply.type !== 'tor.ready') throw new Error(`unexpected reply ${reply.type}`);
       await this.serial(async () => {
         if (gen === this.generation) await this.commit({ type: 'ready', socksPort: reply.payload.socksPort });
@@ -107,7 +124,9 @@ export class Controller {
   }
 
   private async onEvent(m: HelperMessage): Promise<void> {
-    if (m.type === 'tor.status') await this.commit({ type: 'status', percent: m.payload.percent, blocked: m.payload.blocked });
+    if (m.type === 'tor.status') {
+      await this.commit({ type: 'status', stage: m.payload.phase, percent: m.payload.percent, blocked: m.payload.blocked });
+    }
     else if (m.type === 'circuit') await this.commit({ type: 'circuit', circuit: m.payload });
   }
 

@@ -48,6 +48,37 @@ describe('Controller', () => {
     expect(routes).toEqual([BLACKHOLE_PORT, 9150]);
   });
 
+  it('records the helper version and sends bridge lines', async () => {
+    const { c, ports } = setup();
+    await c.turnOn('obfs4', ['obfs4 192.0.2.55:443 AAAA cert=x iat-mode=0']);
+    await boot(ports[0]);
+    expect(c.current.helperVersion).toBe('0.1.0');
+    expect(ports[0].sent[1]).toMatchObject({ type: 'tor.start', payload: { bridge: { kind: 'obfs4', lines: ['obfs4 192.0.2.55:443 AAAA cert=x iat-mode=0'] } } });
+  });
+
+  it('remembers a bridge chosen while off, restarts Tor with one chosen while on', async () => {
+    const { c, ports, saved } = setup();
+    await c.chooseBridge('webtunnel');
+    expect(c.current).toMatchObject({ phase: 'off', bridge: 'webtunnel' });
+    expect(saved.at(-1)).toEqual({ enabled: false, bridge: 'webtunnel' });
+    expect(ports).toEqual([]);
+    await c.turnOn('none');
+    await boot(ports[0]);
+    await c.chooseBridge('snowflake');
+    expect(ports).toHaveLength(2);
+    expect(ports[0].disconnected).toBe(true);
+    expect(c.current).toMatchObject({ phase: 'connecting', bridge: 'snowflake' });
+  });
+
+  it('passes bootstrap stages on', async () => {
+    const { c, ports } = setup();
+    await c.turnOn('snowflake');
+    await flush();
+    ports[0].emit({ type: 'tor.status', payload: { phase: 'directory', percent: 42, blocked: null } });
+    await flush();
+    expect(c.current).toMatchObject({ phase: 'connecting', stage: 'directory', percent: 42 });
+  });
+
   it('turning off releases the route and privacy settings and the helper', async () => {
     const { c, ports, routes, privacy, saved } = setup();
     await c.turnOn('none');
@@ -100,7 +131,7 @@ describe('Controller', () => {
     const { c, ports } = setup();
     await c.turnOn('none');
     await boot(ports[0]);
-    ports[0].emit({ type: 'circuit', payload: { site: 'github.com', bridge: null, hops: [{ role: 'guard', id: 'g', country: 'DE' }] } });
+    ports[0].emit({ type: 'circuit', payload: { site: 'github.com', bridge: null, hops: [{ role: 'guard', id: 'g', addr: '192.0.2.1', country: 'DE' }] } });
     await flush();
     expect(c.current.circuits['github.com'].hops[0].id).toBe('g');
     const renewed = c.newCircuit('github.com');
