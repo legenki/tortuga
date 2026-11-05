@@ -223,13 +223,18 @@ The rule from Nomada: nothing leaks, and the popup says why.
 
 Known limitations (found while testing):
 
-- Changing bridges on a running client reports ready at once — the directory
-  is cached — before the new bridges are proven. Traffic still can't leak, but
-  the popup can say *on* while circuits fail. Fix: build a circuit after a
-  bridge change before reporting ready.
+- A bridge change on a running client is proven before `tor.ready`: Arti
+  says it is ready at once (the directory is cached), so the helper opens test
+  streams to check.torproject.org on fresh circuits until one runs through a
+  new bridge (to no bridge: not through an old one), for up to 5 minutes, then
+  gives up with "the new bridges didn't answer". Meanwhile `tor.status` says
+  `bridge` (the first-hop step). A further new circuit can still try a dead
+  bridge from the same set first, so a first page may need a retry
+  (`helper/scripts/switch_check.py` checks this).
 - Built-in obfs4 bridges don't all answer from every network (1 of 3 from the
   test network); Arti tries them in turn, so a first start on them took 1½–5
-  minutes.
+  minutes. Cold Snowflake starts ranged from 11 s to about 5 minutes on the
+  same network on different days.
 - Arti refuses to keep state under a group- or world-writable directory
   (`problem with filesystem permissions`); the default data dir is fine, test
   runs keep their data under `helper/target/`.

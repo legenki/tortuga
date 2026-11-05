@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 use tokio::sync::{Mutex, OnceCell};
 use tokio::task::JoinHandle;
 
-use crate::config::{Paths, default_snowflake_lines, tor_config};
+use crate::config::{Paths, bridge_lines, default_snowflake_lines, tor_config};
 use crate::moat::{self, LineKind, Route};
 use crate::protocol::{BridgeChoice, ErrorCode, Message, Outgoing, PROTOCOL_VERSION, Request, RequestBody, SourceMsg};
 use crate::tor::{Events, Tor};
@@ -180,13 +180,14 @@ impl App {
             Err(_) => Vec::new(),
         };
         let config = tor_config(bridge, &self.paths, &defaults)?;
+        let lines = bridge_lines(bridge, &defaults);
         let existing = self.state.lock().await.tor.clone();
         let tor = match existing {
             Some(tor) => {
-                tor.restart(&config, bridge.kind).await?;
+                tor.restart(&config, bridge.kind, &lines).await?;
                 tor
             }
-            None => Tor::start(config, bridge.kind, self.events.clone()).await?,
+            None => Tor::start(config, bridge.kind, &lines, self.events.clone()).await?,
         };
         let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
         let port = listener.local_addr()?.port();

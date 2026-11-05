@@ -80,15 +80,24 @@ pub fn default_snowflake_lines(pt_config_json: &str) -> anyhow::Result<Vec<Strin
 
 /// The Arti config for `choice`: own directories, and for bridge kinds only
 /// those bridges, through `lyrebird`.
+/// The bridge lines `choice` runs on: its own, or the default Snowflake ones.
+pub fn bridge_lines(choice: &BridgeChoice, default_snowflake: &[String]) -> Vec<String> {
+    match choice.kind {
+        BridgeKind::None => Vec::new(),
+        BridgeKind::Snowflake if choice.lines.is_empty() => default_snowflake.to_vec(),
+        _ => choice.lines.clone(),
+    }
+}
+
 pub fn tor_config(choice: &BridgeChoice, paths: &Paths, default_snowflake: &[String]) -> anyhow::Result<TorClientConfig> {
     let mut builder = TorClientConfigBuilder::from_directories(&paths.state_dir, &paths.cache_dir);
-    let (protocol, lines): (&str, Vec<String>) = match choice.kind {
+    let protocol = match choice.kind {
         BridgeKind::None => return Ok(builder.build()?),
-        BridgeKind::Snowflake if choice.lines.is_empty() => ("snowflake", default_snowflake.to_vec()),
-        BridgeKind::Snowflake => ("snowflake", choice.lines.clone()),
-        BridgeKind::Obfs4 => ("obfs4", choice.lines.clone()),
-        BridgeKind::Webtunnel => ("webtunnel", choice.lines.clone()),
+        BridgeKind::Snowflake => "snowflake",
+        BridgeKind::Obfs4 => "obfs4",
+        BridgeKind::Webtunnel => "webtunnel",
     };
+    let lines = bridge_lines(choice, default_snowflake);
     anyhow::ensure!(!lines.is_empty(), "{protocol} needs at least one bridge line");
     for line in &lines {
         let bridge: BridgeConfigBuilder = line.parse()?;
