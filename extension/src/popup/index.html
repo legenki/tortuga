@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tortuga</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">Tortuga</div>
+    <div class="conn" role="radiogroup" aria-label="Connection">
+      <label><input type="radio" name="conn" id="connDirect" value="direct"><span>Direct</span></label>
+      <label><input type="radio" name="conn" id="connTor" value="tor"><span>Tor</span></label>
+    </div>
+  </header>
+
+  <main>
+    <div class="status" id="status" data-state="off" aria-live="polite">
+      <span class="status-dot"></span><span id="statusText">…</span>
+    </div>
+    <p class="note" id="note" hidden></p>
+    <ol class="hops" id="hops" hidden></ol>
+
+    <div class="row">
+      <label class="field">Bridge
+        <select id="bridge">
+          <option value="none">No bridge</option>
+          <option value="snowflake">Snowflake</option>
+        </select>
+      </label>
+      <button class="btn" id="newCircuit" type="button" disabled>New circuit</button>
+    </div>
+    <button class="btn btn-primary" id="restart" type="button" hidden>Restart</button>
+  </main>
+
+  <script type="module" src="index.ts"></script>
+</body>
+</html>

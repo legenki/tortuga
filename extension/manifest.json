@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Tortuga — Tor routing",
+  "version": "0.1.0",
+  "description": "Send incognito windows through Tor with the Tortuga helper. Hides your IP; it is not Tor Browser.",
+  "minimum_chrome_version": "120",
+  "permissions": ["proxy", "privacy", "storage", "nativeMessaging"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html" }
+}

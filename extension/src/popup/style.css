@@ -1,0 +1,48 @@
+/* Tortuga popup — Nomada's look; the metro diagram arrives in plan 3b. */
+
+@import '../styles/tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 340px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
+.brand { font-weight: 700; font-size: 15px; }
+
+.conn { display: inline-grid; grid-auto-flow: column; padding: 3px; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-weight: 600; }
+.conn label { position: relative; cursor: pointer; }
+.conn input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: inherit; }
+.conn span { display: block; padding: 4px 12px; border-radius: 999px; color: var(--text-3); text-align: center; transition: background 0.15s, color 0.15s; }
+.conn input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
+.conn input#connTor:checked + span { color: var(--accent); }
+.conn input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+main { display: grid; gap: 10px; padding: 0 16px 16px; }
+
+.status { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+.status[data-state="busy"] .status-dot { background: var(--caution); }
+.status[data-state="on"] .status-dot { background: var(--accent); }
+.status[data-state="alert"] { color: var(--warn); }
+.status[data-state="alert"] .status-dot { background: var(--warn); }
+
+.note { color: var(--text-2); font-size: 12px; }
+
+.hops { list-style: none; display: grid; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font: 12px/1.4 var(--mono); }
+
+.row { display: flex; align-items: end; justify-content: space-between; gap: 10px; }
+.field { display: grid; gap: 4px; font-size: 11px; color: var(--text-3); }
+.field select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+.btn { padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; font-weight: 600; font-size: 12px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
