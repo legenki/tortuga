@@ -2,7 +2,7 @@ import { linesFor } from '../lib/bridges';
 import { isTorrentLink } from '../lib/downloads';
 import {
   DOWNLOADS_KEY, LINES_KEY, NO_LINES, STORAGE_KEY,
-  type BgBroadcast, type BgMessage, type BridgeLines, type DlMessage, type DlResult, type Stored,
+  type BgBroadcast, type BgMessage, type BridgeLines, type BridgesMessage, type BridgesResult, type DlMessage, type DlResult, type Stored,
 } from '../lib/messages';
 import type { BridgeKind, TorrentInfo, TorrentSource } from '../lib/protocol';
 import type { TorState } from '../lib/state';
@@ -93,7 +93,17 @@ if (__TARGET__ === 'firefox') {
   }, { urls: ['<all_urls>'] });
 }
 
-chrome.runtime.onMessage.addListener((msg: BgMessage | DlMessage, _sender, sendResponse) => {
+/** Bridge lines from Moat: through the Tor helper while Tor is on (it can retry through Tor), else directly. */
+async function fetchBridges(kind: 'obfs4' | 'webtunnel'): Promise<BridgesResult> {
+  try {
+    const fetched = await (controller.fetchBridges(kind) ?? downloads.fetchBridges(kind));
+    return { ok: true, ...fetched };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+chrome.runtime.onMessage.addListener((msg: BgMessage | DlMessage | BridgesMessage, _sender, sendResponse) => {
   const reply = (p: Promise<TorState>) => {
     p.then(sendResponse, () => sendResponse(controller.current));
     return true;
@@ -136,6 +146,8 @@ chrome.runtime.onMessage.addListener((msg: BgMessage | DlMessage, _sender, sendR
       return answer(downloads.resumeOne(msg.id).then(() => downloads.current));
     case 'TORRENT_REMOVE':
       return answer(downloads.remove(msg.id, msg.deleteFiles).then(() => downloads.current));
+    case 'FETCH_BRIDGES':
+      return answer(fetchBridges(msg.kind));
   }
   return false;
 });

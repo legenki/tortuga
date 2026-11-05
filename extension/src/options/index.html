@@ -24,13 +24,14 @@
 
     <section class="card">
       <h2>Bridge lines</h2>
-      <p class="muted">obfs4 and WebTunnel need bridge addresses. Get them from bridges.torproject.org (or the Tor Project’s Telegram bot) and paste them here, one per line. Snowflake needs none.</p>
-      <label class="field" for="obfs4">obfs4</label>
+      <p class="muted">obfs4 and WebTunnel need bridge addresses. <b>Get … lines</b> asks bridges.torproject.org: for a network where Tor is blocked it hands out bridges, elsewhere the public built-in ones. If the site itself is blocked, turn Tor on with Snowflake first — the request then goes through Tor. You can also paste lines from bridges.torproject.org or the Tor Project’s Telegram bot, one per line. Snowflake needs none.</p>
+      <div class="field-row"><label class="field" for="obfs4">obfs4</label><button class="btn btn-small" id="getObfs4" type="button" data-kind="obfs4">Get obfs4 lines</button></div>
       <textarea id="obfs4" rows="4" spellcheck="false" placeholder="obfs4 192.0.2.1:443 0123…ABCD cert=… iat-mode=0"></textarea>
       <ul class="errors" id="obfs4Errors" hidden></ul>
-      <label class="field" for="webtunnel">WebTunnel</label>
+      <div class="field-row"><label class="field" for="webtunnel">WebTunnel</label><button class="btn btn-small" id="getWebtunnel" type="button" data-kind="webtunnel">Get WebTunnel lines</button></div>
       <textarea id="webtunnel" rows="4" spellcheck="false" placeholder="webtunnel [2001:db8::1]:443 0123…ABCD url=https://… ver=0.0.1"></textarea>
       <ul class="errors" id="webtunnelErrors" hidden></ul>
+      <p class="muted" id="fetched" role="status" hidden></p>
       <div class="actions"><button class="btn btn-primary" id="save" type="button">Save</button><span id="saved" class="muted" role="status"></span></div>
     </section>
 

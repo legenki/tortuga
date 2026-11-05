@@ -31,3 +31,9 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border
 .conn span { display: block; padding: 4px 14px; border-radius: 999px; color: var(--text-3); }
 .conn input:checked + span { background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
 .conn input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.field-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.field-row .field { margin-top: 0; }
+.btn-small { padding: 4px 10px; font-size: 12px; }
+.btn:disabled { opacity: 0.6; cursor: progress; }
+#fetched.bad { color: var(--warn); }

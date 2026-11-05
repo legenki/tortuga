@@ -1,5 +1,8 @@
-import { parseLines, type LineKind } from '../lib/bridges';
-import { LINES_KEY, NO_LINES, type BgMessage, type BridgeLines, type DlMessage, type DownloadsState } from '../lib/messages';
+import { fetchedText, parseLines, type LineKind } from '../lib/bridges';
+import {
+  LINES_KEY, NO_LINES,
+  type BgMessage, type BridgeLines, type BridgesMessage, type BridgesResult, type DlMessage, type DownloadsState,
+} from '../lib/messages';
 import type { TorState } from '../lib/state';
 import { chooseTheme, chosenTheme, clearTheme } from '../lib/theme';
 import { helperText } from './helper-text';
@@ -41,6 +44,30 @@ async function saveLines(): Promise<void> {
   $('saved').textContent = `Saved: ${next.obfs4.length} obfs4, ${next.webtunnel.length} WebTunnel.`;
 }
 
+/** Ask bridges.torproject.org for lines, put them in the box and save them. */
+async function getLines(kind: LineKind, button: HTMLButtonElement): Promise<void> {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Asking bridges.torproject.org…';
+  const fetched = $('fetched');
+  try {
+    const r: BridgesResult = await chrome.runtime.sendMessage({ type: 'FETCH_BRIDGES', kind } satisfies BridgesMessage);
+    if (!r.ok) {
+      fetched.textContent = r.error;
+      fetched.classList.add('bad');
+    } else {
+      $<HTMLTextAreaElement>(kind).value = r.lines.join('\n');
+      await saveLines();
+      fetched.textContent = fetchedText(kind, r);
+      fetched.classList.remove('bad');
+    }
+    fetched.hidden = false;
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
 function initTheme(): void {
   const current = chosenTheme() ?? 'system';
   document.querySelectorAll<HTMLInputElement>('input[name="theme"]').forEach(input => {
@@ -53,6 +80,10 @@ function initTheme(): void {
 }
 
 $('save').addEventListener('click', () => void saveLines());
+for (const id of ['getObfs4', 'getWebtunnel']) {
+  const button = $<HTMLButtonElement>(id);
+  button.addEventListener('click', () => void getLines(button.dataset.kind as LineKind, button));
+}
 initTheme();
 void loadLines();
 void showHelper();

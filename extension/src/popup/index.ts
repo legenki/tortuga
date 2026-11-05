@@ -40,7 +40,7 @@ function renderBridges(current: BridgeKind): void {
     b.setAttribute('aria-checked', String(kind === current));
   });
   for (const kind of ['obfs4', 'webtunnel'] as const) {
-    $(`${kind}State`).textContent = lines[kind].length ? `${lines[kind].length} saved` : 'add lines in Settings';
+    $(`${kind}State`).textContent = lines[kind].length ? `${lines[kind].length} saved` : 'get lines in Settings';
   }
 }
 
