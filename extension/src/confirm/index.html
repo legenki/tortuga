@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Download with Tortuga</title>
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="box">
+    <h1>Download with Tortuga</h1>
+
+    <section id="looking" class="looking" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="lookingText">Looking up the torrent…</span>
+    </section>
+
+    <section id="details" hidden>
+      <p class="name" id="name"></p>
+      <dl class="facts">
+        <div><dt>Size</dt><dd id="size"></dd></div>
+        <div><dt>Files</dt><dd id="files"></dd></div>
+        <div><dt>Saved to</dt><dd id="folder"></dd></div>
+      </dl>
+    </section>
+
+    <p class="warn">⚠ Torrents download from your own IP, not through Tor. Other peers can see your address.</p>
+    <p class="error" id="error" role="alert" hidden></p>
+    <p class="done" id="done" role="status" hidden>Downloading — follow it in the Downloads tab.</p>
+
+    <div class="actions">
+      <button class="btn" id="cancel" type="button">Cancel</button>
+      <button class="btn btn-primary" id="download" type="button" disabled>Download</button>
+    </div>
+  </main>
+  <script type="module" src="index.ts"></script>
+</body>
+</html>

@@ -22,7 +22,8 @@
     "privacy",
     "storage",
     "nativeMessaging",
-    "tabs"
+    "tabs",
+    "contextMenus"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -39,5 +40,17 @@
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "links.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
 }
