@@ -6,6 +6,7 @@ mod config;
 mod framing;
 mod hops;
 mod isolation;
+mod moat;
 mod protocol;
 mod socks;
 mod tor;
