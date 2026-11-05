@@ -106,15 +106,24 @@ Extension → helper:
 | `torrent.pause` / `torrent.resume` | `{ id }` |
 | `torrent.remove` | `{ id, deleteFiles }` |
 
+Replies: `tor.start` → `tor.ready { socksPort }`; `tor.stop` and
+`tor.newCircuit` → `ok`; any failure → `error { code, message }` with the
+request's `id`. Codes: `bad_request`, `hello_required`, `protocol_mismatch`,
+`tor_failed`, `not_running`.
+
 Helper → extension (events):
 
 | type | payload |
 |---|---|
-| `tor.status` | `{ phase: 'bridge' \| 'directory' \| 'circuit' \| 'ready', percent }` |
-| `tor.ready` | `{ socksPort }` |
-| `circuit` | `{ site, bridge?: { kind }, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', id, country? }] }` |
+| `tor.status` | `{ phase: 'bridge' \| 'directory' \| 'ready', percent, blocked }` |
+| `circuit` | `{ site, bridge: 'snowflake' \| 'obfs4' \| 'webtunnel' \| null, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', id, country }] }` |
 | `torrent.progress` | `{ id, done, size, downRate, upRate, peers, state }` |
 | `error` | `{ code, message, torrentId? }` |
+
+Arti reports one bootstrap fraction (15 % first hop, 85 % directory); the
+phases follow that split. There is no separate circuit phase. `blocked` is
+Arti's own reason when it thinks bootstrap is stuck, else `null`. `country` is
+`null` when unknown (always for Snowflake).
 
 ## Extension
 
@@ -149,7 +158,8 @@ Helper → extension (events):
   bridge picker (opens the bridge list with a mini diagram per type), **New
   circuit**, and the exit IP sites see.
 - While connecting, the same line lights up station by station from
-  `tor.status` phases, with a percentage and **Cancel**.
+  `tor.status` phases (first hop, directory, ready), with a percentage and
+  **Cancel**.
 - **Downloads** tab (badge shows active count): one row per torrent with
   name, progress bar, speed and state, pause/resume/remove, and the
   "from your IP" warning.
@@ -176,7 +186,9 @@ The rule from Nomada: nothing leaks, and the popup says why.
 - **Helper not installed** (`connectNative` fails): the Tor switch is disabled
   and replaced by **Install helper**, linking to the latest release.
 - **Helper outdated:** same, with **Update helper**.
-- **Tor not ready after 30 s:** the popup offers another bridge type.
+- **No bootstrap progress for 30 s:** the popup offers another bridge type.
+  Cold starts through Snowflake took 11 s and 22 s in two runs, so a fixed
+  30 s limit would fire on healthy starts.
 - **Helper dies while Tor is on:** the proxy keeps pointing at the dead port,
   so requests fail instead of going direct. The popup turns red and offers
   **Restart**, which reconnects and starts Tor again.
