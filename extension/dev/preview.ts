@@ -14,7 +14,7 @@ const states: [string, MetroInput][] = [
   ['On — obfs4', { bridge: 'obfs4', site: 'wikipedia.org', hops: hops('bridge'), stage: 'ready', connecting: false }],
   ['On — WebTunnel', { bridge: 'webtunnel', site: 'ycombinator.com', hops: hops('bridge'), stage: 'ready', connecting: false }],
   ['On — no bridge', { bridge: 'none', site: 'duckduckgo.com', hops: hops('guard'), stage: 'ready', connecting: false }],
-  ['On — Chrome, circuit not known yet', { bridge: 'none', site: 'default', hops: null, stage: 'ready', connecting: false }],
+  ['On — tab without a site (Chrome shows “Incognito”)', { bridge: 'none', site: 'default', hops: null, stage: 'ready', connecting: false }],
 ];
 
 const grid = document.getElementById('grid')!;

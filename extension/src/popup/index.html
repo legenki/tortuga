@@ -16,23 +16,48 @@
   </header>
 
   <main>
+    <svg class="metro" id="metro" role="img" aria-label="Route through Tor" hidden></svg>
+
     <div class="status" id="status" data-state="off" aria-live="polite">
       <span class="status-dot"></span><span id="statusText">…</span>
     </div>
     <p class="note" id="note" hidden></p>
-    <ol class="hops" id="hops" hidden></ol>
+    <p class="exit" id="exit" hidden></p>
 
     <div class="row">
-      <label class="field">Bridge
-        <select id="bridge">
-          <option value="none">No bridge</option>
-          <option value="snowflake">Snowflake</option>
-        </select>
-      </label>
-      <button class="btn" id="newCircuit" type="button" disabled>New circuit</button>
+      <button class="btn" id="bridgeBtn" type="button" aria-expanded="false" aria-controls="bridges">
+        <span id="bridgeName">No bridge</span> ▾
+      </button>
+      <button class="btn" id="newCircuit" type="button" disabled>↻ New circuit</button>
     </div>
+
+    <div class="bridges" id="bridges" role="radiogroup" aria-label="Bridge" hidden>
+      <button class="bridge" type="button" data-kind="none" role="radio">
+        <span class="bridge-head"><b>No bridge</b><span>fastest</span></span>
+        <svg viewBox="0 0 280 24" aria-hidden="true"><line class="mini" x1="8" y1="12" x2="272" y2="12"/><circle class="mini-dot" cx="8" cy="12" r="5"/><circle class="mini-dot" cx="140" cy="12" r="5"/><circle class="mini-end" cx="272" cy="12" r="5"/></svg>
+        <span class="bridge-note">Your provider can see you connect to Tor</span>
+      </button>
+      <button class="bridge" type="button" data-kind="snowflake" role="radio">
+        <span class="bridge-head"><b>❄ Snowflake</b><span>for blocked networks</span></span>
+        <svg viewBox="0 0 280 24" aria-hidden="true"><line class="mini-bridge dotted" x1="8" y1="12" x2="110" y2="12"/><line class="mini" x1="110" y1="12" x2="272" y2="12"/><circle class="mini-dot" cx="8" cy="12" r="5"/><circle class="mini-dot bridgey" cx="60" cy="12" r="4"/><rect class="mini-dot bridgey" x="100" y="2" width="20" height="20" rx="5"/><circle class="mini-end" cx="272" cy="12" r="5"/></svg>
+        <span class="bridge-note">Looks like a video call, through a volunteer’s browser</span>
+      </button>
+      <button class="bridge" type="button" data-kind="obfs4" role="radio">
+        <span class="bridge-head"><b>◆ obfs4</b><span id="obfs4State">needs bridge lines</span></span>
+        <svg viewBox="0 0 280 24" aria-hidden="true"><path class="mini-bridge" d="M8 12 q8 -7 16 0 t16 0 t16 0 t16 0 t16 0 t16 0 t16 0"/><line class="mini" x1="120" y1="12" x2="272" y2="12"/><circle class="mini-dot" cx="8" cy="12" r="5"/><rect class="mini-dot bridgey" x="110" y="2" width="20" height="20" rx="5"/><circle class="mini-end" cx="272" cy="12" r="5"/></svg>
+        <span class="bridge-note">Traffic looks like random noise</span>
+      </button>
+      <button class="bridge" type="button" data-kind="webtunnel" role="radio">
+        <span class="bridge-head"><b>🔒 WebTunnel</b><span id="webtunnelState">needs bridge lines</span></span>
+        <svg viewBox="0 0 280 24" aria-hidden="true"><rect class="mini-tube" x="8" y="6" width="110" height="12" rx="6"/><line class="mini" x1="120" y1="12" x2="272" y2="12"/><circle class="mini-dot" cx="8" cy="12" r="5"/><rect class="mini-dot bridgey" x="110" y="2" width="20" height="20" rx="5"/><circle class="mini-end" cx="272" cy="12" r="5"/></svg>
+        <span class="bridge-note">Looks like an ordinary HTTPS website</span>
+      </button>
+    </div>
+
     <button class="btn btn-primary" id="restart" type="button" hidden>Restart</button>
   </main>
+
+  <footer class="foot"><a href="#" id="settings">Settings</a><span>Hides your IP. Not Tor Browser.</span></footer>
 
   <script type="module" src="index.ts"></script>
 </body>

@@ -1683,7 +1683,7 @@ const states: [string, MetroInput][] = [
   ['On — obfs4', { bridge: 'obfs4', site: 'wikipedia.org', hops: hops('bridge'), stage: 'ready', connecting: false }],
   ['On — WebTunnel', { bridge: 'webtunnel', site: 'ycombinator.com', hops: hops('bridge'), stage: 'ready', connecting: false }],
   ['On — no bridge', { bridge: 'none', site: 'duckduckgo.com', hops: hops('guard'), stage: 'ready', connecting: false }],
-  ['On — Chrome, circuit not known yet', { bridge: 'none', site: 'default', hops: null, stage: 'ready', connecting: false }],
+  ['On — tab without a site (Chrome shows “Incognito”)', { bridge: 'none', site: 'default', hops: null, stage: 'ready', connecting: false }],
 ];
 
 const grid = document.getElementById('grid')!;
@@ -2207,7 +2207,7 @@ main { display: grid; gap: 10px; padding: 0 16px 12px; }
 - [ ] **Step 4: Look at every diagram state**
 
 Run: `cd extension && npm run preview:metro && npx vite preview --config vite.config.preview.ts --port 4174`, open `http://localhost:4174/`.
-Expected: seven cards — connecting (first hop: You lit, an amber moving dash; directory: bridge lit, dash on the next segment), Snowflake (dotted blue first segment), obfs4 (wavy), WebTunnel (tube), no bridge (Guard with a US flag), Chrome before a circuit ("Incognito"), and a card whose exit station fades in with a new flag every 3 s. Site names sit above the end station without touching the exit's flag (`wikipedia`, `ycombinator`). **Toggle dark** switches all of it to the dark tokens.
+Expected: eight cards (the page builds as Firefox) — connecting (first hop: You lit, an amber moving dash; directory: bridge lit, dash on the next segment), Snowflake (dotted blue first segment), obfs4 (wavy), WebTunnel (tube), no bridge (Guard with a US flag), a tab without a site ("No site"; Chrome shows "Incognito"), and a card whose exit station fades in with a new flag every 3 s. Site names sit above the end station without touching the exit's flag (`wikipedia`, `ycombinator`). **Toggle dark** switches all of it to the dark tokens.
 
 - [ ] **Step 5: Commit**
 

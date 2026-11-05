@@ -1,5 +1,5 @@
-import type { Circuit } from '../lib/protocol';
 import type { TorState } from '../lib/state';
+import type { MetroInput } from './metro';
 
 /** What the popup shows for a state: pure, so it can be tested. */
 export interface View {
@@ -12,19 +12,16 @@ export interface View {
   note: string | null;
   showRestart: boolean;
   canNewCircuit: boolean;
-  /** One line per hop of the active tab's circuit. */
-  hops: string[];
+  /** The metro diagram, or null when there is no route to draw. */
+  metro: MetroInput | null;
+  /** "Exit relay 185.220.101.3 · DE" for the active tab's circuit. */
+  exit: string | null;
 }
 
-const BRIDGE_NAMES = { none: 'no bridge', snowflake: 'Snowflake', obfs4: 'obfs4', webtunnel: 'WebTunnel' } as const;
-
-function hopLine(h: Circuit['hops'][number]): string {
-  const role = { guard: 'Guard', bridge: 'Bridge', middle: 'Middle', exit: 'Exit' }[h.role];
-  return `${role} · ${h.country ?? '—'} · ${h.id.slice(0, 8)}`;
-}
+export const BRIDGE_NAMES = { none: 'no bridge', snowflake: 'Snowflake', obfs4: 'obfs4', webtunnel: 'WebTunnel' } as const;
 
 export function viewFor(s: TorState, site: string): View {
-  const base: View = { torSelected: s.phase !== 'off', tone: 'off', status: '', note: null, showRestart: false, canNewCircuit: false, hops: [] };
+  const base: View = { torSelected: s.phase !== 'off', tone: 'off', status: '', note: null, showRestart: false, canNewCircuit: false, metro: null, exit: null };
   switch (s.phase) {
     case 'off':
       return { ...base, status: 'Direct — Tortuga is off', note: s.error };
@@ -34,16 +31,19 @@ export function viewFor(s: TorState, site: string): View {
         tone: 'busy',
         status: `Connecting via ${BRIDGE_NAMES[s.bridge]}… ${s.percent}%`,
         note: s.blocked ?? 'Traffic waits until Tor is ready.',
+        metro: { bridge: s.bridge, site, hops: null, stage: s.stage, connecting: true },
       };
     case 'on': {
-      const circuit = s.circuits[site];
+      const hops = s.circuits[site]?.hops ?? null;
+      const exitHop = hops?.find(h => h.role === 'exit');
       return {
         ...base,
         tone: 'on',
         status: `Tor on via ${BRIDGE_NAMES[s.bridge]}`,
         note: __TARGET__ === 'chrome' ? 'Only incognito windows use Tor in Chrome, all through one circuit.' : null,
         canNewCircuit: true,
-        hops: circuit ? circuit.hops.map(hopLine) : [],
+        metro: { bridge: s.bridge, site, hops, stage: 'ready', connecting: false },
+        exit: exitHop?.addr ? `Exit relay ${exitHop.addr}${exitHop.country ? ` · ${exitHop.country}` : ''}` : null,
       };
     }
     case 'failed':
