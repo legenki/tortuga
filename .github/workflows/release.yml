@@ -80,7 +80,8 @@ jobs:
           python3 -m unittest discover -s helper/packaging
       - name: Package
         env:
-          DEB_MAINTAINER: ${{ vars.DEB_MAINTAINER }}
+          # The repository variable if set, else the owner's GitHub no-reply address.
+          DEB_MAINTAINER: ${{ vars.DEB_MAINTAINER || format('{0} <{0}@users.noreply.github.com>', github.repository_owner) }}
         run: helper/packaging/linux/build-deb.sh
       - name: Install and smoke test
         run: |

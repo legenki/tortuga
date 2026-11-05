@@ -5,7 +5,9 @@ edition = "2024"
 publish = false
 
 [dependencies]
-arti-client = { version = "=0.48.0", features = ["full", "experimental-api", "geoip"] }
+# static-sqlite: SQLite built in — Windows has no system sqlite3.lib, and the
+# .deb then needs no libsqlite3.
+arti-client = { version = "=0.48.0", features = ["full", "experimental-api", "geoip", "static-sqlite"] }
 tor-proto = { version = "=0.48.0", features = ["stream-ctrl"] }
 tor-linkspec = "=0.48.0"
 tor-geoip = "=0.48.0"
