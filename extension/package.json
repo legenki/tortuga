@@ -1,0 +1,26 @@
+{
+  "name": "tortuga-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm run typecheck && npm run build:background && npm run build:theme && npm run build:popup",
+    "build:background": "vite build --config vite.config.background.ts",
+    "build:theme": "vite build --config vite.config.theme.ts",
+    "build:popup": "vite build --config vite.config.popup.ts",
+    "build:firefox": "TARGET=firefox npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint:firefox": "npx --yes web-ext@10.8.0 lint --source-dir dist-firefox",
+    "start:firefox": "npx --yes web-ext@10.8.0 run --source-dir dist-firefox"
+  },
+  "dependencies": {
+    "tldts": "^7.4.19"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.12",
+    "vitest": "^1.6.0"
+  }
+}
