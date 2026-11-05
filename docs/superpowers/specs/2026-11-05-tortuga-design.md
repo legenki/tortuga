@@ -74,9 +74,16 @@ extension.
   people not to run BitTorrent over Tor, and the protocol can reveal the real
   IP anyway. Every place a download starts says "Downloads from your IP, not
   through Tor".
-- Files go to `~/Downloads/Tortuga/` (changeable on the settings page).
+- Files go to `~/Downloads/Tortuga/`, fixed in v1 and shown on the settings
+  page.
 - A torrent seeds while it stays in the list; removing it stops seeding and
   asks whether to delete the files.
+- The session opens on the first torrent request. The extension talks to it
+  over a **second native port** — a second helper process — so downloads run
+  with Tor on or off and the two processes never share state.
+- A torrent's id is its info hash, stable across restarts.
+- `.torrent` URLs are fetched by the helper itself, without the browser's
+  cookies: private trackers that need a login are not supported in v1.
 
 ### Lifetime
 
@@ -102,9 +109,10 @@ Extension → helper:
 | `tor.stop` | — |
 | `tor.newCircuit` | `{ site }` — new isolation token for that site (`default` in Chrome) |
 | `bridges.fetch` | `{ kind: 'obfs4' \| 'webtunnel' }` → reply `{ lines }` |
-| `torrent.add` | `{ magnet } \| { torrentFile: base64 }` → reply `{ id, name, size }` |
-| `torrent.pause` / `torrent.resume` | `{ id }` |
-| `torrent.remove` | `{ id, deleteFiles }` |
+| `torrent.inspect` | `{ source: { url } \| { torrentFile: base64 } }` → reply `torrent.info { id, name, size, files, folder }`, nothing downloaded |
+| `torrent.add` | same `source` → reply `torrent.info` |
+| `torrent.pause` / `torrent.resume` | `{ id }` → `ok` |
+| `torrent.remove` | `{ id, deleteFiles }` → `ok` |
 
 Replies: `tor.start` → `tor.ready { socksPort }`; `tor.stop` and
 `tor.newCircuit` → `ok`; any failure → `error { code, message }` with the
@@ -117,7 +125,7 @@ Helper → extension (events):
 |---|---|
 | `tor.status` | `{ phase: 'bridge' \| 'directory' \| 'ready', percent, blocked }` |
 | `circuit` | `{ site, bridge: 'snowflake' \| 'obfs4' \| 'webtunnel' \| null, hops: [{ role: 'guard' \| 'bridge' \| 'middle' \| 'exit', id, addr, country }] }` — `addr` is the relay's address (a placeholder for Snowflake) |
-| `torrent.progress` | `{ id, done, size, downRate, upRate, peers, state }` |
+| `torrent.progress` | `{ torrents: [{ id, name, done, size, downRate, upRate, state: 'starting' \| 'downloading' \| 'seeding' \| 'paused' \| 'error', error }] }` every second while there are torrents, once more when the list empties; failures → `error { code: 'torrent_failed' }` |
 | `error` | `{ code, message, torrentId? }` |
 
 Arti reports one bootstrap fraction (15 % first hop, 85 % directory); the
@@ -178,12 +186,16 @@ Arti's own reason when it thinks bootstrap is stuck, else `null`. `country` is
 - Context menu on links: **Download with Tortuga**.
 - Paste field on the Downloads tab (magnet link or `.torrent` file).
 
-Each one opens a small extension window to confirm: name, size, destination,
-and the "from your IP, not through Tor" note.
+Each one opens a small extension window to confirm: name, size, number of
+files, destination, and the "from your IP, not through Tor" note. The
+background keeps the pending torrent under a one-time token in the window's
+URL; the window inspects it first (a magnet needs peers to describe it — after
+8 s the window says so) and adds it only on **Download**. Only magnets with a
+BitTorrent info hash and http(s) links ending in `.torrent` are taken.
 
 ### Settings page
 
-Download folder, bridge lines, helper status and version, theme (System /
+Download folder (shown, not changeable in v1), bridge lines, helper status and version, theme (System /
 Light / Dark). Bridge lines are checked on Save — transport, address:port,
 40-character fingerprint, with the failing line named — and stored as
 `Bridge …` lines under `tortugaBridgeLines`.
@@ -196,7 +208,7 @@ The rule from Nomada: nothing leaks, and the popup says why.
   and replaced by **Install helper**, linking to the latest release.
 - **Helper outdated:** same, with **Update helper**.
 - **No bootstrap progress for 30 s:** the popup offers another bridge type.
-  Cold starts through Snowflake took 11 s and 22 s in two runs, so a fixed
+  Cold starts through Snowflake took 11 s, 22 s and about 100 s in test runs, so a fixed
   30 s limit would fire on healthy starts.
 - **Helper dies while Tor is on:** the proxy keeps pointing at the dead port,
   so requests fail instead of going direct. The popup turns red and offers
