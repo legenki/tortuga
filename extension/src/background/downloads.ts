@@ -1,6 +1,6 @@
 import type { DownloadsState } from '../lib/messages';
-import { PROTOCOL_VERSION, type HelperMessage, type TorrentInfo, type TorrentSource } from '../lib/protocol';
-import { HELPER_MISSING } from './controller';
+import { PROTOCOL_VERSION, type FetchedLines, type HelperMessage, type TorrentInfo, type TorrentSource } from '../lib/protocol';
+import { HELPER_MISSING, linesOf } from './controller';
 import { isMissingHost, type HelperClient } from './helper';
 
 /** Everything the downloads controller does to the outside world (fakes in tests). */
@@ -54,6 +54,11 @@ export class Downloads {
 
   async remove(id: string, deleteFiles: boolean): Promise<void> {
     await this.request({ type: 'torrent.remove', payload: { id, deleteFiles } });
+  }
+
+  /** Bridge lines from Moat, directly (this helper never runs Tor). */
+  async fetchBridges(kind: 'obfs4' | 'webtunnel'): Promise<FetchedLines> {
+    return linesOf(await this.request({ type: 'bridges.fetch', payload: { kind } }));
   }
 
   private info(m: HelperMessage): TorrentInfo {

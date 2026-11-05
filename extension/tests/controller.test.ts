@@ -70,6 +70,18 @@ describe('Controller', () => {
     expect(c.current).toMatchObject({ phase: 'connecting', bridge: 'snowflake' });
   });
 
+  it('asks for bridge lines only while Tor is on', async () => {
+    const { c, ports } = setup();
+    expect(c.fetchBridges('obfs4')).toBeNull();
+    await c.turnOn('snowflake');
+    await boot(ports[0]);
+    const fetching = c.fetchBridges('obfs4')!;
+    await flush();
+    expect(ports[0].sent.at(-1)).toMatchObject({ type: 'bridges.fetch', payload: { kind: 'obfs4' } });
+    ports[0].emit({ id: ports[0].idOf('bridges.fetch'), type: 'bridges.lines', payload: { lines: ['obfs4 a'], source: 'builtin', country: 'it', viaTor: false } });
+    await expect(fetching).resolves.toMatchObject({ lines: ['obfs4 a'] });
+  });
+
   it('passes bootstrap stages on', async () => {
     const { c, ports } = setup();
     await c.turnOn('snowflake');

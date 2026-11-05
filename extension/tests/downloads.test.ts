@@ -80,6 +80,15 @@ describe('Downloads', () => {
     await expect(adding).rejects.toThrow('no peers');
   });
 
+  it('gets bridge lines over the same port', async () => {
+    const { d, ports } = setup();
+    const fetching = d.fetchBridges('webtunnel');
+    const port = await hello(ports);
+    expect(port.sent[1]).toMatchObject({ type: 'bridges.fetch', payload: { kind: 'webtunnel' } });
+    port.emit({ id: port.idOf('bridges.fetch'), type: 'error', payload: { code: 'bridges_failed', message: 'none are needed here' } });
+    await expect(fetching).rejects.toThrow('none are needed here');
+  });
+
   it('reports a missing helper and reconnects on the next request', async () => {
     const { d, ports, states } = setup('Specified native messaging host not found.');
     const first = d.inspect(MAGNET);

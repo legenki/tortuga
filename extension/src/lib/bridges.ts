@@ -1,5 +1,5 @@
 import type { BridgeLines } from './messages';
-import type { BridgeKind } from './protocol';
+import type { BridgeKind, FetchedLines } from './protocol';
 
 export type LineKind = keyof BridgeLines;
 
@@ -26,6 +26,15 @@ export function parseLines(kind: LineKind, text: string): { lines: string[]; err
     else lines.push(`Bridge ${line}`);
   });
   return { lines, errors };
+}
+
+/** What the settings page says after getting lines from bridges.torproject.org. */
+export function fetchedText(kind: LineKind, f: FetchedLines): string {
+  const name = kind === 'obfs4' ? 'obfs4' : 'WebTunnel';
+  const what = f.source === 'builtin' ? 'built-in' : 'handed out for your network';
+  const where = f.country ? ` (${f.country.toUpperCase()})` : '';
+  const via = f.viaTor ? ', through Tor' : '';
+  return `Got ${f.lines.length} ${name} ${f.lines.length === 1 ? 'line' : 'lines'} from bridges.torproject.org — ${what}${where}${via}.`;
 }
 
 /** Can Tor start with this bridge kind? obfs4 and WebTunnel need saved lines. */

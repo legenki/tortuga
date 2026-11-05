@@ -1,4 +1,4 @@
-import type { BridgeKind, HelperMessage } from '../lib/protocol';
+import type { BridgeKind, FetchedLines, HelperMessage } from '../lib/protocol';
 import { PROTOCOL_VERSION } from '../lib/protocol';
 import type { Stored } from '../lib/messages';
 import { initialState, reduce, routedPort, type TorEvent, type TorState } from '../lib/state';
@@ -13,6 +13,12 @@ export interface Deps {
   broadcast(state: TorState): void;
   /** Chrome: may Tortuga touch incognito windows? Firefox: always true. */
   incognitoAllowed(): Promise<boolean>;
+}
+
+/** The lines in a `bridges.lines` reply. */
+export function linesOf(m: HelperMessage): FetchedLines {
+  if (m.type !== 'bridges.lines') throw new Error(`unexpected reply ${m.type}`);
+  return m.payload;
 }
 
 export const INCOGNITO_NEEDED = 'Allow Tortuga in Incognito (Manage extension → Allow in Incognito), then try again.';
@@ -83,6 +89,15 @@ export class Controller {
       await this.deps.save({ enabled: false, bridge });
       return this.state;
     });
+  }
+
+  /**
+   * Bridge lines from Moat through the Tor helper, which can retry through Tor
+   * when the direct way is blocked. Null when Tor is off (no helper to ask).
+   */
+  fetchBridges(kind: 'obfs4' | 'webtunnel'): Promise<FetchedLines> | null {
+    if (this.state.phase !== 'on' || !this.helper) return null;
+    return this.helper.request({ type: 'bridges.fetch', payload: { kind } }).then(linesOf);
   }
 
   newCircuit(site: string): Promise<TorState> {

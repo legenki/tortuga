@@ -1,4 +1,4 @@
-import type { BridgeKind, TorrentInfo, TorrentRow, TorrentSource } from './protocol';
+import type { BridgeKind, FetchedLines, TorrentInfo, TorrentRow, TorrentSource } from './protocol';
 import type { TorState } from './state';
 
 /** Popup → background. Each is answered with the current TorState. */
@@ -38,6 +38,10 @@ export type DlMessage =
 
 /** The answer to INSPECT / CONFIRM. */
 export type DlResult = { ok: true; info: TorrentInfo } | { ok: false; error: string };
+
+/** Settings page → background: get bridge lines from bridges.torproject.org. */
+export type BridgesMessage = { type: 'FETCH_BRIDGES'; kind: keyof BridgeLines };
+export type BridgesResult = ({ ok: true } & FetchedLines) | { ok: false; error: string };
 
 /** Set while there are downloads, so a restarted browser resumes them. */
 export const DOWNLOADS_KEY = 'tortugaDownloads';

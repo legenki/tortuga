@@ -25,7 +25,16 @@ export interface Circuit {
   hops: Hop[];
 }
 
-export type ErrorCode = 'bad_request' | 'hello_required' | 'protocol_mismatch' | 'tor_failed' | 'not_running' | 'torrent_failed';
+export type ErrorCode = 'bad_request' | 'hello_required' | 'protocol_mismatch' | 'tor_failed' | 'not_running' | 'torrent_failed' | 'bridges_failed';
+
+/** Bridge lines from bridges.torproject.org (Moat). */
+export interface FetchedLines {
+  lines: string[];
+  /** "bridgedb": handed out for this network; "builtin": the public defaults. */
+  source: string;
+  country: string | null;
+  viaTor: boolean;
+}
 
 /** A torrent to fetch: a magnet or http(s) link to a `.torrent`, or the file itself (base64). */
 export type TorrentSource = { url: string } | { torrentFile: string };
@@ -64,6 +73,7 @@ export type HelperMessage =
   | { id?: number; type: 'circuit'; payload: Circuit }
   | { id?: number; type: 'torrent.info'; payload: TorrentInfo }
   | { id?: number; type: 'torrent.progress'; payload: { torrents: TorrentRow[] } }
+  | { id?: number; type: 'bridges.lines'; payload: FetchedLines }
   | { id?: number; type: 'error'; payload: { code: ErrorCode; message: string } };
 
 /** What the extension asks the helper. */
@@ -76,4 +86,5 @@ export type HelperRequest =
   | { type: 'torrent.add'; payload: { source: TorrentSource } }
   | { type: 'torrent.pause'; payload: { id: string } }
   | { type: 'torrent.resume'; payload: { id: string } }
-  | { type: 'torrent.remove'; payload: { id: string; deleteFiles: boolean } };
+  | { type: 'torrent.remove'; payload: { id: string; deleteFiles: boolean } }
+  | { type: 'bridges.fetch'; payload: { kind: 'obfs4' | 'webtunnel' } };

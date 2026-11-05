@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bridgeReady, linesFor, parseLines } from '../src/lib/bridges';
+import { bridgeReady, fetchedText, linesFor, parseLines } from '../src/lib/bridges';
 import { NO_LINES } from '../src/lib/messages';
 
 const OBFS4 = 'obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=YXJlIGZyZXF1ZW50bHkgZnVsbA iat-mode=0';
@@ -23,6 +23,15 @@ describe('parseLines', () => {
       'Line 2: no address:port after “obfs4”',
       'Line 3: no 40-character fingerprint after the address',
     ]);
+  });
+});
+
+describe('fetchedText', () => {
+  it('says how many lines, which kind and how they came', () => {
+    expect(fetchedText('obfs4', { lines: ['a', 'b', 'c'], source: 'builtin', country: 'it', viaTor: false }))
+      .toBe('Got 3 obfs4 lines from bridges.torproject.org — built-in (IT).');
+    expect(fetchedText('webtunnel', { lines: ['a'], source: 'bridgedb', country: 'ru', viaTor: true }))
+      .toBe('Got 1 WebTunnel line from bridges.torproject.org — handed out for your network (RU), through Tor.');
   });
 });
 
