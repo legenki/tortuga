@@ -1,5 +1,5 @@
 import { linesFor } from '../lib/bridges';
-import { isTorrentLink } from '../lib/downloads';
+import { isTorrentLink, isTorrentSource } from '../lib/downloads';
 import {
   DOWNLOADS_KEY, LINES_KEY, NO_LINES, STORAGE_KEY,
   type BgBroadcast, type BgMessage, type BridgeLines, type BridgesMessage, type BridgesResult, type DlMessage, type DlResult, type Stored,
@@ -39,6 +39,10 @@ const downloads = new Downloads({
 void chrome.storage.local.get(DOWNLOADS_KEY).then(r => {
   if (r[DOWNLOADS_KEY]) void downloads.resume();
 });
+
+function fromOwnPage(sender: chrome.runtime.MessageSender): boolean {
+  return sender.url?.startsWith(chrome.runtime.getURL('')) ?? false;
+}
 
 /** Torrents waiting in a confirm window, by the window's token. */
 const pending = new Map<string, PendingTorrent>();
@@ -110,7 +114,8 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: MENU_ID, title: 'Download with Tortuga', contexts: ['link'] });
 });
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === MENU_ID && info.linkUrl) void openConfirm({ url: info.linkUrl }, tab);
+  // The user picked this link: any magnet or http(s) address will do.
+  if (info.menuItemId === MENU_ID && info.linkUrl && isTorrentSource(info.linkUrl)) void openConfirm({ url: info.linkUrl }, tab);
 });
 
 /** Bridge lines saved on the settings page for `kind`. */
@@ -174,8 +179,11 @@ chrome.runtime.onMessage.addListener((msg: BgMessage | DlMessage | BridgesMessag
     case 'GET_DOWNLOADS':
       return answer(Promise.resolve(downloads.current));
     case 'TORRENT_OPEN':
-      // Pages only ever ask for links that look like torrents; refuse anything else.
-      if ('url' in msg.source && !isTorrentLink(msg.source.url)) return answer(Promise.resolve({ ok: false, error: 'Not a magnet or .torrent link' }));
+      // Pages only ever ask for links that look like torrents; Tortuga's own
+      // pages (a pasted link) for any magnet or http(s) address.
+      if ('url' in msg.source && !(fromOwnPage(sender) ? isTorrentSource : isTorrentLink)(msg.source.url)) {
+        return answer(Promise.resolve({ ok: false, error: 'Not a magnet or .torrent link' }));
+      }
       return answer(openConfirm(msg.source, sender.tab).then(() => ({ ok: true })));
     case 'TORRENT_INSPECT':
       return answer(runPending(msg.token, downloads.inspect, msg.direct));

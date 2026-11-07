@@ -22,3 +22,6 @@ librqbit-core = "=9.1.0"
 base64 = "0.22"
 reqwest = { version = "=0.13.5", features = ["json", "socks"] }
 anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"

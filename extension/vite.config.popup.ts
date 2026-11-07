@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { copyFileSync, renameSync, rmSync } from 'fs';
-import { define, manifestFile, outDir } from './vite.target.ts';
+import { define, manifestFile, outDir, treeshake } from './vite.target.ts';
 
 export default defineConfig({
   define,
@@ -9,6 +9,7 @@ export default defineConfig({
     outDir,
     emptyOutDir: false,
     rollupOptions: {
+      treeshake,
       input: { popup: resolve(import.meta.dirname, 'src/popup/index.html') },
       output: {
         entryFileNames: '[name].js',

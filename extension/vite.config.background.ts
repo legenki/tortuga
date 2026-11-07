@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { define, outDir } from './vite.target.ts';
+import { define, outDir, treeshake } from './vite.target.ts';
 
 export default defineConfig({
   define,
@@ -13,6 +13,6 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'background.js',
     },
-    rollupOptions: { external: [] },
+    rollupOptions: { external: [], treeshake },
   },
 });

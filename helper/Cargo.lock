@@ -6981,6 +6981,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tor-geoip",
  "tor-linkspec",

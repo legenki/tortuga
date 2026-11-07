@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activeCount, formatBytes, isDone, isTorrentLink, percent, rowLine } from '../src/lib/downloads';
+import { activeCount, formatBytes, isDone, isTorrentLink, isTorrentSource, percent, rowLine } from '../src/lib/downloads';
 import type { TorrentRow } from '../src/lib/protocol';
 
 const row = (r: Partial<TorrentRow>): TorrentRow => ({
@@ -19,6 +19,21 @@ describe('isTorrentLink', () => {
     expect(isTorrentLink('https://example.org/torrent-guide.html')).toBe(false);
     expect(isTorrentLink('ftp://example.org/a.torrent')).toBe(false);
     expect(isTorrentLink('javascript:alert(1)')).toBe(false);
+  });
+});
+
+describe('isTorrentSource', () => {
+  it('takes any magnet with an info hash or http(s) address the user names', () => {
+    expect(isTorrentSource('https://tracker.example/download?id=42')).toBe(true);
+    expect(isTorrentSource('http://example.org/a.torrent')).toBe(true);
+    expect(isTorrentSource('magnet:?xt=urn:btih:7acf')).toBe(true);
+  });
+
+  it('refuses other schemes and magnets without a hash', () => {
+    expect(isTorrentSource('magnet:?dn=x')).toBe(false);
+    expect(isTorrentSource('ftp://example.org/a.torrent')).toBe(false);
+    expect(isTorrentSource('javascript:alert(1)')).toBe(false);
+    expect(isTorrentSource('not a link')).toBe(false);
   });
 });
 

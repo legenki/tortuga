@@ -1,6 +1,6 @@
 // The Downloads tab: add a torrent (link or file), and one row per download
 // with progress, pause / resume and remove (keeping or deleting the files).
-import { activeCount, isDone, isTorrentLink, percent, rowLine } from '../lib/downloads';
+import { activeCount, isDone, isTorrentSource, percent, rowLine } from '../lib/downloads';
 import type { DlMessage, DownloadsState } from '../lib/messages';
 import type { TorrentRow } from '../lib/protocol';
 
@@ -100,7 +100,7 @@ export function renderDownloads(state: DownloadsState): void {
 addForm.addEventListener('submit', e => {
   e.preventDefault();
   const url = addInput.value.trim();
-  if (!isTorrentLink(url)) return showError('That is not a magnet or .torrent link.');
+  if (!isTorrentSource(url)) return showError('That is not a magnet or http(s) link.');
   showError(null);
   addInput.value = '';
   void send({ type: 'TORRENT_OPEN', source: { url } });

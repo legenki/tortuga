@@ -14,6 +14,22 @@ export function isTorrentLink(href: string): boolean {
   }
 }
 
+/**
+ * A link the user named themselves (pasted, or right-clicked "Download with
+ * Tortuga"): a magnet with an info hash, or any http(s) address, since many
+ * sites serve .torrent files from addresses like `/download?id=42`. The
+ * helper refuses what turns out not to be a .torrent file.
+ */
+export function isTorrentSource(href: string): boolean {
+  if (/^magnet:\?/i.test(href)) return isTorrentLink(href);
+  try {
+    const u = new URL(href);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 
 /** 1536 → "1.5 KB"; one decimal below 100, none above. */
