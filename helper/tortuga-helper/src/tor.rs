@@ -51,6 +51,24 @@ pub fn proves_switch(first: IpAddr, new: &[IpAddr], old: &[IpAddr]) -> bool {
     if new.is_empty() { !old.contains(&first) } else { new.contains(&first) }
 }
 
+/// The bridges a client last proved it runs through. Updated only once a
+/// switch has succeeded: a switch that failed or was cancelled half way must
+/// be proven again next time, not taken as done because its addresses were
+/// already written down.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Proven {
+    pub kind: BridgeKind,
+    /// Their addresses (empty without bridges).
+    pub addrs: Vec<IpAddr>,
+}
+
+impl Proven {
+    /// Must a switch to `new` addresses be proven with test circuits?
+    pub fn needs_proof(&self, new: &[IpAddr]) -> bool {
+        self.addrs != new
+    }
+}
+
 /// Arti reports one fraction: 15 % for reaching the first hop, 85 % for the
 /// directory. The phases follow that split.
 pub fn phase_for(frac: f32, ready: bool) -> Phase {
@@ -74,9 +92,8 @@ fn status_event(s: &BootstrapStatus) -> Outgoing {
 
 pub struct Tor {
     client: Arc<TorClient<PreferredRuntime>>,
-    bridge: Mutex<BridgeKind>,
-    /// The current bridges' addresses (empty without bridges).
-    bridge_addrs: Mutex<Vec<IpAddr>>,
+    /// What the client runs through, as last proven.
+    proven: Mutex<Proven>,
     geoip: Arc<GeoipDb>,
     isolation: Mutex<IsolationMap>,
     tracker: Mutex<CircuitTracker>,
@@ -90,8 +107,8 @@ impl Tor {
         let client = TorClient::builder().config(config).create_unbootstrapped()?;
         let tor = Arc::new(Self {
             client,
-            bridge: Mutex::new(bridge),
-            bridge_addrs: Mutex::new(bridge_addrs(lines)),
+            // Only stored once bootstrap succeeds below.
+            proven: Mutex::new(Proven { kind: bridge, addrs: bridge_addrs(lines) }),
             geoip: GeoipDb::new_embedded(),
             isolation: Mutex::default(),
             tracker: Mutex::default(),
@@ -107,20 +124,25 @@ impl Tor {
     ///
     /// Every site then gets fresh circuits: ones kept from before the change
     /// may run through the old bridges or guard.
+    ///
+    /// What is proven changes only at the end, after success: a switch that
+    /// fails or is cancelled (a newer start, a stop) leaves the last proven
+    /// bridges, so trying the same new ones again proves them again.
     pub async fn restart(&self, config: &TorClientConfig, bridge: BridgeKind, lines: &[String]) -> anyhow::Result<()> {
+        let new = bridge_addrs(lines);
+        let proven = self.proven.lock().unwrap().clone();
         self.client.reconfigure(config, Reconfigure::AllOrNothing)?;
-        let old = std::mem::replace(&mut *self.bridge_addrs.lock().unwrap(), bridge_addrs(lines));
-        *self.bridge.lock().unwrap() = bridge;
         self.isolation.lock().unwrap().clear();
         self.tracker.lock().unwrap().clear();
         self.client.set_dormant(DormantMode::Normal);
-        let new = self.bridge_addrs.lock().unwrap().clone();
-        if new != old {
+        if proven.needs_proof(&new) {
             // The connecting diagram shows "reaching the first hop" meanwhile.
             let _ = self.events.send(Message::event(Outgoing::TorStatus { phase: Phase::Bridge, percent: 10, blocked: None }));
-            self.prove(&new, &old).await?;
+            self.prove(&new, &proven.addrs).await?;
         }
-        self.bootstrap().await
+        self.bootstrap().await?;
+        *self.proven.lock().unwrap() = Proven { kind: bridge, addrs: new };
+        Ok(())
     }
 
     /// Open test streams on fresh circuits until one runs the new way.
@@ -173,7 +195,7 @@ impl Tor {
     fn hops_of(&self, stream: &DataStream) -> Option<Vec<Hop>> {
         let tunnel = stream.client_stream_ctrl()?.tunnel()?;
         let path = tunnel.all_paths().into_iter().next()?;
-        let via_bridge = *self.bridge.lock().unwrap() != BridgeKind::None;
+        let via_bridge = self.proven.lock().unwrap().kind != BridgeKind::None;
         let roles = roles_for(path.n_hops(), via_bridge);
         Some(
             path.iter()
@@ -217,7 +239,7 @@ impl Connector for Arc<Tor> {
             if let Some(hops) = tor.hops_of(&stream)
                 && tor.tracker.lock().unwrap().observe(&req.site, &hops)
             {
-                let bridge = *tor.bridge.lock().unwrap();
+                let bridge = tor.proven.lock().unwrap().kind;
                 let bridge = (bridge != BridgeKind::None).then_some(bridge);
                 let _ = tor.events.send(Message::event(Outgoing::Circuit { site: req.site.clone(), bridge, hops }));
             }
@@ -252,6 +274,21 @@ mod tests {
             "Bridge nonsense".to_string(),
         ];
         assert_eq!(bridge_addrs(&lines), vec![ip("212.83.43.95"), ip("192.0.2.3"), ip("2001:db8::1")]);
+    }
+
+    #[test]
+    fn a_failed_or_cancelled_switch_is_proven_again() {
+        let snowflake = vec![ip("192.0.2.3")];
+        let obfs4 = vec![ip("212.83.43.95")];
+        let proven = Proven { kind: BridgeKind::Snowflake, addrs: snowflake.clone() };
+        // Snowflake to obfs4 needs proof.
+        assert!(proven.needs_proof(&obfs4));
+        // The switch failed or was cancelled: nothing was stored, so trying
+        // obfs4 again still needs proof (it used to be skipped, and the
+        // cached directory made it "ready" through bridges that never answered).
+        assert!(proven.needs_proof(&obfs4));
+        // Staying on the proven bridges doesn't.
+        assert!(!proven.needs_proof(&snowflake));
     }
 
     #[test]
