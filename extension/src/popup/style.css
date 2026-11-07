@@ -133,3 +133,6 @@ main { display: grid; gap: 10px; padding: 0 16px 12px; }
 .row-remove { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); }
 .btn.small { padding: 3px 9px; font-size: 11px; }
 .btn.danger { border-color: var(--warn); color: var(--warn); }
+
+.install { display: inline-block; margin-top: 4px; color: var(--focus); font-size: 12px; font-weight: 600; text-decoration: none; }
+.install:hover { text-decoration: underline; }

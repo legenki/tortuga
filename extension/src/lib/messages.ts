@@ -39,9 +39,10 @@ export type DlMessage =
 
 /**
  * The answer to INSPECT / CONFIRM. `askDirect`: Tor is on and this is a magnet,
- * which can only be looked up from the user's own IP; ask first.
+ * which can only be looked up from the user's own IP; ask first. `waitTor`:
+ * the link goes through Tor, which isn't connected yet; try again once it is.
  */
-export type DlResult = { ok: true; info: TorrentInfo } | { ok: false; error: string; askDirect?: boolean };
+export type DlResult = { ok: true; info: TorrentInfo } | { ok: false; error: string; askDirect?: boolean; waitTor?: boolean };
 
 /** Settings page → background: get bridge lines from bridges.torproject.org. */
 export type BridgesMessage = { type: 'FETCH_BRIDGES'; kind: keyof BridgeLines };

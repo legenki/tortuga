@@ -114,10 +114,11 @@ fn dedup(lines: Vec<String>) -> Vec<String> {
 }
 
 fn client(route: Route) -> anyhow::Result<reqwest::Client> {
-    let mut b = reqwest::Client::builder().timeout(TIMEOUT);
+    // No proxies from the environment either way: Tor's port only, or none.
+    let mut b = reqwest::Client::builder().timeout(TIMEOUT).no_proxy();
     if let Route::Tor { socks_port } = route {
         // socks5h: the name is resolved by Tor, not locally.
-        b = b.proxy(reqwest::Proxy::all(format!("socks5h://127.0.0.1:{socks_port}"))?);
+        b = b.proxy(reqwest::Proxy::all(format!("socks5h://127.0.0.1:{socks_port}"))?.no_proxy(None));
     }
     Ok(b.build()?)
 }
@@ -130,7 +131,20 @@ async fn post(client: &reqwest::Client, base: &str, path: &str, body: serde_json
         .send()
         .await?
         .error_for_status()?;
-    Ok(res.text().await?)
+    read_limited(res, MAX_ANSWER).await
+}
+
+/// Moat's answers are a few kilobytes; a captive portal or a broken relay
+/// mustn't make the helper read without end.
+const MAX_ANSWER: usize = 1024 * 1024;
+
+async fn read_limited(mut res: reqwest::Response, max: usize) -> anyhow::Result<String> {
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await? {
+        anyhow::ensure!(body.len() + chunk.len() <= max, "bridges.torproject.org sent more than {} KB", max / 1024);
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8(body)?)
 }
 
 /// Lines for `kind`: what Moat hands out for this network, else the built-in ones.

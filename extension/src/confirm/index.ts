@@ -1,7 +1,7 @@
 // The confirm window: opened by the background for a torrent put up with
 // TORRENT_OPEN, it shows what the torrent is and starts it only on Download.
 import { formatBytes } from '../lib/downloads';
-import type { DlMessage, DlResult } from '../lib/messages';
+import type { BgBroadcast, DlMessage, DlResult } from '../lib/messages';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const token = new URLSearchParams(location.search).get('t') ?? '';
@@ -39,6 +39,7 @@ async function inspect(direct = false): Promise<void> {
     $('lookup').focus();
     return;
   }
+  if (!r.ok && r.waitTor) return waitForTor(() => void inspect(direct));
   if (!r.ok) return fail(r.error);
   $('looking').hidden = true;
   $('name').textContent = r.info.name;
@@ -50,14 +51,38 @@ async function inspect(direct = false): Promise<void> {
   download.focus();
 }
 
-download.addEventListener('click', async () => {
+/**
+ * The link goes through Tor, which is still connecting: wait for it, then
+ * `retry`. If Tor stops instead, say so.
+ */
+function waitForTor(retry: () => void): void {
+  $('looking').hidden = false;
+  $('lookingText').textContent = 'Waiting for Tor to connect: this link is fetched through Tor, never directly…';
+  const listener = (msg: BgBroadcast) => {
+    if (msg.type !== 'STATE') return;
+    if (msg.state.phase === 'on') {
+      chrome.runtime.onMessage.removeListener(listener);
+      $('lookingText').textContent = 'Looking up the torrent…';
+      retry();
+    } else if (msg.state.phase === 'off' || msg.state.phase === 'failed') {
+      chrome.runtime.onMessage.removeListener(listener);
+      fail('Tor stopped before it connected. Turn it on, then click the link again.');
+    }
+  };
+  chrome.runtime.onMessage.addListener(listener);
+}
+
+async function confirm(): Promise<void> {
   download.disabled = true;
   const r = await send({ type: 'TORRENT_CONFIRM', token });
+  if (!r.ok && r.waitTor) return waitForTor(() => void confirm());
   if (!r.ok) return fail(r.error);
   $('done').hidden = false;
   cancel.hidden = true;
   setTimeout(() => window.close(), 1200);
-});
+}
+
+download.addEventListener('click', () => void confirm());
 
 $('lookup').addEventListener('click', () => void inspect(true));
 

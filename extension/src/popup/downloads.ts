@@ -9,6 +9,7 @@ const rows = $<HTMLUListElement>('rows');
 const empty = $('empty');
 const error = $('dlError');
 const folder = $('folder');
+const dlInstall = $('dlInstall');
 const badge = $('badge');
 const addForm = $<HTMLFormElement>('addForm');
 const addInput = $<HTMLInputElement>('addInput');
@@ -89,6 +90,7 @@ function redraw(): void {
   badge.textContent = String(n);
   badge.hidden = n === 0;
   showError(last.helperMissing ? 'The Tortuga helper is not installed.' : last.error);
+  dlInstall.hidden = !last.helperMissing;
 }
 
 export function renderDownloads(state: DownloadsState): void {

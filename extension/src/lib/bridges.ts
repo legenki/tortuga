@@ -3,7 +3,22 @@ import type { BridgeKind, FetchedLines } from './protocol';
 
 export type LineKind = keyof BridgeLines;
 
-const ADDR = /^(\[[0-9a-f:]+\]|[0-9.]+|[a-z0-9.-]+):\d{1,5}$/i;
+/**
+ * `ip:port` as Tor's bridge lines have it: an IPv4 address or a bracketed
+ * IPv6 one (no host names: Arti takes neither), and a port from 1 to 65535.
+ */
+export function isBridgeAddr(addr: string): boolean {
+  const m = /^(?:(\d{1,3}(?:\.\d{1,3}){3})|\[([0-9a-f:.]+)\]):(\d{1,5})$/i.exec(addr);
+  if (!m) return false;
+  const port = Number(m[3]);
+  if (port < 1 || port > 65535) return false;
+  if (m[1]) return m[1].split('.').every(octet => Number(octet) <= 255);
+  try {
+    return new URL(`http://[${m[2]}]/`).hostname !== '';
+  } catch {
+    return false;
+  }
+}
 const FINGERPRINT = /^[0-9A-F]{40}$/i;
 
 /**
@@ -21,7 +36,7 @@ export function parseLines(kind: LineKind, text: string): { lines: string[]; err
     const [transport, addr, fingerprint] = line.split(/\s+/);
     const where = `Line ${i + 1}`;
     if (transport !== kind) errors.push(`${where}: starts with “${transport}”, expected “${kind}”`);
-    else if (!addr || !ADDR.test(addr)) errors.push(`${where}: no address:port after “${kind}”`);
+    else if (!addr || !isBridgeAddr(addr)) errors.push(`${where}: no IP address:port after “${kind}” (like 192.0.2.1:443 or [2001:db8::1]:443)`);
     else if (!fingerprint || !FINGERPRINT.test(fingerprint)) errors.push(`${where}: no 40-character fingerprint after the address`);
     else lines.push(`Bridge ${line}`);
   });
@@ -40,6 +55,17 @@ export function fetchedText(kind: LineKind, f: FetchedLines): string {
 /** Can Tor start with this bridge kind? obfs4 and WebTunnel need saved lines. */
 export function bridgeReady(kind: BridgeKind, saved: BridgeLines): boolean {
   return kind === 'none' || kind === 'snowflake' || saved[kind].length > 0;
+}
+
+/**
+ * New lines saved for the bridge Tor runs on, or is connecting or failing
+ * on: the lines to restart it with. Null when there is nothing to apply.
+ */
+export function linesToApply(tor: { phase: string; bridge: BridgeKind }, old: BridgeLines, next: BridgeLines): string[] | null {
+  if (tor.phase === 'off' || (tor.bridge !== 'obfs4' && tor.bridge !== 'webtunnel')) return null;
+  const lines = next[tor.bridge];
+  if (lines.length === 0 || JSON.stringify(lines) === JSON.stringify(old[tor.bridge])) return null;
+  return lines;
 }
 
 /** The lines to send to the helper for `kind` (Snowflake uses the helper's defaults). */

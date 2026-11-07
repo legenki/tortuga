@@ -2,6 +2,9 @@
 // extension sees them. Keep PROTOCOL_VERSION equal to the helper's.
 
 export const PROTOCOL_VERSION = 1;
+/** Where the helper's installers are. */
+export const HELPER_DOWNLOAD = 'https://github.com/legenki/tortuga/releases/latest';
+
 /** Native messaging host name, registered by the helper's installer. */
 export const HOST_NAME = 'org.tortuga.helper';
 

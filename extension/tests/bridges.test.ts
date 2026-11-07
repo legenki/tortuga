@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { bridgeReady, fetchedText, linesFor, parseLines } from '../src/lib/bridges';
+import { bridgeReady, fetchedText, isBridgeAddr, linesFor, linesToApply, parseLines } from '../src/lib/bridges';
 import { NO_LINES } from '../src/lib/messages';
 
 const OBFS4 = 'obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=YXJlIGZyZXF1ZW50bHkgZnVsbA iat-mode=0';
@@ -20,9 +20,26 @@ describe('parseLines', () => {
     expect(lines).toEqual([]);
     expect(errors).toEqual([
       'Line 1: starts with “webtunnel”, expected “obfs4”',
-      'Line 2: no address:port after “obfs4”',
+      'Line 2: no IP address:port after “obfs4” (like 192.0.2.1:443 or [2001:db8::1]:443)',
       'Line 3: no 40-character fingerprint after the address',
     ]);
+  });
+});
+
+describe('isBridgeAddr', () => {
+  it('takes IPv4 and bracketed IPv6 addresses with a port', () => {
+    expect(isBridgeAddr('192.0.2.55:38114')).toBe(true);
+    expect(isBridgeAddr('[2001:db8::1]:443')).toBe(true);
+    expect(isBridgeAddr('255.255.255.255:65535')).toBe(true);
+  });
+
+  it('refuses host names, impossible addresses and ports', () => {
+    expect(isBridgeAddr('example.com:443')).toBe(false);
+    expect(isBridgeAddr('999.999.999.999:443')).toBe(false);
+    expect(isBridgeAddr('192.0.2.1:0')).toBe(false);
+    expect(isBridgeAddr('192.0.2.1:99999')).toBe(false);
+    expect(isBridgeAddr('[not:an:ip:zz]:443')).toBe(false);
+    expect(isBridgeAddr('2001:db8::1:443')).toBe(false);
   });
 });
 
@@ -49,5 +66,24 @@ describe('bridgeReady / linesFor', () => {
   it('sends lines only for the transports that need them', () => {
     expect(linesFor('obfs4', saved)).toEqual([`Bridge ${OBFS4}`]);
     expect(linesFor('snowflake', saved)).toEqual([]);
+  });
+});
+
+describe('linesToApply', () => {
+  const old = { ...NO_LINES, obfs4: ['Bridge obfs4 a'] };
+  const next = { ...old, obfs4: ['Bridge obfs4 b'] };
+
+  it('restarts Tor running, connecting or failed on that bridge with the new lines', () => {
+    for (const phase of ['on', 'connecting', 'failed']) {
+      expect(linesToApply({ phase, bridge: 'obfs4' }, old, next)).toEqual(['Bridge obfs4 b']);
+    }
+  });
+
+  it('leaves Tor alone otherwise', () => {
+    expect(linesToApply({ phase: 'off', bridge: 'obfs4' }, old, next)).toBeNull();
+    expect(linesToApply({ phase: 'on', bridge: 'snowflake' }, old, next)).toBeNull();
+    expect(linesToApply({ phase: 'on', bridge: 'webtunnel' }, old, next)).toBeNull();
+    expect(linesToApply({ phase: 'on', bridge: 'obfs4' }, old, old)).toBeNull();
+    expect(linesToApply({ phase: 'on', bridge: 'obfs4' }, old, { ...old, obfs4: [] })).toBeNull();
   });
 });

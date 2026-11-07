@@ -29,6 +29,13 @@ describe('layoutMetro', () => {
     expect(s).toMatchObject({ kind: 'relay', label: 'Guard', sub: 'US', flag: '🇺🇸' });
   });
 
+  it('picks the exit by role, so a path with two middles shows the real exit', () => {
+    const four: Hop[] = [{ ...hops[0], role: 'guard' }, hops[1], { ...hops[1], id: 'middle2', country: 'NL' }, hops[2]];
+    const { stations } = layoutMetro({ ...on, bridge: 'none', hops: four });
+    expect(stations[2]).toMatchObject({ key: 'middle:middleid' });
+    expect(stations[3]).toMatchObject({ key: 'exit:exitid', sub: 'DE' });
+  });
+
   it('keys stations by relay, so a new circuit changes the keys', () => {
     const a = layoutMetro(on).stations.map(s => s.key);
     const b = layoutMetro({ ...on, hops: [hops[0], hops[1], { ...hops[2], id: 'otherexit' }] }).stations.map(s => s.key);

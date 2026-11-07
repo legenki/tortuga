@@ -1,4 +1,4 @@
-import { linesFor } from '../lib/bridges';
+import { linesFor, linesToApply } from '../lib/bridges';
 import { isTorrentLink, isTorrentSource } from '../lib/downloads';
 import {
   DOWNLOADS_KEY, LINES_KEY, NO_LINES, STORAGE_KEY,
@@ -101,7 +101,7 @@ async function runPending(token: string, run: typeof downloads.inspect, direct =
     case 'ask':
       return { ok: false, askDirect: true, error: 'Looking up a magnet link reveals your IP.' };
     case 'wait':
-      return { ok: false, error: TOR_NOT_READY };
+      return { ok: false, error: TOR_NOT_READY, waitTor: true };
     case 'tor':
       return result(() => run.call(downloads, p.source, route.via));
     case 'direct':
@@ -116,6 +116,15 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   // The user picked this link: any magnet or http(s) address will do.
   if (info.menuItemId === MENU_ID && info.linkUrl && isTorrentSource(info.linkUrl)) void openConfirm({ url: info.linkUrl }, tab);
+});
+
+// Lines saved on the settings page for the bridge Tor runs on (or tried to)
+// take effect at once, as choosing the bridge again would.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !(LINES_KEY in changes)) return;
+  const { oldValue, newValue } = changes[LINES_KEY];
+  const lines = linesToApply(controller.current, (oldValue as BridgeLines | undefined) ?? NO_LINES, (newValue as BridgeLines | undefined) ?? NO_LINES);
+  if (lines) void controller.turnOn(controller.current.bridge, lines);
 });
 
 /** Bridge lines saved on the settings page for `kind`. */

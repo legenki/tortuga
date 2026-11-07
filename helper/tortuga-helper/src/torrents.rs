@@ -104,11 +104,11 @@ fn tor_proxy_url(socks_port: u16, site: &str) -> anyhow::Result<reqwest::Url> {
 /// Fetch a `.torrent` file: through the Tor helper's SOCKS port as `site`
 /// when `via` is set (never directly then), else directly.
 pub async fn fetch(url: &str, via: Option<(u16, &str)>) -> anyhow::Result<Vec<u8>> {
-    let mut client = reqwest::Client::builder().timeout(FETCH_TIMEOUT);
-    match via {
-        Some((socks_port, site)) => client = client.proxy(reqwest::Proxy::all(tor_proxy_url(socks_port, site)?)?),
-        // reqwest would otherwise honour HTTP(S)_PROXY from the environment.
-        None => client = client.no_proxy(),
+    // No proxies from the environment either way (HTTP_PROXY, NO_PROXY…):
+    // Tor's port only, or none.
+    let mut client = reqwest::Client::builder().timeout(FETCH_TIMEOUT).no_proxy();
+    if let Some((socks_port, site)) = via {
+        client = client.proxy(reqwest::Proxy::all(tor_proxy_url(socks_port, site)?)?.no_proxy(None));
     }
     let mut res = client.build()?.get(url).send().await?.error_for_status()?;
     let mut body = Vec::new();
@@ -163,6 +163,14 @@ fn parse_id(id: &str) -> anyhow::Result<TorrentIdOrHash> {
     Ok(TorrentIdOrHash::Hash(Id20::from_str(id).map_err(|e| anyhow::anyhow!("bad torrent id {id}: {e}"))?))
 }
 
+
+/// Options for a download. `overwrite`: files already in the folder (kept
+/// when the torrent was removed earlier, or from an interrupted download)
+/// are opened as they are and checked piece by piece, not refused: without
+/// it librqbit creates every file anew and fails on one that exists.
+fn download_options() -> AddTorrentOptions {
+    AddTorrentOptions { overwrite: true, ..Default::default() }
+}
 
 /// How long a torrent may take to describe itself (a magnet needs peers).
 const INSPECT_WITHIN: std::time::Duration = std::time::Duration::from_secs(180);
@@ -228,7 +236,12 @@ impl Torrents {
     async fn inspect_now(&self, link: Link) -> anyhow::Result<TorrentInfo> {
         let (key, add, trackers) = match link {
             Link::Magnet(url) => {
-                let trackers = librqbit_core::magnet::Magnet::parse(&url).map(|m| m.trackers).unwrap_or_default();
+                let magnet = librqbit_core::magnet::Magnet::parse(&url).ok();
+                // Already in the list: describe it from there, without asking the swarm.
+                if let Some(handle) = magnet.as_ref().and_then(|m| m.as_id20()).and_then(|id| self.session.get(TorrentIdOrHash::Hash(id))) {
+                    return Ok(self.info_of(&handle));
+                }
+                let trackers = magnet.map(|m| m.trackers).unwrap_or_default();
                 (Some(url.clone()), AddTorrent::from_url(url), trackers)
             }
             Link::Web { url, via } => {
@@ -269,15 +282,15 @@ impl Torrents {
                 let opts = AddTorrentOptions {
                     trackers: (!p.trackers.is_empty()).then_some(p.trackers),
                     initial_peers: (!p.peers.is_empty()).then_some(p.peers),
-                    ..Default::default()
+                    ..download_options()
                 };
-                (AddTorrent::from_bytes(p.bytes), Some(opts))
+                (AddTorrent::from_bytes(p.bytes), opts)
             }
-            (None, Link::Magnet(url)) => (AddTorrent::from_url(url), None),
-            (None, Link::Web { url, via }) => (AddTorrent::from_bytes(fetch(&url, via.as_ref().map(|(p, s)| (*p, s.as_str()))).await?), None),
-            (None, Link::File(bytes)) => (AddTorrent::from_bytes(bytes), None),
+            (None, Link::Magnet(url)) => (AddTorrent::from_url(url), download_options()),
+            (None, Link::Web { url, via }) => (AddTorrent::from_bytes(fetch(&url, via.as_ref().map(|(p, s)| (*p, s.as_str()))).await?), download_options()),
+            (None, Link::File(bytes)) => (AddTorrent::from_bytes(bytes), download_options()),
         };
-        match self.session.add_torrent(add, opts).await? {
+        match self.session.add_torrent(add, Some(opts)).await? {
             AddTorrentResponse::Added(_, handle) | AddTorrentResponse::AlreadyManaged(_, handle) => Ok(self.info_of(&handle)),
             AddTorrentResponse::ListOnly(_) => anyhow::bail!("librqbit answered list-only to a download"),
         }
@@ -285,7 +298,9 @@ impl Torrents {
 
     pub async fn pause(&self, id: &str) -> anyhow::Result<()> {
         let handle = self.handle(id)?;
-        self.session.pause(&handle).await
+        self.session.pause(&handle).await?;
+        self.baselines.lock().unwrap().remove(&handle.info_hash().as_string());
+        Ok(())
     }
 
     /// Resume it; a finished one then shares one more copy from now on.
@@ -298,7 +313,9 @@ impl Torrents {
 
     /// Stop it (and its seeding); with `delete_files` its files go too.
     pub async fn remove(&self, id: &str, delete_files: bool) -> anyhow::Result<()> {
-        self.session.delete(parse_id(id)?, delete_files).await
+        self.session.delete(parse_id(id)?, delete_files).await?;
+        self.baselines.lock().unwrap().remove(&id.to_ascii_lowercase());
+        Ok(())
     }
 
     /// Pause every torrent that has shared enough (see `SHARE_RATIO`).
@@ -434,6 +451,12 @@ mod tests {
     }
 
     #[test]
+    fn downloads_take_files_already_there() {
+        assert!(download_options().overwrite);
+        assert!(!download_options().list_only);
+    }
+
+    #[test]
     fn ids_are_info_hashes() {
         assert!(parse_id("cab507494d02ebb1178b38f2e9d7be299c86b862").is_ok());
         assert!(parse_id("not-a-hash").is_err());
@@ -528,5 +551,33 @@ mod tests {
         let second = Torrents::open_with(dir.join("files"), dir.join("state"), offline).await;
         assert!(second.err().unwrap().to_string().contains("another browser"));
         drop(t);
+    }
+
+    /// A one-file torrent of "hello" (one piece), as bencode.
+    fn hello_torrent() -> Vec<u8> {
+        // SHA-1 of "hello".
+        let piece: [u8; 20] = [
+            0xaa, 0xf4, 0xc6, 0x1d, 0xdc, 0xc5, 0xe8, 0xa2, 0xda, 0xbe, 0xde, 0x0f, 0x3b, 0x48, 0x2c, 0xd9, 0xae, 0xa9, 0x43, 0x4d,
+        ];
+        let mut t = b"d4:infod6:lengthi5e4:name7:a.hello12:piece lengthi16384e6:pieces20:".to_vec();
+        t.extend_from_slice(&piece);
+        t.extend_from_slice(b"ee");
+        t
+    }
+
+    #[tokio::test]
+    async fn adding_again_takes_the_files_kept_from_before() {
+        let tmp = tempfile::tempdir().unwrap();
+        let offline = || SessionOptions { dht: None, listen: None, disable_local_service_discovery: true, ..Default::default() };
+        let t = Torrents::open_with(tmp.path().join("files"), tmp.path().join("state"), offline()).await.unwrap();
+        // Removed earlier with "Keep files": the file is still there.
+        std::fs::write(tmp.path().join("files/a.hello"), b"hello").unwrap();
+        let info = t.add(Link::File(hello_torrent())).await.unwrap();
+        assert_eq!(info.name, "a.hello");
+        assert_eq!(std::fs::read(tmp.path().join("files/a.hello")).unwrap(), b"hello");
+        // librqbit's own default refuses it.
+        t.remove(&info.id, false).await.unwrap();
+        let refused = t.session.add_torrent(AddTorrent::from_bytes(hello_torrent()), None).await;
+        assert!(refused.is_err());
     }
 }

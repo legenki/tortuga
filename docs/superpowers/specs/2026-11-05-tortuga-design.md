@@ -76,6 +76,13 @@ extension.
   user (or another user on a shared machine) can use Tor through it while it
   is open, and can name any site as its username. Accepted for a desktop
   helper; the port is random, on loopback only, and closed when Tor stops.
+- Hop roles count only real relays: an onion service circuit ends in a
+  virtual hop, which is left out; the popup takes the exit by role.
+- A bridge switch reconfigures the client before it is proven; until it
+  succeeds nothing counts as proven, so the next switch (even back to the
+  bridges before) is proven away from every bridge configured meanwhile.
+- Bridge lines saved on the settings page for the bridge Tor runs on (or is
+  connecting or failing on) restart it with them.
 - At most 1000 sites keep their isolation token and last path; past that an
   arbitrary one is forgotten (its next streams get new circuits). A bridge
   change forgets all of them, so no site keeps a circuit through the old
@@ -100,6 +107,12 @@ extension.
   instead of writing the same files.
 - Looking a torrent up (`torrent.inspect`) gives up after 3 minutes; closing
   the confirm window forgets its torrent.
+- What a lookup found (the `.torrent` file, a magnet's metadata, trackers and
+  peers) is kept for 30 minutes for its Download, so nothing is fetched or
+  asked twice. A download opens files already in the folder (kept when the
+  torrent was removed with "Keep files") and checks them, instead of refusing.
+- A `.torrent` link that has to go through Tor while Tor is still connecting
+  waits in the confirm window, and is looked up once Tor is on.
 - The session opens on the first torrent request, or on `torrent.open`, which
   the extension sends on startup when there were downloads, so they resume. The extension talks to it
   over a **second native port** — a second helper process — so downloads run
