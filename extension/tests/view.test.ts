@@ -27,6 +27,7 @@ describe('viewFor', () => {
   it('offers Restart after a failure but not for a missing helper', () => {
     const on = reduce(reduce(initialState(), { type: 'turnOn', bridge: 'none' }), { type: 'ready', socksPort: 1 });
     expect(viewFor(reduce(on, { type: 'failed', error: 'gone' }), 'default')).toMatchObject({ tone: 'alert', showRestart: true, metro: null });
-    expect(viewFor(reduce(on, { type: 'failed', error: 'x', helperMissing: true }), 'default')).toMatchObject({ status: 'Helper not installed', showRestart: false });
+    expect(viewFor(reduce(on, { type: 'failed', error: 'x', helperMissing: true }), 'default')).toMatchObject({ status: 'Helper not installed', showRestart: false, install: true });
+    expect(viewFor(reduce(on, { type: 'failed', error: 'gone' }), 'default').install).toBe(false);
   });
 });

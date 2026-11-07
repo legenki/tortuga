@@ -72,6 +72,23 @@ extension.
   a `circuit` event for the isolation key whenever the path differs from the
   last one sent.
 - Host names are resolved by Tor (SOCKS5 with domain names), never locally.
+- The port takes no password: Chrome can't send one. Any program of the same
+  user (or another user on a shared machine) can use Tor through it while it
+  is open, and can name any site as its username. Accepted for a desktop
+  helper; the port is random, on loopback only, and closed when Tor stops.
+- Hop roles count only real relays: an onion service circuit ends in a
+  virtual hop, which is left out; the popup takes the exit by role.
+- A bridge switch reconfigures the client before it is proven; until it
+  succeeds nothing counts as proven, so the next switch (even back to the
+  bridges before) is proven away from every bridge configured meanwhile.
+- Bridge lines saved on the settings page for the bridge Tor runs on (or is
+  connecting or failing on) restart it with them.
+- At most 1000 sites keep their isolation token and last path; past that an
+  arbitrary one is forgotten (its next streams get new circuits). A bridge
+  change forgets all of them, so no site keeps a circuit through the old
+  bridges or guard.
+- SOCKS errors can name visited sites, so they go to stderr (the browser's
+  log) only when `TORTUGA_DEBUG` is set.
 
 ### Torrents
 
@@ -81,20 +98,46 @@ extension.
   through Tor".
 - Files go to `~/Downloads/Tortuga/`, fixed in v1 and shown on the settings
   page.
-- A torrent seeds while it stays in the list; removing it stops seeding and
-  asks whether to delete the files.
-- The session opens on the first torrent request. The extension talks to it
+- A finished torrent shares until it has uploaded one copy of itself since it
+  last started, then pauses (the Downloads tab says "not sharing"; ▶ shares
+  one more copy). Removing it stops sharing and asks whether to delete the
+  files.
+- Only one helper at a time opens the torrent list (a lock file in its state
+  folder): another browser's helper says the downloads are open elsewhere
+  instead of writing the same files.
+- Looking a torrent up (`torrent.inspect`) gives up after 3 minutes; closing
+  the confirm window forgets its torrent.
+- What a lookup found (the `.torrent` file, a magnet's metadata, trackers and
+  peers) is kept for 30 minutes for its Download, so nothing is fetched or
+  asked twice. A download opens files already in the folder (kept when the
+  torrent was removed with "Keep files") and checks them, instead of refusing.
+- A `.torrent` link that has to go through Tor while Tor is still connecting
+  waits in the confirm window, and is looked up once Tor is on.
+- The session opens on the first torrent request, or on `torrent.open`, which
+  the extension sends on startup when there were downloads, so they resume. The extension talks to it
   over a **second native port** — a second helper process — so downloads run
   with Tor on or off and the two processes never share state.
 - A torrent's id is its info hash, stable across restarts.
 - `.torrent` URLs are fetched by the helper itself, without the browser's
   cookies: private trackers that need a login are not supported in v1.
+- Nothing about a torrent reaches the network before the user acts, and never
+  around Tor: the link catcher takes only trusted clicks; while Tor covers the
+  link (Firefox: Tor on; Chrome: Tor on and an Incognito tab, or unknown), a
+  `.torrent` URL goes to the torrent helper with `via: { socksPort, site }` and
+  is fetched through the Tor helper's SOCKS port, or refused while Tor isn't
+  ready; a magnet is looked up only after the confirm window asks, since its
+  lookup reaches peers and trackers from the user's IP. Helpers list
+  `torrent-via-tor` in their hello's `features`; the extension never sends
+  `via` to one that doesn't (an older helper would ignore it and fetch directly).
 
 ### Lifetime
 
 The browser starts the helper when the extension calls `connectNative` and
 ends it when the port closes. An open native port keeps Chrome's service
-worker alive. Closing the browser stops Tor and all downloads; on next start
+worker alive. Turning Tor on starts a helper; a bridge change or **Restart**
+after a failed start asks the same helper again (it switches its running
+client and proves the new bridges, see Known limitations); **Direct** closes
+it. Closing the browser stops Tor and all downloads; on next start
 unfinished torrents resume (the helper keeps its torrent list on disk).
 
 ## Protocol
@@ -104,7 +147,9 @@ request's `id`; events have none.
 
 The first message is `hello { protocol }`. If the helper's protocol version is
 not the one the extension expects, the popup asks to update the helper and the
-Tor switch stays off.
+Tor switch stays off. The reply is `hello { protocol, version, features }`:
+`features` lists additions to protocol 1 (`torrent-via-tor`, `torrent-open`);
+the extension uses one only when the helper lists it.
 
 Extension → helper:
 
@@ -116,13 +161,17 @@ Extension → helper:
 | `bridges.fetch` | `{ kind: 'obfs4' \| 'webtunnel' }` → reply `bridges.lines { lines, source: 'bridgedb' \| 'builtin', country, viaTor }`; failures → `error { code: 'bridges_failed' }` (Moat's "none needed here" is passed on as is, without retrying through Tor) |
 | `torrent.inspect` | `{ source: { url } \| { torrentFile: base64 } }` → reply `torrent.info { id, name, size, files, folder }`, nothing downloaded |
 | `torrent.add` | same `source` → reply `torrent.info` |
+| `torrent.open` | — → `ok` once the torrent list is open (saved downloads resume) |
 | `torrent.pause` / `torrent.resume` | `{ id }` → `ok` |
 | `torrent.remove` | `{ id, deleteFiles }` → `ok` |
 
 Replies: `tor.start` → `tor.ready { socksPort }`; `tor.stop` and
 `tor.newCircuit` → `ok`; any failure → `error { code, message }` with the
-request's `id`. Codes: `bad_request`, `hello_required`, `protocol_mismatch`,
-`tor_failed`, `not_running`.
+request's `id` (also for a request that didn't parse, when it has one).
+Codes: `bad_request`, `hello_required`, `protocol_mismatch`, `tor_failed`,
+`not_running`, `torrent_failed`, `bridges_failed`, `cancelled` (a newer
+`tor.start` or a `tor.stop` replaced this start), `internal` (the answer was
+too large to send).
 
 Helper → extension (events):
 
@@ -278,6 +327,6 @@ Known limitations (found while testing):
 
 ## Not in the first version
 
-Hosting `.onion` services, streaming video from torrents, seeding ratio
-limits, running the helper without the browser, routing torrents through a
+Hosting `.onion` services, streaming video from torrents, a configurable
+seeding ratio, running the helper without the browser, routing torrents through a
 proxy or VPN, localization beyond English.

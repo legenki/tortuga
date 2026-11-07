@@ -5,3 +5,7 @@ dist-firefox/
 target/
 *.zip
 .DS_Store
+
+# Python bytecode (helper/packaging tests)
+__pycache__/
+*.pyc

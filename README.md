@@ -111,13 +111,13 @@ Tortuga has no account, no analytics and no server of its own. It doesn't collec
 
 - **The Tor network.** While Tor is on, the helper connects to Tor relays, or to the bridge you picked, and your browsing goes through them.
 - **bridges.torproject.org**, only when you click **Get obfs4 lines** or **Get WebTunnel lines**. It goes through Tor when Tor is on.
-- **Torrent peers and trackers**, directly, only while you download or seed. A `.torrent` link is fetched by the helper, without your browser's cookies.
+- **Torrent peers and trackers**, directly, only while you download or share. A finished download shares until it has uploaded one copy, then stops. A `.torrent` link is fetched by the helper, without your browser's cookies, and through Tor while Tor covers the page it was on. While Tor is on, Tortuga asks before looking up a magnet link, since that reveals your IP to the swarm.
 
 The [privacy policy](PRIVACY.md) has the details.
 
 ## Build it yourself
 
-You need Node.js 20 or later for the extension, and Rust (stable) for the helper.
+You need Node.js 22 or later for the extension, and Rust (stable) and GnuPG (`gpg`) for the helper.
 
 **The helper:**
 
@@ -127,7 +127,7 @@ helper/scripts/fetch-pt.sh
 extension/scripts/register-dev-host.sh
 ```
 
-`fetch-pt.sh` downloads the bridge transports from the official Tor Expert Bundle and checks them against Tor's signed checksums. `register-dev-host.sh` installs the build for your user so the browser can start it. Run it again after each build.
+`fetch-pt.sh` downloads the bridge transports from the official Tor Expert Bundle and checks them against Tor's checksums, and the checksums against the Tor Browser Developers signing key kept in the repository. `register-dev-host.sh` installs the build for your user so the browser can start it. Run it again after each build.
 
 **The extension:**
 

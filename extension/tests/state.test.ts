@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BLACKHOLE_PORT, initialState, reduce, routedPort, type TorState } from '../src/lib/state';
+import { BLACKHOLE_PORT, MAX_CIRCUITS, initialState, reduce, routedPort, type TorState } from '../src/lib/state';
 import type { Circuit } from '../src/lib/protocol';
 
 const circuit: Circuit = { site: 'github.com', bridge: null, hops: [{ role: 'guard', id: 'g', addr: '192.0.2.1', country: 'DE' }] };
@@ -64,5 +64,17 @@ describe('routedPort', () => {
   it('blocks while connecting or failed', () => {
     expect(routedPort(reduce(initialState(), { type: 'turnOn', bridge: 'none' }))).toBe(BLACKHOLE_PORT);
     expect(routedPort(reduce(on(), { type: 'failed', error: 'x' }))).toBe(BLACKHOLE_PORT);
+  });
+
+  it('keeps the newest circuits only', () => {
+    let s = reduce(reduce(initialState(), { type: 'turnOn', bridge: 'none' }), { type: 'ready', socksPort: 9150 });
+    const circuit = (site: string) => ({ site, bridge: null, hops: [] });
+    for (let i = 0; i < MAX_CIRCUITS + 5; i++) s = reduce(s, { type: 'circuit', circuit: circuit(`site${i}.example`) });
+    expect(Object.keys(s.circuits)).toHaveLength(MAX_CIRCUITS);
+    expect(s.circuits['site0.example']).toBeUndefined();
+    // Seeing a site again makes it the newest.
+    s = reduce(s, { type: 'circuit', circuit: circuit('site10.example') });
+    s = reduce(s, { type: 'circuit', circuit: circuit('new.example') });
+    expect(s.circuits['site10.example']).toBeDefined();
   });
 });

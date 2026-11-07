@@ -24,6 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      # fetch-pt.sh checks Tor's signature on the transports with gpg.
+      - run: command -v gpg || brew install gnupg
       - name: Unit tests
         run: |
           (cd helper && cargo test -p tortuga-helper)
@@ -78,6 +80,9 @@ jobs:
         run: |
           (cd helper && cargo test -p tortuga-helper)
           python3 -m unittest discover -s helper/packaging
+      - name: Lint
+        if: matrix.runner == 'ubuntu-24.04'
+        run: cd helper && cargo clippy -p tortuga-helper --all-targets -- -D warnings
       - name: Package
         env:
           # The repository variable if set, else the owner's GitHub no-reply address.
@@ -131,6 +136,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - run: npm run typecheck
       - run: npm test
       - run: npm run package
       - run: npm run package:firefox

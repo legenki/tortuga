@@ -1,6 +1,6 @@
 // The Downloads tab: add a torrent (link or file), and one row per download
 // with progress, pause / resume and remove (keeping or deleting the files).
-import { activeCount, isTorrentLink, percent, rowLine } from '../lib/downloads';
+import { activeCount, isDone, isTorrentSource, percent, rowLine } from '../lib/downloads';
 import type { DlMessage, DownloadsState } from '../lib/messages';
 import type { TorrentRow } from '../lib/protocol';
 
@@ -9,6 +9,7 @@ const rows = $<HTMLUListElement>('rows');
 const empty = $('empty');
 const error = $('dlError');
 const folder = $('folder');
+const dlInstall = $('dlInstall');
 const badge = $('badge');
 const addForm = $<HTMLFormElement>('addForm');
 const addInput = $<HTMLInputElement>('addInput');
@@ -42,8 +43,12 @@ function rowNode(r: TorrentRow): HTMLLIElement {
   const name = Object.assign(document.createElement('span'), { className: 'row-name', textContent: r.name, title: r.name });
   const actions = document.createElement('span');
   actions.className = 'row-actions';
-  if (r.state === 'paused') actions.append(button('▶', 'Resume', () => void send({ type: 'TORRENT_RESUME', id: r.id })));
-  else if (r.state !== 'error') actions.append(button('⏸', 'Pause', () => void send({ type: 'TORRENT_PAUSE', id: r.id })));
+  if (r.state === 'paused') {
+    const label = isDone(r) ? 'Share again (one more copy, from your IP)' : 'Resume';
+    actions.append(button('▶', label, () => void send({ type: 'TORRENT_RESUME', id: r.id })));
+  } else if (r.state !== 'error') {
+    actions.append(button('⏸', r.state === 'seeding' ? 'Stop sharing' : 'Pause', () => void send({ type: 'TORRENT_PAUSE', id: r.id })));
+  }
   actions.append(button('✕', 'Remove', () => { removing = r.id; redraw(); }));
   head.append(name, actions);
 
@@ -85,6 +90,7 @@ function redraw(): void {
   badge.textContent = String(n);
   badge.hidden = n === 0;
   showError(last.helperMissing ? 'The Tortuga helper is not installed.' : last.error);
+  dlInstall.hidden = !last.helperMissing;
 }
 
 export function renderDownloads(state: DownloadsState): void {
@@ -96,7 +102,7 @@ export function renderDownloads(state: DownloadsState): void {
 addForm.addEventListener('submit', e => {
   e.preventDefault();
   const url = addInput.value.trim();
-  if (!isTorrentLink(url)) return showError('That is not a magnet or .torrent link.');
+  if (!isTorrentSource(url)) return showError('That is not a magnet or http(s) link.');
   showError(null);
   addInput.value = '';
   void send({ type: 'TORRENT_OPEN', source: { url } });

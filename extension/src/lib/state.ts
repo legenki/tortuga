@@ -34,6 +34,17 @@ export type TorEvent =
   | { type: 'circuit'; circuit: Circuit }
   | { type: 'failed'; error: string; helperMissing?: boolean };
 
+/** Sites whose last circuit is kept; the oldest go first. */
+export const MAX_CIRCUITS = 200;
+
+/** `circuits` with `c` as its site's newest entry, at most MAX_CIRCUITS long. */
+function withCircuit(circuits: Record<string, Circuit>, c: Circuit): Record<string, Circuit> {
+  const { [c.site]: _old, ...rest } = circuits;
+  const keys = Object.keys(rest);
+  const keep = keys.slice(Math.max(0, keys.length - (MAX_CIRCUITS - 1)));
+  return { ...Object.fromEntries(keep.map(k => [k, rest[k]])), [c.site]: c };
+}
+
 export function initialState(bridge: BridgeKind = 'none'): TorState {
   return { phase: 'off', bridge, percent: 0, stage: null, blocked: null, socksPort: null, error: null, helperMissing: false, helperVersion: null, circuits: {} };
 }
@@ -53,7 +64,7 @@ export function reduce(s: TorState, e: TorEvent): TorState {
     case 'ready':
       return s.phase === 'connecting' ? { ...s, phase: 'on', percent: 100, stage: 'ready', blocked: null, socksPort: e.socksPort } : s;
     case 'circuit':
-      return s.phase === 'on' ? { ...s, circuits: { ...s.circuits, [e.circuit.site]: e.circuit } } : s;
+      return s.phase === 'on' ? { ...s, circuits: withCircuit(s.circuits, e.circuit) } : s;
     case 'failed':
       return {
         ...s,

@@ -37,13 +37,3 @@ declare namespace chrome.proxy {
     ): void;
   };
 }
-
-// Firefox-only privacy settings.
-declare namespace chrome.privacy {
-  interface Websites {
-    resistFingerprinting: chrome.types.ChromeSetting;
-  }
-  interface Network {
-    peerConnectionEnabled: chrome.types.ChromeSetting;
-  }
-}

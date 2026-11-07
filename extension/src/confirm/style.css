@@ -32,3 +32,7 @@ h1 { font-size: 15px; }
 .btn { padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); cursor: pointer; font-weight: 600; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ask { display: grid; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 13px; }
+.ask p { margin: 0; }
+.ask .btn { justify-self: start; }

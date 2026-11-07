@@ -51,8 +51,19 @@ impl CircuitTracker {
         if self.last.get(site).is_some_and(|prev| prev == hops) {
             return false;
         }
+        if !self.last.contains_key(site) && self.last.len() >= crate::isolation::MAX_SITES {
+            // Forgetting one only means its path is sent again next time.
+            let some = self.last.keys().next().cloned();
+            if let Some(k) = some {
+                self.last.remove(&k);
+            }
+        }
         self.last.insert(site.to_owned(), hops.to_vec());
         true
+    }
+
+    pub fn clear(&mut self) {
+        self.last.clear();
     }
 }
 
@@ -88,5 +99,17 @@ mod tests {
         assert!(!t.observe("github.com", &a));
         assert!(t.observe("wikipedia.org", &a));
         assert!(t.observe("github.com", &b));
+        t.clear();
+        assert!(t.observe("github.com", &b));
+    }
+
+    #[test]
+    fn tracker_stays_bounded() {
+        let mut t = CircuitTracker::default();
+        let a = vec![hop(Role::Guard, "g")];
+        for i in 0..crate::isolation::MAX_SITES + 10 {
+            t.observe(&format!("site{i}.example"), &a);
+        }
+        assert_eq!(t.last.len(), crate::isolation::MAX_SITES);
     }
 }

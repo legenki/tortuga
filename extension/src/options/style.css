@@ -37,3 +37,6 @@ textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border
 .btn-small { padding: 4px 10px; font-size: 12px; }
 .btn:disabled { opacity: 0.6; cursor: progress; }
 #fetched.bad { color: var(--warn); }
+
+#installHelper { color: var(--focus); font-weight: 600; text-decoration: none; }
+#installHelper:hover { text-decoration: underline; }

@@ -2,6 +2,9 @@
 // extension sees them. Keep PROTOCOL_VERSION equal to the helper's.
 
 export const PROTOCOL_VERSION = 1;
+/** Where the helper's installers are. */
+export const HELPER_DOWNLOAD = 'https://github.com/legenki/tortuga/releases/latest';
+
 /** Native messaging host name, registered by the helper's installer. */
 export const HOST_NAME = 'org.tortuga.helper';
 
@@ -25,7 +28,12 @@ export interface Circuit {
   hops: Hop[];
 }
 
-export type ErrorCode = 'bad_request' | 'hello_required' | 'protocol_mismatch' | 'tor_failed' | 'not_running' | 'torrent_failed' | 'bridges_failed';
+export type ErrorCode =
+  | 'bad_request' | 'hello_required' | 'protocol_mismatch' | 'tor_failed' | 'not_running' | 'torrent_failed' | 'bridges_failed'
+  /** A newer tor.start or a tor.stop replaced this start. */
+  | 'cancelled'
+  /** The helper couldn't send its answer. */
+  | 'internal';
 
 /** Bridge lines from bridges.torproject.org (Moat). */
 export interface FetchedLines {
@@ -38,6 +46,17 @@ export interface FetchedLines {
 
 /** A torrent to fetch: a magnet or http(s) link to a `.torrent`, or the file itself (base64). */
 export type TorrentSource = { url: string } | { torrentFile: string };
+
+/** Fetch a `.torrent` link through Tor: the Tor helper's SOCKS port and the site whose circuits to use. */
+export interface TorrentVia {
+  socksPort: number;
+  site: string;
+}
+
+/** The hello feature that says the helper understands `via` on torrent requests. */
+export const FEATURE_TORRENT_VIA_TOR = 'torrent-via-tor';
+/** The hello feature that says the helper understands `torrent.open`. */
+export const FEATURE_TORRENT_OPEN = 'torrent-open';
 
 /** What the confirm window shows before a download starts. */
 export interface TorrentInfo {
@@ -66,7 +85,7 @@ export interface TorrentRow {
 
 /** Anything the helper sends: a reply (with id) or an event (without). */
 export type HelperMessage =
-  | { id?: number; type: 'hello'; payload: { protocol: number; version: string } }
+  | { id?: number; type: 'hello'; payload: { protocol: number; version: string; features?: string[] } }
   | { id?: number; type: 'ok' }
   | { id?: number; type: 'tor.status'; payload: { phase: Stage; percent: number; blocked: string | null } }
   | { id?: number; type: 'tor.ready'; payload: { socksPort: number } }
@@ -82,8 +101,9 @@ export type HelperRequest =
   | { type: 'tor.start'; payload: { bridge: { kind: BridgeKind; lines?: string[] } } }
   | { type: 'tor.stop' }
   | { type: 'tor.newCircuit'; payload: { site: string } }
-  | { type: 'torrent.inspect'; payload: { source: TorrentSource } }
-  | { type: 'torrent.add'; payload: { source: TorrentSource } }
+  | { type: 'torrent.inspect'; payload: { source: TorrentSource; via?: TorrentVia } }
+  | { type: 'torrent.add'; payload: { source: TorrentSource; via?: TorrentVia } }
+  | { type: 'torrent.open' }
   | { type: 'torrent.pause'; payload: { id: string } }
   | { type: 'torrent.resume'; payload: { id: string } }
   | { type: 'torrent.remove'; payload: { id: string; deleteFiles: boolean } }

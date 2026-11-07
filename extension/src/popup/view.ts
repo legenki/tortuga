@@ -16,12 +16,14 @@ export interface View {
   metro: MetroInput | null;
   /** "Exit relay 185.220.101.3 · DE" for the active tab's circuit. */
   exit: string | null;
+  /** Show the link to the helper's installers. */
+  install: boolean;
 }
 
 export const BRIDGE_NAMES = { none: 'no bridge', snowflake: 'Snowflake', obfs4: 'obfs4', webtunnel: 'WebTunnel' } as const;
 
 export function viewFor(s: TorState, site: string): View {
-  const base: View = { torSelected: s.phase !== 'off', tone: 'off', status: '', note: null, showRestart: false, canNewCircuit: false, metro: null, exit: null };
+  const base: View = { torSelected: s.phase !== 'off', tone: 'off', status: '', note: null, showRestart: false, canNewCircuit: false, metro: null, exit: null, install: false };
   switch (s.phase) {
     case 'off':
       return { ...base, status: 'Direct — Tortuga is off', note: s.error };
@@ -53,6 +55,7 @@ export function viewFor(s: TorState, site: string): View {
         status: s.helperMissing ? 'Helper not installed' : 'Tor stopped — traffic is blocked',
         note: s.error,
         showRestart: !s.helperMissing,
+        install: s.helperMissing,
       };
   }
 }

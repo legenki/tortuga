@@ -5,7 +5,7 @@ import type { Stored } from '../src/lib/messages';
 import { BLACKHOLE_PORT, type TorState } from '../src/lib/state';
 import { FakePort, flush } from './fake-port';
 
-function setup(opts: { incognito?: boolean; lastError?: string; routeError?: string } = {}) {
+function setup(opts: { incognito?: boolean; lastError?: string; routeError?: string; clearError?: string } = {}) {
   const ports: FakePort[] = [];
   const routes: (number | null)[] = [];
   const privacy: boolean[] = [];
@@ -19,6 +19,7 @@ function setup(opts: { incognito?: boolean; lastError?: string; routeError?: str
     },
     applyRoute: async p => {
       if (opts.routeError) throw new Error(opts.routeError);
+      if (p === null && opts.clearError) throw new Error(opts.clearError);
       routes.push(p);
     },
     applyPrivacy: async on => void privacy.push(on),
@@ -68,9 +69,66 @@ describe('Controller', () => {
     await c.turnOn('none');
     await boot(ports[0]);
     await c.chooseBridge('snowflake');
-    expect(ports).toHaveLength(2);
-    expect(ports[0].disconnected).toBe(true);
+    await flush();
+    // The same helper switches its running client; no second hello.
+    expect(ports).toHaveLength(1);
+    expect(ports[0].disconnected).toBe(false);
+    expect(ports[0].sent.filter(m => m.type === 'hello')).toHaveLength(1);
+    expect(ports[0].sent.at(-1)).toMatchObject({ type: 'tor.start', payload: { bridge: { kind: 'snowflake' } } });
     expect(c.current).toMatchObject({ phase: 'connecting', bridge: 'snowflake' });
+    ports[0].emit({ id: ports[0].idOf('tor.start'), type: 'tor.ready', payload: { socksPort: 9151 } });
+    await flush();
+    expect(c.current).toMatchObject({ phase: 'on', socksPort: 9151 });
+  });
+
+  it('ignores the answer to a start that a bridge change replaced', async () => {
+    const { c, ports } = setup();
+    await c.turnOn('none');
+    await flush();
+    ports[0].emit({ id: ports[0].idOf('hello'), type: 'hello', payload: { protocol: 1, version: '0.1.0' } });
+    await flush();
+    const first = ports[0].idOf('tor.start');
+    await c.chooseBridge('snowflake');
+    await flush();
+    ports[0].emit({ id: first, type: 'error', payload: { code: 'cancelled', message: 'replaced by a newer request' } });
+    await flush();
+    await flush();
+    expect(c.current).toMatchObject({ phase: 'connecting', bridge: 'snowflake', error: null });
+  });
+
+  it('Restart after Tor failed asks the same helper again', async () => {
+    const { c, ports } = setup();
+    await c.turnOn('none');
+    await flush();
+    ports[0].emit({ id: ports[0].idOf('hello'), type: 'hello', payload: { protocol: 1, version: '0.1.0' } });
+    await flush();
+    ports[0].emit({ id: ports[0].idOf('tor.start'), type: 'error', payload: { code: 'tor_failed', message: 'no route' } });
+    await flush();
+    await flush();
+    expect(c.current.phase).toBe('failed');
+    await c.turnOn('none');
+    await flush();
+    expect(ports).toHaveLength(1);
+    expect(ports[0].sent.filter(m => m.type === 'tor.start')).toHaveLength(2);
+  });
+
+  it('Restart after the helper died connects a new one', async () => {
+    const { c, ports } = setup({ lastError: 'Native host has exited.' });
+    await c.turnOn('none');
+    await boot(ports[0]);
+    ports[0].die();
+    await flush();
+    await c.turnOn('none');
+    expect(ports).toHaveLength(2);
+  });
+
+  it('does not claim Direct when the browser refuses to release the proxy', async () => {
+    const { c, ports } = setup({ clearError: 'policy' });
+    await c.turnOn('none');
+    await boot(ports[0]);
+    await c.turnOff();
+    expect(c.current.phase).toBe('failed');
+    expect(c.current.error).toContain('refused to release');
   });
 
   it('asks for bridge lines only while Tor is on', async () => {

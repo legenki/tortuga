@@ -81,7 +81,11 @@ function progress(input: MetroInput): { lit: number; pending: number | null } {
 
 export function layoutMetro(input: MetroInput): MetroModel {
   const { lit, pending } = progress(input);
-  const [first, middle, exit] = input.hops ?? [];
+  // By role, not position: a path can have two middles (onion services).
+  const hops = input.hops ?? [];
+  const first = hops[0];
+  const middle = hops.find(h => h.role === 'middle');
+  const exit = hops.find(h => h.role === 'exit');
   const viaBridge = input.bridge !== 'none';
   const relay = (h: Hop | undefined, role: string, fallback: string) => ({
     key: h ? `${role}:${h.id}` : role,

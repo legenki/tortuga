@@ -6969,7 +6969,7 @@ dependencies = [
 
 [[package]]
 name = "tortuga-helper"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arti-client",
@@ -6981,6 +6981,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tor-geoip",
  "tor-linkspec",

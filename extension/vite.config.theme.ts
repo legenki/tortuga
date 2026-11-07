@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { define, outDir } from './vite.target';
+import { define, outDir } from './vite.target.ts';
 
 // theme.js runs as a classic script in the popup's <head>, before the first paint.
 export default defineConfig({
@@ -9,6 +9,6 @@ export default defineConfig({
   build: {
     outDir,
     emptyOutDir: false,
-    lib: { entry: resolve(__dirname, 'src/lib/theme-boot.ts'), formats: ['iife'], name: 'theme', fileName: () => 'theme.js' },
+    lib: { entry: resolve(import.meta.dirname, 'src/lib/theme-boot.ts'), formats: ['iife'], name: 'theme', fileName: () => 'theme.js' },
   },
 });

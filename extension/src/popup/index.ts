@@ -15,6 +15,7 @@ const status = $('status');
 const statusText = $('statusText');
 const note = $('note');
 const exit = $('exit');
+const install = $('install');
 const bridgeBtn = $<HTMLButtonElement>('bridgeBtn');
 const bridgeName = $('bridgeName');
 const bridges = $('bridges');
@@ -56,6 +57,7 @@ function render(s: TorState): void {
   exit.textContent = v.exit ?? '';
   exit.hidden = !v.exit;
   restart.hidden = !v.showRestart;
+  install.hidden = !v.install;
   newCircuit.disabled = !v.canNewCircuit;
   bridgeName.textContent = capitalized(BRIDGE_NAMES[s.bridge]);
   metro.toggleAttribute('hidden', !v.metro);

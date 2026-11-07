@@ -48,12 +48,15 @@ export class Controller {
     return routedPort(this.state);
   }
 
-  /** `lines`: bridge lines for obfs4 / WebTunnel (Snowflake uses the bundled defaults). */
+  /**
+   * `lines`: bridge lines for obfs4 / WebTunnel (Snowflake uses the bundled
+   * defaults). A helper that is still connected (a bridge change, or Restart
+   * after Tor failed) is asked again: it switches its running client over and
+   * proves the new bridges answer before it says ready.
+   */
   turnOn(bridge: BridgeKind, lines: string[] = []): Promise<TorState> {
     return this.serial(async () => {
       const gen = ++this.generation;
-      this.helper?.close();
-      this.helper = null;
       await this.commit({ type: 'turnOn', bridge });
       await this.deps.save({ enabled: true, bridge });
       if (!(await this.deps.incognitoAllowed())) {
@@ -61,14 +64,20 @@ export class Controller {
         return this.state;
       }
       if (this.state.phase === 'failed') return this.state; // the browser refused the route
-      const helper = this.deps.connect(
-        m => void this.serial(() => this.onEvent(m)),
-        reason => void this.serial(() => this.onGone(helper, reason)),
-      );
-      this.helper = helper;
-      void this.start(helper, bridge, lines, gen);
+      const fresh = this.helper === null;
+      const helper = this.helper ?? this.connect();
+      void this.start(helper, bridge, lines, gen, fresh);
       return this.state;
     });
+  }
+
+  private connect(): HelperClient {
+    const helper: HelperClient = this.deps.connect(
+      m => void this.serial(() => this.onEvent(m)),
+      reason => void this.serial(() => this.onGone(helper, reason)),
+    );
+    this.helper = helper;
+    return helper;
   }
 
   turnOff(): Promise<TorState> {
@@ -110,13 +119,16 @@ export class Controller {
     });
   }
 
-  private async start(helper: HelperClient, bridge: BridgeKind, lines: string[], gen: number): Promise<void> {
+  /** `fresh`: a new helper, which needs a hello first. */
+  private async start(helper: HelperClient, bridge: BridgeKind, lines: string[], gen: number, fresh: boolean): Promise<void> {
     try {
-      const hello = await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
-      if (hello.type === 'hello') {
-        await this.serial(async () => {
-          if (gen === this.generation) await this.commit({ type: 'hello', version: hello.payload.version });
-        });
+      if (fresh) {
+        const hello = await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
+        if (hello.type === 'hello') {
+          await this.serial(async () => {
+            if (gen === this.generation) await this.commit({ type: 'hello', version: hello.payload.version });
+          });
+        }
       }
       const kind = { kind: bridge, ...(lines.length ? { lines } : {}) };
       const reply = await helper.request({ type: 'tor.start', payload: { bridge: kind } });
@@ -163,8 +175,13 @@ export class Controller {
       } catch (e) {
         // Say so rather than wait forever. A state that already failed keeps
         // its own reason (Chrome without Incognito access can't set either).
-        if (this.state.phase !== 'failed') {
-          this.state = reduce(this.state, { type: 'failed', error: `The browser refused the proxy setting: ${(e as Error).message}` });
+        const why = (e as Error).message;
+        if (this.state.phase === 'off') {
+          // Releasing failed: traffic still goes to Tortuga's proxy, not out
+          // directly. Don't claim Direct; Direct again retries.
+          this.state = { ...this.state, phase: 'failed', error: `The browser refused to release the proxy setting: ${why}. Traffic stays blocked; choose Direct to try again.` };
+        } else if (this.state.phase !== 'failed') {
+          this.state = reduce(this.state, { type: 'failed', error: `The browser refused the proxy setting: ${why}` });
         }
         this.deps.broadcast(this.state);
         return;

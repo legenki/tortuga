@@ -51,6 +51,59 @@ pub fn proves_switch(first: IpAddr, new: &[IpAddr], old: &[IpAddr]) -> bool {
     if new.is_empty() { !old.contains(&first) } else { new.contains(&first) }
 }
 
+/// Bridges a client was proven to run through.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Proven {
+    pub kind: BridgeKind,
+    /// Their addresses (empty without bridges).
+    pub addrs: Vec<IpAddr>,
+}
+
+/// What a client is known to run through. A switch reconfigures the client
+/// before it is proven, so from then until it succeeds nothing is settled,
+/// and every bridge configured meanwhile (a switch that failed or was
+/// cancelled half way) may still carry circuits. The next switch, even back
+/// to the bridges proven before, is proven away from all of them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Switches {
+    /// The bridges last proven, while settled.
+    proven: Option<Proven>,
+    /// Bridge addresses configured since then.
+    tried: Vec<IpAddr>,
+}
+
+impl Switches {
+    pub fn settled(kind: BridgeKind, addrs: Vec<IpAddr>) -> Self {
+        Self { proven: Some(Proven { kind, addrs }), tried: Vec::new() }
+    }
+
+    /// Begin a switch to `new` (call before reconfiguring): the addresses to
+    /// prove it away from, or None when the client already runs, proven, on
+    /// exactly these. Unsettled until `settle`.
+    pub fn begin(&mut self, new: &[IpAddr]) -> Option<Vec<IpAddr>> {
+        let last = self.proven.take();
+        let needs_proof = last.as_ref().is_none_or(|p| p.addrs != new);
+        if let Some(p) = last {
+            self.tried.extend(p.addrs);
+        }
+        let mut old: Vec<IpAddr> = self.tried.iter().copied().filter(|a| !new.contains(a)).collect();
+        old.sort();
+        old.dedup();
+        self.tried.extend_from_slice(new);
+        needs_proof.then_some(old)
+    }
+
+    /// The switch succeeded: the client runs through these.
+    pub fn settle(&mut self, kind: BridgeKind, addrs: Vec<IpAddr>) {
+        *self = Self::settled(kind, addrs);
+    }
+
+    /// The bridge kind proven, `None` while unsettled (no SOCKS port is open then).
+    pub fn kind(&self) -> BridgeKind {
+        self.proven.as_ref().map_or(BridgeKind::None, |p| p.kind)
+    }
+}
+
 /// Arti reports one fraction: 15 % for reaching the first hop, 85 % for the
 /// directory. The phases follow that split.
 pub fn phase_for(frac: f32, ready: bool) -> Phase {
@@ -74,9 +127,8 @@ fn status_event(s: &BootstrapStatus) -> Outgoing {
 
 pub struct Tor {
     client: Arc<TorClient<PreferredRuntime>>,
-    bridge: Mutex<BridgeKind>,
-    /// The current bridges' addresses (empty without bridges).
-    bridge_addrs: Mutex<Vec<IpAddr>>,
+    /// What the client is known to run through.
+    switches: Mutex<Switches>,
     geoip: Arc<GeoipDb>,
     isolation: Mutex<IsolationMap>,
     tracker: Mutex<CircuitTracker>,
@@ -90,8 +142,8 @@ impl Tor {
         let client = TorClient::builder().config(config).create_unbootstrapped()?;
         let tor = Arc::new(Self {
             client,
-            bridge: Mutex::new(bridge),
-            bridge_addrs: Mutex::new(bridge_addrs(lines)),
+            // Only stored once bootstrap succeeds below.
+            switches: Mutex::new(Switches::settled(bridge, bridge_addrs(lines))),
             geoip: GeoipDb::new_embedded(),
             isolation: Mutex::default(),
             tracker: Mutex::default(),
@@ -104,18 +156,28 @@ impl Tor {
     /// Switch an existing client to a new bridge choice and wake it up. Done
     /// only once a circuit runs the new way: the directory is cached, so Arti
     /// says it's ready at once, before the new bridges have answered.
+    ///
+    /// Every site then gets fresh circuits: ones kept from before the change
+    /// may run through the old bridges or guard.
+    ///
+    /// What is proven changes only at the end, after success: a switch that
+    /// fails or is cancelled (a newer start, a stop) leaves the last proven
+    /// bridges, so trying the same new ones again proves them again.
     pub async fn restart(&self, config: &TorClientConfig, bridge: BridgeKind, lines: &[String]) -> anyhow::Result<()> {
-        let old = std::mem::replace(&mut *self.bridge_addrs.lock().unwrap(), bridge_addrs(lines));
+        let new = bridge_addrs(lines);
+        let prove_against = self.switches.lock().unwrap().begin(&new);
         self.client.reconfigure(config, Reconfigure::AllOrNothing)?;
-        *self.bridge.lock().unwrap() = bridge;
+        self.isolation.lock().unwrap().clear();
+        self.tracker.lock().unwrap().clear();
         self.client.set_dormant(DormantMode::Normal);
-        let new = self.bridge_addrs.lock().unwrap().clone();
-        if new != old {
+        if let Some(old) = prove_against {
             // The connecting diagram shows "reaching the first hop" meanwhile.
             let _ = self.events.send(Message::event(Outgoing::TorStatus { phase: Phase::Bridge, percent: 10, blocked: None }));
             self.prove(&new, &old).await?;
         }
-        self.bootstrap().await
+        self.bootstrap().await?;
+        self.switches.lock().unwrap().settle(bridge, new);
+        Ok(())
     }
 
     /// Open test streams on fresh circuits until one runs the new way.
@@ -124,10 +186,10 @@ impl Tor {
         loop {
             let mut prefs = StreamPrefs::new();
             prefs.set_isolation(IsolationToken::new());
-            if let Ok(Ok(stream)) = tokio::time::timeout(PROBE_ATTEMPT, self.client.connect_with_prefs(PROBE, &prefs)).await {
-                if first_hop_ip(&stream).is_some_and(|ip| proves_switch(ip, new, old)) {
-                    return Ok(());
-                }
+            if let Ok(Ok(stream)) = tokio::time::timeout(PROBE_ATTEMPT, self.client.connect_with_prefs(PROBE, &prefs)).await
+                && first_hop_ip(&stream).is_some_and(|ip| proves_switch(ip, new, old))
+            {
+                return Ok(());
             }
             anyhow::ensure!(
                 Instant::now() < deadline,
@@ -168,19 +230,22 @@ impl Tor {
     fn hops_of(&self, stream: &DataStream) -> Option<Vec<Hop>> {
         let tunnel = stream.client_stream_ctrl()?.tunnel()?;
         let path = tunnel.all_paths().into_iter().next()?;
-        let via_bridge = *self.bridge.lock().unwrap() != BridgeKind::None;
-        let roles = roles_for(path.n_hops(), via_bridge);
+        let via_bridge = self.switches.lock().unwrap().kind() != BridgeKind::None;
+        // Only hops that are relays: an onion service circuit ends in a
+        // virtual hop, which must not take the exit's place in the roles.
+        let targets: Vec<_> = path.iter().filter_map(|hop| hop.as_chan_target()).collect();
+        let roles = roles_for(targets.len(), via_bridge);
         Some(
-            path.iter()
+            targets
+                .into_iter()
                 .zip(roles)
-                .filter_map(|(hop, role)| {
-                    let target = hop.as_chan_target()?;
+                .map(|(target, role)| {
                     let ip = target.addrs().next().map(|a| a.ip());
                     let country = ip
                         .and_then(|ip| self.geoip.lookup_country_code(ip))
                         .map(|c| c.get().to_string());
                     let id = target.ed_identity().map(|e| e.to_string()).unwrap_or_default();
-                    Some(Hop { role, id, addr: ip.map(|ip| ip.to_string()), country })
+                    Hop { role, id, addr: ip.map(|ip| ip.to_string()), country }
                 })
                 .collect(),
         )
@@ -209,12 +274,12 @@ impl Connector for Arc<Tor> {
                 .connect_with_prefs((req.host.as_str(), req.port), &prefs)
                 .await
                 .map_err(io::Error::other)?;
-            if let Some(hops) = tor.hops_of(&stream) {
-                if tor.tracker.lock().unwrap().observe(&req.site, &hops) {
-                    let bridge = *tor.bridge.lock().unwrap();
-                    let bridge = (bridge != BridgeKind::None).then_some(bridge);
-                    let _ = tor.events.send(Message::event(Outgoing::Circuit { site: req.site.clone(), bridge, hops }));
-                }
+            if let Some(hops) = tor.hops_of(&stream)
+                && tor.tracker.lock().unwrap().observe(&req.site, &hops)
+            {
+                let bridge = tor.switches.lock().unwrap().kind();
+                let bridge = (bridge != BridgeKind::None).then_some(bridge);
+                let _ = tor.events.send(Message::event(Outgoing::Circuit { site: req.site.clone(), bridge, hops }));
             }
             Ok(stream)
         }
@@ -247,6 +312,42 @@ mod tests {
             "Bridge nonsense".to_string(),
         ];
         assert_eq!(bridge_addrs(&lines), vec![ip("212.83.43.95"), ip("192.0.2.3"), ip("2001:db8::1")]);
+    }
+
+    #[test]
+    fn a_switch_to_the_proven_bridges_needs_no_proof() {
+        let snowflake = vec![ip("192.0.2.3")];
+        let mut s = Switches::settled(BridgeKind::Snowflake, snowflake.clone());
+        assert_eq!(s.begin(&snowflake), None);
+        s.settle(BridgeKind::Snowflake, snowflake);
+        assert_eq!(s.kind(), BridgeKind::Snowflake);
+    }
+
+    #[test]
+    fn a_failed_or_cancelled_switch_is_proven_again() {
+        let snowflake = vec![ip("192.0.2.3")];
+        let obfs4 = vec![ip("212.83.43.95")];
+        let mut s = Switches::settled(BridgeKind::Snowflake, snowflake.clone());
+        assert_eq!(s.begin(&obfs4), Some(snowflake.clone()));
+        // It failed or was cancelled: trying obfs4 again is proven again (it
+        // used to be skipped, and the cached directory made it "ready"
+        // through bridges that never answered).
+        assert_eq!(s.begin(&obfs4), Some(snowflake));
+        assert_eq!(s.kind(), BridgeKind::None);
+    }
+
+    #[test]
+    fn going_back_after_a_cancelled_switch_is_proven_away_from_it() {
+        // No bridge, then obfs4 cancelled after the client was reconfigured,
+        // then no bridge again: the client may hold circuits through obfs4,
+        // so the way back is proven not to run through it.
+        let obfs4 = vec![ip("212.83.43.95")];
+        let mut s = Switches::settled(BridgeKind::None, vec![]);
+        assert_eq!(s.begin(&obfs4), Some(vec![]));
+        assert_eq!(s.begin(&[]), Some(obfs4.clone()));
+        s.settle(BridgeKind::None, vec![]);
+        // Settled: what was tried is forgotten.
+        assert_eq!(s.begin(&[]), None);
     }
 
     #[test]

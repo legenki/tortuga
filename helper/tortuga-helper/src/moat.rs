@@ -5,6 +5,7 @@
 //!   list where it isn't;
 //! - `circumvention/builtin` lists the public built-in bridges (obfs4 and
 //!   Snowflake, no WebTunnel).
+//!
 //! Requests go directly, or through Tor's own SOCKS port when the direct way
 //! is blocked and Tor already runs (e.g. on Snowflake).
 
@@ -74,8 +75,12 @@ struct SettingBridges {
     bridge_strings: Option<Vec<String>>,
 }
 
-/// Lines of `kind` in a `settings` answer, with their source; None when there are none.
-pub fn lines_from_settings(answer: &str, kind: LineKind) -> anyhow::Result<(Option<(Vec<String>, String)>, Option<String>)> {
+/// Lines found in a `settings` answer, and their source.
+pub type Found = Option<(Vec<String>, String)>;
+
+/// Lines of `kind` in a `settings` answer, with their source (None when there
+/// are none), and the country Moat saw.
+pub fn lines_from_settings(answer: &str, kind: LineKind) -> anyhow::Result<(Found, Option<String>)> {
     let a: SettingsAnswer = serde_json::from_str(answer)?;
     let found = a.settings.unwrap_or_default().into_iter().find_map(|s| {
         let lines = s.bridges.bridge_strings.unwrap_or_default();
@@ -109,10 +114,11 @@ fn dedup(lines: Vec<String>) -> Vec<String> {
 }
 
 fn client(route: Route) -> anyhow::Result<reqwest::Client> {
-    let mut b = reqwest::Client::builder().timeout(TIMEOUT);
+    // No proxies from the environment either way: Tor's port only, or none.
+    let mut b = reqwest::Client::builder().timeout(TIMEOUT).no_proxy();
     if let Route::Tor { socks_port } = route {
         // socks5h: the name is resolved by Tor, not locally.
-        b = b.proxy(reqwest::Proxy::all(format!("socks5h://127.0.0.1:{socks_port}"))?);
+        b = b.proxy(reqwest::Proxy::all(format!("socks5h://127.0.0.1:{socks_port}"))?.no_proxy(None));
     }
     Ok(b.build()?)
 }
@@ -125,7 +131,20 @@ async fn post(client: &reqwest::Client, base: &str, path: &str, body: serde_json
         .send()
         .await?
         .error_for_status()?;
-    Ok(res.text().await?)
+    read_limited(res, MAX_ANSWER).await
+}
+
+/// Moat's answers are a few kilobytes; a captive portal or a broken relay
+/// mustn't make the helper read without end.
+const MAX_ANSWER: usize = 1024 * 1024;
+
+async fn read_limited(mut res: reqwest::Response, max: usize) -> anyhow::Result<String> {
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await? {
+        anyhow::ensure!(body.len() + chunk.len() <= max, "bridges.torproject.org sent more than {} KB", max / 1024);
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8(body)?)
 }
 
 /// Lines for `kind`: what Moat hands out for this network, else the built-in ones.

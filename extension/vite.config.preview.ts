@@ -5,8 +5,8 @@ import { resolve } from 'path';
 //   npm run preview:metro && npx vite preview --config vite.config.preview.ts
 export default defineConfig({
   define: { __TARGET__: JSON.stringify('firefox') },
-  root: resolve(__dirname, 'dev'),
-  publicDir: resolve(__dirname, 'public'),
-  build: { outDir: resolve(__dirname, 'dist-preview'), emptyOutDir: true },
+  root: resolve(import.meta.dirname, 'dev'),
+  publicDir: resolve(import.meta.dirname, 'public'),
+  build: { outDir: resolve(import.meta.dirname, 'dist-preview'), emptyOutDir: true },
   preview: { port: 4174 },
 });
