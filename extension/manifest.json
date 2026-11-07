@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tortuga",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Routes Incognito windows through Tor with the Tortuga helper, and downloads torrents. Hides your IP; it is not Tor Browser.",
   "icons": {
     "16": "icons/icon-16.png",
