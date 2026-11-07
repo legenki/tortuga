@@ -10,6 +10,11 @@ use crate::torrents::{Progress, Source, TorrentInfo};
 /// Bumped whenever a message changes incompatibly.
 pub const PROTOCOL_VERSION: u32 = 1;
 
+/// Additions to protocol 1 this helper understands, listed in its hello so the
+/// extension never relies on one an older helper would silently ignore.
+/// `torrent-via-tor`: `via` on `torrent.inspect` / `torrent.add`.
+pub const FEATURES: &[&str] = &["torrent-via-tor"];
+
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Request {
     pub id: u64,
@@ -29,9 +34,17 @@ pub enum RequestBody {
     #[serde(rename = "tor.newCircuit")]
     TorNewCircuit { site: String },
     #[serde(rename = "torrent.inspect")]
-    TorrentInspect { source: SourceMsg },
+    TorrentInspect {
+        source: SourceMsg,
+        #[serde(default)]
+        via: Option<Via>,
+    },
     #[serde(rename = "torrent.add")]
-    TorrentAdd { source: SourceMsg },
+    TorrentAdd {
+        source: SourceMsg,
+        #[serde(default)]
+        via: Option<Via>,
+    },
     #[serde(rename = "torrent.pause")]
     TorrentPause { id: String },
     #[serde(rename = "torrent.resume")]
@@ -63,6 +76,15 @@ impl SourceMsg {
             SourceMsg::File { torrent_file } => Ok(Source::File(base64::engine::general_purpose::STANDARD.decode(torrent_file)?)),
         }
     }
+}
+
+/// Fetch a `.torrent` link through Tor: the Tor helper's SOCKS port, and the
+/// site whose circuits to use. Without it the link is fetched directly.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Via {
+    pub socks_port: u16,
+    pub site: String,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -104,7 +126,7 @@ pub struct Message {
 #[serde(tag = "type", content = "payload")]
 pub enum Outgoing {
     #[serde(rename = "hello")]
-    Hello { protocol: u32, version: String },
+    Hello { protocol: u32, version: String, features: Vec<&'static str> },
     #[serde(rename = "ok")]
     Ok,
     #[serde(rename = "tor.status")]
@@ -180,11 +202,21 @@ mod tests {
     fn parses_torrent_requests() {
         assert_eq!(
             parse(json!({"id": 5, "type": "torrent.inspect", "payload": {"source": {"url": "magnet:?xt=urn:btih:abc"}}})),
-            Request { id: 5, body: RequestBody::TorrentInspect { source: SourceMsg::Url { url: "magnet:?xt=urn:btih:abc".into() } } }
+            Request { id: 5, body: RequestBody::TorrentInspect { source: SourceMsg::Url { url: "magnet:?xt=urn:btih:abc".into() }, via: None } }
+        );
+        assert_eq!(
+            parse(json!({"id": 9, "type": "torrent.add", "payload": {"source": {"url": "https://example.org/a.torrent"}, "via": {"socksPort": 9150, "site": "example.org"}}})),
+            Request {
+                id: 9,
+                body: RequestBody::TorrentAdd {
+                    source: SourceMsg::Url { url: "https://example.org/a.torrent".into() },
+                    via: Some(Via { socks_port: 9150, site: "example.org".into() }),
+                }
+            }
         );
         assert_eq!(
             parse(json!({"id": 6, "type": "torrent.add", "payload": {"source": {"torrentFile": "ZDQ6aW5mb2Vl"}}})),
-            Request { id: 6, body: RequestBody::TorrentAdd { source: SourceMsg::File { torrent_file: "ZDQ6aW5mb2Vl".into() } } }
+            Request { id: 6, body: RequestBody::TorrentAdd { source: SourceMsg::File { torrent_file: "ZDQ6aW5mb2Vl".into() }, via: None } }
         );
         assert_eq!(
             parse(json!({"id": 7, "type": "torrent.remove", "payload": {"id": "ab", "deleteFiles": true}})),
@@ -235,6 +267,9 @@ mod tests {
 
     #[test]
     fn serializes_replies_and_events() {
+        let hello = serde_json::to_value(Message::reply(1, Outgoing::Hello { protocol: 1, version: "0.1.1".into(), features: FEATURES.to_vec() })).unwrap();
+        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["torrent-via-tor"]}}));
+
         let ok = serde_json::to_value(Message::reply(3, Outgoing::Ok)).unwrap();
         assert_eq!(ok, json!({"id": 3, "type": "ok"}));
 

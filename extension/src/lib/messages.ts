@@ -29,15 +29,19 @@ export interface DownloadsState {
 export type DlMessage =
   | { type: 'GET_DOWNLOADS' }
   | { type: 'TORRENT_OPEN'; source: TorrentSource }
-  | { type: 'TORRENT_INSPECT'; token: string }
+  /** `direct`: the user agreed to look a magnet up from their own IP while Tor is on. */
+  | { type: 'TORRENT_INSPECT'; token: string; direct?: boolean }
   | { type: 'TORRENT_CONFIRM'; token: string }
   | { type: 'TORRENT_CANCEL'; token: string }
   | { type: 'TORRENT_PAUSE'; id: string }
   | { type: 'TORRENT_RESUME'; id: string }
   | { type: 'TORRENT_REMOVE'; id: string; deleteFiles: boolean };
 
-/** The answer to INSPECT / CONFIRM. */
-export type DlResult = { ok: true; info: TorrentInfo } | { ok: false; error: string };
+/**
+ * The answer to INSPECT / CONFIRM. `askDirect`: Tor is on and this is a magnet,
+ * which can only be looked up from the user's own IP; ask first.
+ */
+export type DlResult = { ok: true; info: TorrentInfo } | { ok: false; error: string; askDirect?: boolean };
 
 /** Settings page → background: get bridge lines from bridges.torproject.org. */
 export type BridgesMessage = { type: 'FETCH_BRIDGES'; kind: keyof BridgeLines };

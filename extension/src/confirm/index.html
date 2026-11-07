@@ -10,9 +10,15 @@
   <main class="box">
     <h1>Download with Tortuga</h1>
 
-    <section id="looking" class="looking" aria-live="polite">
+    <section id="looking" class="looking" aria-live="polite" hidden>
       <span class="spinner" aria-hidden="true"></span>
       <span id="lookingText">Looking up the torrent…</span>
+    </section>
+
+    <section id="ask" class="ask" hidden>
+      <p><strong>Tor is on, but a magnet link can't be looked up through it.</strong>
+        Finding the torrent's name and size asks other peers and trackers directly, from your own IP: they will see your address.</p>
+      <button class="btn" id="lookup" type="button">Look it up from my IP</button>
     </section>
 
     <section id="details" hidden>

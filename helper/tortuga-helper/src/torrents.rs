@@ -74,6 +74,35 @@ pub fn state_for(stats: &TorrentStatsState, finished: bool, error: bool) -> Torr
     }
 }
 
+/// The largest `.torrent` file fetched through Tor.
+const MAX_TORRENT_FILE: usize = 32 * 1024 * 1024;
+const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// The SOCKS proxy URL for the Tor helper's port, with `site` as the login so
+/// the request uses that site's circuits.
+fn tor_proxy_url(socks_port: u16, site: &str) -> anyhow::Result<reqwest::Url> {
+    // socks5h: the name is resolved by Tor, not locally.
+    let mut url = reqwest::Url::parse(&format!("socks5h://127.0.0.1:{socks_port}"))?;
+    url.set_username(site).map_err(|_| anyhow::anyhow!("bad site name {site}"))?;
+    url.set_password(Some("x")).map_err(|_| anyhow::anyhow!("bad site name {site}"))?;
+    Ok(url)
+}
+
+/// Fetch a `.torrent` file through the Tor helper's SOCKS port, never directly.
+pub async fn fetch_via_tor(url: &str, socks_port: u16, site: &str) -> anyhow::Result<Vec<u8>> {
+    let client = reqwest::Client::builder()
+        .timeout(FETCH_TIMEOUT)
+        .proxy(reqwest::Proxy::all(tor_proxy_url(socks_port, site)?)?)
+        .build()?;
+    let mut res = client.get(url).send().await?.error_for_status()?;
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await? {
+        anyhow::ensure!(body.len() + chunk.len() <= MAX_TORRENT_FILE, "the .torrent file is larger than {} MB", MAX_TORRENT_FILE >> 20);
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
 fn parse_id(id: &str) -> anyhow::Result<TorrentIdOrHash> {
     Ok(TorrentIdOrHash::Hash(Id20::from_str(id).map_err(|e| anyhow::anyhow!("bad torrent id {id}: {e}"))?))
 }
@@ -216,6 +245,71 @@ mod tests {
     fn ids_are_info_hashes() {
         assert!(parse_id("cab507494d02ebb1178b38f2e9d7be299c86b862").is_ok());
         assert!(parse_id("not-a-hash").is_err());
+    }
+
+    #[test]
+    fn proxy_login_names_the_site() {
+        let url = tor_proxy_url(9150, "github.com").unwrap();
+        assert_eq!(url.as_str(), "socks5h://github.com:x@127.0.0.1:9150");
+        // An IPv6 site still makes a valid login.
+        assert!(tor_proxy_url(9150, "2001:db8::1").is_ok());
+    }
+
+    /// A web server on localhost answering every request with `body`.
+    async fn web_server(body: &'static [u8]) -> u16 {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = listener.accept().await {
+                let mut buf = [0u8; 1024];
+                let _ = s.read(&mut buf).await;
+                let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
+                let _ = s.write_all(head.as_bytes()).await;
+                let _ = s.write_all(body).await;
+            }
+        });
+        port
+    }
+
+    /// Stands in for Tor: connects straight to the target, records who asked.
+    #[derive(Clone, Default)]
+    struct DirectConnector(Arc<std::sync::Mutex<Vec<crate::socks::SocksRequest>>>);
+
+    impl crate::socks::Connector for DirectConnector {
+        type Stream = tokio::net::TcpStream;
+        fn connect(&self, req: crate::socks::SocksRequest) -> impl std::future::Future<Output = std::io::Result<Self::Stream>> + Send {
+            self.0.lock().unwrap().push(req.clone());
+            async move { tokio::net::TcpStream::connect((req.host.as_str(), req.port)).await }
+        }
+    }
+
+    #[tokio::test]
+    async fn fetches_through_the_socks_port_as_the_site() {
+        let web = web_server(b"d4:infoe").await;
+        let socks = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let socks_port = socks.local_addr().unwrap().port();
+        let connector = DirectConnector::default();
+        let seen = connector.0.clone();
+        tokio::spawn(async move {
+            while let Ok((client, _)) = socks.accept().await {
+                let c = connector.clone();
+                tokio::spawn(async move { crate::socks::handle(client, &c).await });
+            }
+        });
+        let body = fetch_via_tor(&format!("http://127.0.0.1:{web}/a.torrent"), socks_port, "example.org").await.unwrap();
+        assert_eq!(body, b"d4:infoe");
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen[0].site, "example.org");
+        assert_eq!(seen[0].port, web);
+    }
+
+    #[tokio::test]
+    async fn fetching_through_tor_never_falls_back_to_direct() {
+        // The site is up, but nothing listens on the SOCKS port: the fetch
+        // must fail rather than reach the site directly.
+        let web = web_server(b"d4:infoe").await;
+        assert!(fetch_via_tor(&format!("http://127.0.0.1:{web}/a.torrent"), 1, "example.org").await.is_err());
     }
 
     #[tokio::test]

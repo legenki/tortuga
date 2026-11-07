@@ -111,7 +111,7 @@ Tortuga has no account, no analytics and no server of its own. It doesn't collec
 
 - **The Tor network.** While Tor is on, the helper connects to Tor relays, or to the bridge you picked, and your browsing goes through them.
 - **bridges.torproject.org**, only when you click **Get obfs4 lines** or **Get WebTunnel lines**. It goes through Tor when Tor is on.
-- **Torrent peers and trackers**, directly, only while you download or seed. A `.torrent` link is fetched by the helper, without your browser's cookies.
+- **Torrent peers and trackers**, directly, only while you download or seed. A `.torrent` link is fetched by the helper, without your browser's cookies, and through Tor while Tor covers the page it was on. While Tor is on, Tortuga asks before looking up a magnet link, since that reveals your IP to the swarm.
 
 The [privacy policy](PRIVACY.md) has the details.
 

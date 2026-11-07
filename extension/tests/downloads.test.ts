@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Downloads, type DlDeps } from '../src/background/downloads';
+import { Downloads, UPDATE_FOR_TOR, type DlDeps } from '../src/background/downloads';
 import { HELPER_MISSING } from '../src/background/controller';
 import { HelperClient } from '../src/background/helper';
 import type { DownloadsState } from '../src/lib/messages';
@@ -27,10 +27,10 @@ function setup(lastError?: string) {
 }
 
 /** Answer the hello on the newest port. */
-async function hello(ports: FakePort[]) {
+async function hello(ports: FakePort[], features?: string[]) {
   await flush();
   const port = ports.at(-1)!;
-  port.emit({ id: port.idOf('hello'), type: 'hello', payload: { protocol: 1, version: '0.1.0' } });
+  port.emit({ id: port.idOf('hello'), type: 'hello', payload: { protocol: 1, version: '0.1.0', ...(features ? { features } : {}) } });
   await flush();
   return port;
 }
@@ -99,5 +99,27 @@ describe('Downloads', () => {
     void d.inspect(MAGNET).catch(() => undefined);
     await flush();
     expect(ports).toHaveLength(2);
+  });
+
+  it('asks the helper to fetch a .torrent link through Tor', async () => {
+    const { d, ports } = setup();
+    const link = { url: 'https://example.org/a.torrent' };
+    const via = { socksPort: 9150, site: 'example.org' };
+    const inspecting = d.inspect(link, via);
+    const port = await hello(ports, ['torrent-via-tor']);
+    await flush();
+    expect(port.sent[1]).toMatchObject({ type: 'torrent.inspect', payload: { source: link, via } });
+    port.emit({ id: port.idOf('torrent.inspect'), type: 'torrent.info', payload: INFO });
+    await expect(inspecting).resolves.toEqual(INFO);
+  });
+
+  it('refuses a fetch through Tor when the helper is too old to honour it', async () => {
+    const { d, ports } = setup();
+    const inspecting = d.inspect({ url: 'https://example.org/a.torrent' }, { socksPort: 9150, site: 'example.org' });
+    const refused = expect(inspecting).rejects.toThrow(UPDATE_FOR_TOR);
+    const port = await hello(ports);
+    await refused;
+    // Nothing that could fetch the link went to the old helper.
+    expect(port.sent.map(m => m.type)).toEqual(['hello']);
   });
 });

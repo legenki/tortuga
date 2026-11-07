@@ -14,17 +14,17 @@ use tokio::task::JoinHandle;
 
 use crate::config::{Paths, bridge_lines, default_snowflake_lines, tor_config};
 use crate::moat::{self, LineKind, Route};
-use crate::protocol::{BridgeChoice, ErrorCode, Message, Outgoing, PROTOCOL_VERSION, Request, RequestBody, SourceMsg};
+use crate::protocol::{BridgeChoice, ErrorCode, FEATURES, Message, Outgoing, PROTOCOL_VERSION, Request, RequestBody, SourceMsg, Via};
 use crate::tor::{Events, Tor};
-use crate::torrents::Torrents;
+use crate::torrents::{self, Source, Torrents};
 
 /// How often the Downloads tab gets fresh numbers.
 const PROGRESS_EVERY: Duration = Duration::from_secs(1);
 
 /// A torrent request, run in its own task.
 enum TorrentJob {
-    Inspect(SourceMsg),
-    Add(SourceMsg),
+    Inspect(SourceMsg, Option<Via>),
+    Add(SourceMsg, Option<Via>),
     Pause(String),
     Resume(String),
     Remove(String, bool),
@@ -67,7 +67,7 @@ impl App {
             RequestBody::Hello { protocol } if protocol == PROTOCOL_VERSION => {
                 state.hello = true;
                 let version = env!("CARGO_PKG_VERSION").to_owned();
-                self.send(Message::reply(req.id, Outgoing::Hello { protocol: PROTOCOL_VERSION, version }));
+                self.send(Message::reply(req.id, Outgoing::Hello { protocol: PROTOCOL_VERSION, version, features: FEATURES.to_vec() }));
             }
             RequestBody::Hello { protocol } => self.send(Message::error(
                 Some(req.id),
@@ -90,8 +90,8 @@ impl App {
                 }
                 _ => self.send(Message::error(Some(req.id), ErrorCode::NotRunning, "Tor is off")),
             },
-            RequestBody::TorrentInspect { source } => self.torrent(req.id, TorrentJob::Inspect(source)),
-            RequestBody::TorrentAdd { source } => self.torrent(req.id, TorrentJob::Add(source)),
+            RequestBody::TorrentInspect { source, via } => self.torrent(req.id, TorrentJob::Inspect(source, via)),
+            RequestBody::TorrentAdd { source, via } => self.torrent(req.id, TorrentJob::Add(source, via)),
             RequestBody::TorrentPause { id } => self.torrent(req.id, TorrentJob::Pause(id)),
             RequestBody::TorrentResume { id } => self.torrent(req.id, TorrentJob::Resume(id)),
             RequestBody::TorrentRemove { id, delete_files } => self.torrent(req.id, TorrentJob::Remove(id, delete_files)),
@@ -146,8 +146,8 @@ impl App {
     async fn run_torrent(&self, job: TorrentJob) -> anyhow::Result<Outgoing> {
         let torrents = self.open_torrents().await?;
         Ok(match job {
-            TorrentJob::Inspect(source) => Outgoing::TorrentInfo(torrents.inspect(&source.decode()?).await?),
-            TorrentJob::Add(source) => Outgoing::TorrentInfo(torrents.add(&source.decode()?).await?),
+            TorrentJob::Inspect(source, via) => Outgoing::TorrentInfo(torrents.inspect(&resolve(&source, via.as_ref()).await?).await?),
+            TorrentJob::Add(source, via) => Outgoing::TorrentInfo(torrents.add(&resolve(&source, via.as_ref()).await?).await?),
             TorrentJob::Pause(id) => torrents.pause(&id).await.map(|_| Outgoing::Ok)?,
             TorrentJob::Resume(id) => torrents.resume(&id).await.map(|_| Outgoing::Ok)?,
             TorrentJob::Remove(id, delete_files) => torrents.remove(&id, delete_files).await.map(|_| Outgoing::Ok)?,
@@ -198,6 +198,19 @@ impl App {
         state.socks_port = Some(port);
         state.starting = None;
         Ok(port)
+    }
+}
+
+/// The torrent to hand to librqbit. With `via`, a `.torrent` link is fetched
+/// here through Tor and passed on as the file, so librqbit never fetches it
+/// from the user's own IP; a magnet can't be looked up through Tor at all.
+async fn resolve(source: &SourceMsg, via: Option<&Via>) -> anyhow::Result<Source> {
+    match (source.decode()?, via) {
+        (Source::Url(url), Some(_)) if url.starts_with("magnet:") => {
+            anyhow::bail!("a magnet link can't be looked up through Tor")
+        }
+        (Source::Url(url), Some(via)) => Ok(Source::File(torrents::fetch_via_tor(&url, via.socks_port, &via.site).await?)),
+        (source, _) => Ok(source),
     }
 }
 

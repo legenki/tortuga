@@ -1,5 +1,8 @@
 import type { DownloadsState } from '../lib/messages';
-import { PROTOCOL_VERSION, type FetchedLines, type HelperMessage, type TorrentInfo, type TorrentSource } from '../lib/protocol';
+import {
+  FEATURE_TORRENT_VIA_TOR, PROTOCOL_VERSION,
+  type FetchedLines, type HelperMessage, type TorrentInfo, type TorrentSource, type TorrentVia,
+} from '../lib/protocol';
 import { HELPER_MISSING, linesOf } from './controller';
 import { isMissingHost, type HelperClient } from './helper';
 
@@ -11,6 +14,9 @@ export interface DlDeps {
   saveActive(active: boolean): Promise<void>;
 }
 
+/** An older helper would ignore `via` and fetch the link from the user's own IP. */
+export const UPDATE_FOR_TOR = 'Update the Tortuga helper to fetch .torrent links through Tor. Until then, turn Tor off to fetch this one directly.';
+
 export const NO_DOWNLOADS: DownloadsState = { rows: [], folder: null, error: null, helperMissing: false };
 
 /**
@@ -21,6 +27,8 @@ export const NO_DOWNLOADS: DownloadsState = { rows: [], folder: null, error: nul
 export class Downloads {
   private state: DownloadsState = NO_DOWNLOADS;
   private ready: Promise<HelperClient> | null = null;
+  /** What the connected helper said it understands, beyond protocol 1. */
+  private features: string[] = [];
   private active = false;
 
   constructor(private readonly deps: DlDeps) {}
@@ -34,12 +42,13 @@ export class Downloads {
     await this.client().catch(() => undefined);
   }
 
-  async inspect(source: TorrentSource): Promise<TorrentInfo> {
-    return this.info(await this.request({ type: 'torrent.inspect', payload: { source } }));
+  /** `via`: fetch the `.torrent` link through Tor, never directly. */
+  async inspect(source: TorrentSource, via?: TorrentVia): Promise<TorrentInfo> {
+    return this.info(await this.request({ type: 'torrent.inspect', payload: { source, ...(await this.viaPart(via)) } }));
   }
 
-  async add(source: TorrentSource): Promise<TorrentInfo> {
-    const info = this.info(await this.request({ type: 'torrent.add', payload: { source } }));
+  async add(source: TorrentSource, via?: TorrentVia): Promise<TorrentInfo> {
+    const info = this.info(await this.request({ type: 'torrent.add', payload: { source, ...(await this.viaPart(via)) } }));
     await this.setActive(true);
     return info;
   }
@@ -61,6 +70,14 @@ export class Downloads {
     return linesOf(await this.request({ type: 'bridges.fetch', payload: { kind } }));
   }
 
+  /** `{ via }` for a request, refused when the helper wouldn't honour it. */
+  private async viaPart(via: TorrentVia | undefined): Promise<{ via?: TorrentVia }> {
+    if (!via) return {};
+    await this.client();
+    if (!this.features.includes(FEATURE_TORRENT_VIA_TOR)) throw new Error(UPDATE_FOR_TOR);
+    return { via };
+  }
+
   private info(m: HelperMessage): TorrentInfo {
     if (m.type !== 'torrent.info') throw new Error(`unexpected reply ${m.type}`);
     this.update({ folder: m.payload.folder });
@@ -76,7 +93,8 @@ export class Downloads {
     if (!this.ready) {
       const ready = (async () => {
         const helper = this.deps.connect(m => this.onEvent(m), reason => this.onGone(reason));
-        await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
+        const hello = await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
+        this.features = hello.type === 'hello' ? hello.payload.features ?? [] : [];
         this.update({ error: null, helperMissing: false });
         return helper;
       })();

@@ -89,6 +89,15 @@ extension.
 - A torrent's id is its info hash, stable across restarts.
 - `.torrent` URLs are fetched by the helper itself, without the browser's
   cookies: private trackers that need a login are not supported in v1.
+- Nothing about a torrent reaches the network before the user acts, and never
+  around Tor: the link catcher takes only trusted clicks; while Tor covers the
+  link (Firefox: Tor on; Chrome: Tor on and an Incognito tab, or unknown), a
+  `.torrent` URL goes to the torrent helper with `via: { socksPort, site }` and
+  is fetched through the Tor helper's SOCKS port, or refused while Tor isn't
+  ready; a magnet is looked up only after the confirm window asks, since its
+  lookup reaches peers and trackers from the user's IP. Helpers list
+  `torrent-via-tor` in their hello's `features`; the extension never sends
+  `via` to one that doesn't (an older helper would ignore it and fetch directly).
 
 ### Lifetime
 

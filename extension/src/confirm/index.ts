@@ -20,14 +20,25 @@ function fail(error: string): void {
   cancel.textContent = 'Close';
 }
 
-// Magnet links need peers to describe the torrent: say so if it takes a while.
-const slow = setTimeout(() => {
-  $('lookingText').textContent = 'Still looking — a magnet link needs other peers to describe the torrent…';
-}, 8000);
-
-async function inspect(): Promise<void> {
-  const r = await send({ type: 'TORRENT_INSPECT', token });
+/**
+ * Look the torrent up. While Tor is on, the background refuses to look up a
+ * magnet (it reveals the user's IP) until `direct` says they agreed here.
+ */
+async function inspect(direct = false): Promise<void> {
+  $('ask').hidden = true;
+  $('looking').hidden = false;
+  // Magnet links need peers to describe the torrent: say so if it takes a while.
+  const slow = setTimeout(() => {
+    $('lookingText').textContent = 'Still looking — a magnet link needs other peers to describe the torrent…';
+  }, 8000);
+  const r = await send({ type: 'TORRENT_INSPECT', token, ...(direct ? { direct } : {}) });
   clearTimeout(slow);
+  if (!r.ok && r.askDirect) {
+    $('looking').hidden = true;
+    $('ask').hidden = false;
+    $('lookup').focus();
+    return;
+  }
   if (!r.ok) return fail(r.error);
   $('looking').hidden = true;
   $('name').textContent = r.info.name;
@@ -47,6 +58,8 @@ download.addEventListener('click', async () => {
   cancel.hidden = true;
   setTimeout(() => window.close(), 1200);
 });
+
+$('lookup').addEventListener('click', () => void inspect(true));
 
 cancel.addEventListener('click', () => {
   void send({ type: 'TORRENT_CANCEL', token }).finally(() => window.close());
