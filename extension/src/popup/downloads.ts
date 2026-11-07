@@ -1,6 +1,6 @@
 // The Downloads tab: add a torrent (link or file), and one row per download
 // with progress, pause / resume and remove (keeping or deleting the files).
-import { activeCount, isTorrentLink, percent, rowLine } from '../lib/downloads';
+import { activeCount, isDone, isTorrentLink, percent, rowLine } from '../lib/downloads';
 import type { DlMessage, DownloadsState } from '../lib/messages';
 import type { TorrentRow } from '../lib/protocol';
 
@@ -42,8 +42,12 @@ function rowNode(r: TorrentRow): HTMLLIElement {
   const name = Object.assign(document.createElement('span'), { className: 'row-name', textContent: r.name, title: r.name });
   const actions = document.createElement('span');
   actions.className = 'row-actions';
-  if (r.state === 'paused') actions.append(button('▶', 'Resume', () => void send({ type: 'TORRENT_RESUME', id: r.id })));
-  else if (r.state !== 'error') actions.append(button('⏸', 'Pause', () => void send({ type: 'TORRENT_PAUSE', id: r.id })));
+  if (r.state === 'paused') {
+    const label = isDone(r) ? 'Share again (one more copy, from your IP)' : 'Resume';
+    actions.append(button('▶', label, () => void send({ type: 'TORRENT_RESUME', id: r.id })));
+  } else if (r.state !== 'error') {
+    actions.append(button('⏸', r.state === 'seeding' ? 'Stop sharing' : 'Pause', () => void send({ type: 'TORRENT_PAUSE', id: r.id })));
+  }
   actions.append(button('✕', 'Remove', () => { removing = r.id; redraw(); }));
   head.append(name, actions);
 

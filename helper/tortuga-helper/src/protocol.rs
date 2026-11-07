@@ -13,7 +13,8 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// Additions to protocol 1 this helper understands, listed in its hello so the
 /// extension never relies on one an older helper would silently ignore.
 /// `torrent-via-tor`: `via` on `torrent.inspect` / `torrent.add`.
-pub const FEATURES: &[&str] = &["torrent-via-tor"];
+/// `torrent-open`: the `torrent.open` request.
+pub const FEATURES: &[&str] = &["torrent-via-tor", "torrent-open"];
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Request {
@@ -45,6 +46,9 @@ pub enum RequestBody {
         #[serde(default)]
         via: Option<Via>,
     },
+    /// Open the torrent session now, resuming saved downloads.
+    #[serde(rename = "torrent.open")]
+    TorrentOpen,
     #[serde(rename = "torrent.pause")]
     TorrentPause { id: String },
     #[serde(rename = "torrent.resume")]
@@ -155,6 +159,15 @@ pub enum ErrorCode {
     NotRunning,
     TorrentFailed,
     BridgesFailed,
+    /// A newer `tor.start` or a `tor.stop` replaced this start.
+    Cancelled,
+    /// The helper couldn't send its answer (e.g. too large for the browser).
+    Internal,
+}
+
+/// The id of a request that didn't parse, so its error can still answer it.
+pub fn id_of(raw: &[u8]) -> Option<u64> {
+    serde_json::from_slice::<serde_json::Value>(raw).ok()?.get("id")?.as_u64()
 }
 
 impl Message {
@@ -192,6 +205,7 @@ mod tests {
             Request { id: 2, body: RequestBody::TorStart { bridge: BridgeChoice { kind: BridgeKind::Snowflake, lines: vec![] } } }
         );
         assert_eq!(parse(json!({"id": 3, "type": "tor.stop"})), Request { id: 3, body: RequestBody::TorStop });
+        assert_eq!(parse(json!({"id": 10, "type": "torrent.open"})), Request { id: 10, body: RequestBody::TorrentOpen });
         assert_eq!(
             parse(json!({"id": 4, "type": "tor.newCircuit", "payload": {"site": "github.com"}})),
             Request { id: 4, body: RequestBody::TorNewCircuit { site: "github.com".into() } }
@@ -266,9 +280,16 @@ mod tests {
     }
 
     #[test]
+    fn finds_the_id_of_a_bad_request() {
+        assert_eq!(id_of(br#"{"id": 7, "type": "tor.explode"}"#), Some(7));
+        assert_eq!(id_of(br#"{"type": "tor.explode"}"#), None);
+        assert_eq!(id_of(b"not json"), None);
+    }
+
+    #[test]
     fn serializes_replies_and_events() {
         let hello = serde_json::to_value(Message::reply(1, Outgoing::Hello { protocol: 1, version: "0.1.1".into(), features: FEATURES.to_vec() })).unwrap();
-        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["torrent-via-tor"]}}));
+        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["torrent-via-tor", "torrent-open"]}}));
 
         let ok = serde_json::to_value(Message::reply(3, Outgoing::Ok)).unwrap();
         assert_eq!(ok, json!({"id": 3, "type": "ok"}));

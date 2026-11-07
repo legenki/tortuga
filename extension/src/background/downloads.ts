@@ -1,6 +1,6 @@
 import type { DownloadsState } from '../lib/messages';
 import {
-  FEATURE_TORRENT_VIA_TOR, PROTOCOL_VERSION,
+  FEATURE_TORRENT_OPEN, FEATURE_TORRENT_VIA_TOR, PROTOCOL_VERSION,
   type FetchedLines, type HelperMessage, type TorrentInfo, type TorrentSource, type TorrentVia,
 } from '../lib/protocol';
 import { HELPER_MISSING, linesOf } from './controller';
@@ -37,9 +37,17 @@ export class Downloads {
     return this.state;
   }
 
-  /** Connect now (on startup, when there were downloads to resume). */
+  /**
+   * On startup, when there were downloads: connect and have the helper open
+   * its torrent list, which it otherwise does only on the first torrent request.
+   */
   async resume(): Promise<void> {
-    await this.client().catch(() => undefined);
+    try {
+      const helper = await this.client();
+      if (this.features.includes(FEATURE_TORRENT_OPEN)) await helper.request({ type: 'torrent.open' });
+    } catch (e) {
+      this.update({ error: (e as Error).message });
+    }
   }
 
   /** `via`: fetch the `.torrent` link through Tor, never directly. */

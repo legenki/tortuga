@@ -5,6 +5,7 @@
 //!   list where it isn't;
 //! - `circumvention/builtin` lists the public built-in bridges (obfs4 and
 //!   Snowflake, no WebTunnel).
+//!
 //! Requests go directly, or through Tor's own SOCKS port when the direct way
 //! is blocked and Tor already runs (e.g. on Snowflake).
 
@@ -74,8 +75,12 @@ struct SettingBridges {
     bridge_strings: Option<Vec<String>>,
 }
 
-/// Lines of `kind` in a `settings` answer, with their source; None when there are none.
-pub fn lines_from_settings(answer: &str, kind: LineKind) -> anyhow::Result<(Option<(Vec<String>, String)>, Option<String>)> {
+/// Lines found in a `settings` answer, and their source.
+pub type Found = Option<(Vec<String>, String)>;
+
+/// Lines of `kind` in a `settings` answer, with their source (None when there
+/// are none), and the country Moat saw.
+pub fn lines_from_settings(answer: &str, kind: LineKind) -> anyhow::Result<(Found, Option<String>)> {
     let a: SettingsAnswer = serde_json::from_str(answer)?;
     let found = a.settings.unwrap_or_default().into_iter().find_map(|s| {
         let lines = s.bridges.bridge_strings.unwrap_or_default();

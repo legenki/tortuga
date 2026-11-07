@@ -42,7 +42,8 @@ sent to us.
   **Get WebTunnel lines** on the settings page, to fetch bridge addresses. The
   request goes through Tor when Tor is on.
 - **Torrent peers, trackers and the DHT**, directly from your own IP and not
-  through Tor, only while a torrent downloads or seeds. Other people in the
+  through Tor, only while a torrent downloads or shares (a finished download
+  shares until it has uploaded one copy of itself, then stops). Other people in the
   swarm can see your IP address. Every place a download starts says so.
 - **.torrent links** you choose to download are fetched by the helper, without
   your browser's cookies. While Tor covers the page the link was on, the link is

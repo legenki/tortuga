@@ -6,7 +6,7 @@ Firefox manifest and code paths at build time.
 
 ## Requirements
 
-- Node.js 20 or later and npm (released builds: Node 26.13.0, npm 11.20.0)
+- Node.js 22 or later and npm (released builds: Node 26.13.0, npm 11.20.0)
 - `zip` and `git` for the packaging scripts
 
 ## Firefox (addons.mozilla.org)

@@ -123,3 +123,23 @@ describe('Downloads', () => {
     expect(port.sent.map(m => m.type)).toEqual(['hello']);
   });
 });
+
+describe('Downloads on startup', () => {
+  it('has the helper open its saved downloads', async () => {
+    const { d, ports } = setup();
+    const resuming = d.resume();
+    const port = await hello(ports, ['torrent-open']);
+    await flush();
+    expect(port.sent[1]).toMatchObject({ type: 'torrent.open' });
+    port.emit({ id: port.idOf('torrent.open'), type: 'ok' });
+    await resuming;
+  });
+
+  it('only says hello to an older helper', async () => {
+    const { d, ports } = setup();
+    const resuming = d.resume();
+    const port = await hello(ports);
+    await resuming;
+    expect(port.sent.map(m => m.type)).toEqual(['hello']);
+  });
+});

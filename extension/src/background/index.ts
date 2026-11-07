@@ -5,6 +5,7 @@ import {
   type BgBroadcast, type BgMessage, type BridgeLines, type BridgesMessage, type BridgesResult, type DlMessage, type DlResult, type Stored,
 } from '../lib/messages';
 import type { BridgeKind, TorrentInfo, TorrentSource } from '../lib/protocol';
+import { senderAllowed } from '../lib/senders';
 import { DEFAULT_SITE, siteOf } from '../lib/site';
 import type { TorState } from '../lib/state';
 import { TOR_NOT_READY, torrentRoute, type PendingTorrent } from '../lib/torrent-route';
@@ -51,8 +52,18 @@ async function openConfirm(source: TorrentSource, tab?: chrome.tabs.Tab): Promis
   // Firefox gives each site its own circuits; Chrome has one for all.
   const site = __TARGET__ === 'firefox' ? siteOf(tab?.url) : DEFAULT_SITE;
   pending.set(token, { source, site, incognito: tab ? tab.incognito : null, direct: false });
-  await chrome.windows.create({ url: chrome.runtime.getURL(`confirm.html?t=${token}`), type: 'popup', width: 440, height: 420 });
+  const win = await chrome.windows.create({ url: chrome.runtime.getURL(`confirm.html?t=${token}`), type: 'popup', width: 440, height: 420 });
+  if (win?.id !== undefined) confirmWindows.set(win.id, token);
 }
+
+/** Confirm windows by id, so closing one forgets its torrent. */
+const confirmWindows = new Map<number, string>();
+chrome.windows.onRemoved.addListener(id => {
+  const token = confirmWindows.get(id);
+  if (token === undefined) return;
+  confirmWindows.delete(id);
+  pending.delete(token);
+});
 
 async function result(run: () => Promise<TorrentInfo>): Promise<DlResult> {
   try {
@@ -137,6 +148,10 @@ async function fetchBridges(kind: 'obfs4' | 'webtunnel'): Promise<BridgesResult>
 }
 
 chrome.runtime.onMessage.addListener((msg: BgMessage | DlMessage | BridgesMessage, sender, sendResponse) => {
+  if (!senderAllowed(msg.type, sender, chrome.runtime.id, chrome.runtime.getURL(''))) {
+    sendResponse({ ok: false, error: 'Not allowed from this page' });
+    return false;
+  }
   const reply = (p: Promise<TorState>) => {
     p.then(sendResponse, () => sendResponse(controller.current));
     return true;

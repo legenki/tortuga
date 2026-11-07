@@ -25,7 +25,12 @@ export interface Circuit {
   hops: Hop[];
 }
 
-export type ErrorCode = 'bad_request' | 'hello_required' | 'protocol_mismatch' | 'tor_failed' | 'not_running' | 'torrent_failed' | 'bridges_failed';
+export type ErrorCode =
+  | 'bad_request' | 'hello_required' | 'protocol_mismatch' | 'tor_failed' | 'not_running' | 'torrent_failed' | 'bridges_failed'
+  /** A newer tor.start or a tor.stop replaced this start. */
+  | 'cancelled'
+  /** The helper couldn't send its answer. */
+  | 'internal';
 
 /** Bridge lines from bridges.torproject.org (Moat). */
 export interface FetchedLines {
@@ -47,6 +52,8 @@ export interface TorrentVia {
 
 /** The hello feature that says the helper understands `via` on torrent requests. */
 export const FEATURE_TORRENT_VIA_TOR = 'torrent-via-tor';
+/** The hello feature that says the helper understands `torrent.open`. */
+export const FEATURE_TORRENT_OPEN = 'torrent-open';
 
 /** What the confirm window shows before a download starts. */
 export interface TorrentInfo {
@@ -93,6 +100,7 @@ export type HelperRequest =
   | { type: 'tor.newCircuit'; payload: { site: string } }
   | { type: 'torrent.inspect'; payload: { source: TorrentSource; via?: TorrentVia } }
   | { type: 'torrent.add'; payload: { source: TorrentSource; via?: TorrentVia } }
+  | { type: 'torrent.open' }
   | { type: 'torrent.pause'; payload: { id: string } }
   | { type: 'torrent.resume'; payload: { id: string } }
   | { type: 'torrent.remove'; payload: { id: string; deleteFiles: boolean } }

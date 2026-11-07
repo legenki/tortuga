@@ -28,6 +28,14 @@ export function formatBytes(n: number): string {
   return `${v.toFixed(digits)} ${UNITS[i]}`;
 }
 
+/**
+ * A finished download that isn't sharing: the helper stops sharing once it
+ * has given back one copy (or the user paused it).
+ */
+export function isDone(row: TorrentRow): boolean {
+  return row.state === 'paused' && row.size > 0 && row.done >= row.size;
+}
+
 export function percent(row: TorrentRow): number {
   return row.size > 0 ? Math.min(100, Math.floor((row.done / row.size) * 100)) : 0;
 }
@@ -40,9 +48,9 @@ export function rowLine(row: TorrentRow): string {
     case 'downloading':
       return `${formatBytes(row.done)} of ${formatBytes(row.size)} · ${formatBytes(row.downRate)}/s`;
     case 'seeding':
-      return `Done · ${formatBytes(row.size)} · sharing ${formatBytes(row.upRate)}/s`;
+      return `Done · sharing from your IP · ${formatBytes(row.upRate)}/s`;
     case 'paused':
-      return `Paused · ${percent(row)}% of ${formatBytes(row.size)}`;
+      return isDone(row) ? `Done · ${formatBytes(row.size)} · not sharing` : `Paused · ${percent(row)}% of ${formatBytes(row.size)}`;
     case 'error':
       return `Error: ${row.error ?? 'unknown'}`;
   }

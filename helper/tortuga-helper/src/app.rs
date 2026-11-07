@@ -18,11 +18,15 @@ use crate::protocol::{BridgeChoice, ErrorCode, FEATURES, Message, Outgoing, PROT
 use crate::tor::{Events, Tor};
 use crate::torrents::{self, Source, Torrents};
 
+/// `TORTUGA_DEBUG` set: log details that can name visited sites.
+static DEBUG: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| std::env::var_os("TORTUGA_DEBUG").is_some());
+
 /// How often the Downloads tab gets fresh numbers.
 const PROGRESS_EVERY: Duration = Duration::from_secs(1);
 
 /// A torrent request, run in its own task.
 enum TorrentJob {
+    Open,
     Inspect(SourceMsg, Option<Via>),
     Add(SourceMsg, Option<Via>),
     Pause(String),
@@ -34,8 +38,8 @@ enum TorrentJob {
 struct State {
     hello: bool,
     tor: Option<Arc<Tor>>,
-    /// The bootstrap in progress, if any.
-    starting: Option<JoinHandle<()>>,
+    /// The bootstrap in progress, if any, and the id of the request it answers.
+    starting: Option<(u64, JoinHandle<()>)>,
     /// The SOCKS listener while Tor is on, and its port.
     socks: Option<JoinHandle<()>>,
     socks_port: Option<u16>,
@@ -75,12 +79,12 @@ impl App {
                 format!("helper speaks protocol {PROTOCOL_VERSION}, extension {protocol}"),
             )),
             RequestBody::TorStart { bridge } => {
-                stop(&mut state);
+                self.stop(&mut state);
                 let app = self.clone();
-                state.starting = Some(tokio::spawn(async move { app.start(req.id, bridge).await }));
+                state.starting = Some((req.id, tokio::spawn(async move { app.start(req.id, bridge).await })));
             }
             RequestBody::TorStop => {
-                stop(&mut state);
+                self.stop(&mut state);
                 self.send(Message::reply(req.id, Outgoing::Ok));
             }
             RequestBody::TorNewCircuit { site } => match &state.tor {
@@ -90,6 +94,7 @@ impl App {
                 }
                 _ => self.send(Message::error(Some(req.id), ErrorCode::NotRunning, "Tor is off")),
             },
+            RequestBody::TorrentOpen => self.torrent(req.id, TorrentJob::Open),
             RequestBody::TorrentInspect { source, via } => self.torrent(req.id, TorrentJob::Inspect(source, via)),
             RequestBody::TorrentAdd { source, via } => self.torrent(req.id, TorrentJob::Add(source, via)),
             RequestBody::TorrentPause { id } => self.torrent(req.id, TorrentJob::Pause(id)),
@@ -146,6 +151,7 @@ impl App {
     async fn run_torrent(&self, job: TorrentJob) -> anyhow::Result<Outgoing> {
         let torrents = self.open_torrents().await?;
         Ok(match job {
+            TorrentJob::Open => Outgoing::Ok,
             TorrentJob::Inspect(source, via) => Outgoing::TorrentInfo(torrents.inspect(&resolve(&source, via.as_ref()).await?).await?),
             TorrentJob::Add(source, via) => Outgoing::TorrentInfo(torrents.add(&resolve(&source, via.as_ref()).await?).await?),
             TorrentJob::Pause(id) => torrents.pause(&id).await.map(|_| Outgoing::Ok)?,
@@ -170,7 +176,32 @@ impl App {
     async fn start(&self, id: u64, bridge: BridgeChoice) {
         match self.try_start(&bridge).await {
             Ok(socks_port) => self.send(Message::reply(id, Outgoing::TorReady { socks_port })),
-            Err(e) => self.send(Message::error(Some(id), ErrorCode::TorFailed, format!("{e:#}"))),
+            Err(e) => {
+                // Don't leave a client that failed building circuits.
+                let mut state = self.state.lock().await;
+                state.starting = None;
+                if let Some(tor) = &state.tor {
+                    tor.sleep();
+                }
+                drop(state);
+                self.send(Message::error(Some(id), ErrorCode::TorFailed, format!("{e:#}")));
+            }
+        }
+    }
+
+    /// Cancel a start in progress (answering its request), close the SOCKS
+    /// port and let Tor sleep.
+    fn stop(&self, state: &mut State) {
+        if let Some((id, t)) = state.starting.take() {
+            t.abort();
+            self.send(Message::error(Some(id), ErrorCode::Cancelled, "replaced by a newer request"));
+        }
+        if let Some(s) = state.socks.take() {
+            s.abort();
+        }
+        state.socks_port = None;
+        if let Some(tor) = &state.tor {
+            tor.sleep();
         }
     }
 
@@ -214,25 +245,12 @@ async fn resolve(source: &SourceMsg, via: Option<&Via>) -> anyhow::Result<Source
     }
 }
 
-/// Cancel a start in progress, close the SOCKS port and let Tor sleep.
-fn stop(state: &mut State) {
-    if let Some(t) = state.starting.take() {
-        t.abort();
-    }
-    if let Some(s) = state.socks.take() {
-        s.abort();
-    }
-    state.socks_port = None;
-    if let Some(tor) = &state.tor {
-        tor.sleep();
-    }
-}
-
 /// Send the torrent list every second while there is something to show, and
 /// once more when it becomes empty.
 async fn report_progress(torrents: Arc<Torrents>, events: Events) {
     let mut last_empty = false;
     loop {
+        torrents.stop_shared().await;
         let list = torrents.progress();
         let empty = list.is_empty();
         if !(empty && last_empty) && events.send(Message::event(Outgoing::TorrentProgress { torrents: list })).is_err() {
@@ -247,9 +265,88 @@ async fn serve(listener: TcpListener, tor: Arc<Tor>) {
     while let Ok((client, _)) = listener.accept().await {
         let tor = tor.clone();
         tokio::spawn(async move {
-            if let Err(e) = crate::socks::handle(client, &tor).await {
+            // Errors can name the sites being visited: logged only on request.
+            if let Err(e) = crate::socks::handle(client, &tor).await
+                && *DEBUG
+            {
                 eprintln!("socks: {e}");
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+    use tokio::sync::mpsc::UnboundedReceiver;
+
+    fn app() -> (App, UnboundedReceiver<Message>) {
+        let dir = std::env::temp_dir().join(format!("tortuga-app-test-{}-{}", std::process::id(), rand_suffix()));
+        let paths = Paths {
+            state_dir: dir.join("state"),
+            cache_dir: dir.join("cache"),
+            lyrebird: dir.join("pt/lyrebird"),
+            pt_config: dir.join("pt/pt_config.json"),
+            downloads: dir.join("downloads"),
+            torrent_state: dir.join("torrents"),
+        };
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (App::new(paths, tx), rx)
+    }
+
+    fn rand_suffix() -> u64 {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static N: AtomicU64 = AtomicU64::new(0);
+        N.fetch_add(1, Ordering::Relaxed)
+    }
+
+    fn req(v: Value) -> Request {
+        serde_json::from_value(v).unwrap()
+    }
+
+    fn json_of(m: Message) -> Value {
+        serde_json::to_value(m).unwrap()
+    }
+
+    #[tokio::test]
+    async fn hello_first() {
+        let (app, mut rx) = app();
+        app.handle(req(json!({"id": 1, "type": "tor.stop"}))).await;
+        assert_eq!(json_of(rx.recv().await.unwrap())["payload"]["code"], "hello_required");
+        app.handle(req(json!({"id": 2, "type": "hello", "payload": {"protocol": 99}}))).await;
+        assert_eq!(json_of(rx.recv().await.unwrap())["payload"]["code"], "protocol_mismatch");
+        app.handle(req(json!({"id": 3, "type": "hello", "payload": {"protocol": PROTOCOL_VERSION}}))).await;
+        let hello = json_of(rx.recv().await.unwrap());
+        assert_eq!(hello["type"], "hello");
+        assert_eq!(hello["payload"]["features"], json!(FEATURES));
+        app.handle(req(json!({"id": 4, "type": "tor.stop"}))).await;
+        assert_eq!(json_of(rx.recv().await.unwrap()), json!({"id": 4, "type": "ok"}));
+    }
+
+    #[tokio::test]
+    async fn a_replaced_start_is_answered() {
+        let (app, mut rx) = app();
+        app.handle(req(json!({"id": 1, "type": "hello", "payload": {"protocol": PROTOCOL_VERSION}}))).await;
+        rx.recv().await.unwrap();
+        // Two starts and a stop in a row, before any could finish: every one
+        // gets its answer, so the extension never waits forever.
+        app.handle(req(json!({"id": 2, "type": "tor.start", "payload": {"bridge": {"kind": "none"}}}))).await;
+        app.handle(req(json!({"id": 3, "type": "tor.start", "payload": {"bridge": {"kind": "none"}}}))).await;
+        app.handle(req(json!({"id": 4, "type": "tor.stop"}))).await;
+        let answers: Vec<Value> = (0..3).map(|_| json_of(rx.try_recv().unwrap())).collect();
+        assert_eq!(answers[0], json!({"id": 2, "type": "error", "payload": {"code": "cancelled", "message": "replaced by a newer request"}}));
+        assert_eq!(answers[1]["id"], 3);
+        assert_eq!(answers[1]["payload"]["code"], "cancelled");
+        assert_eq!(answers[2], json!({"id": 4, "type": "ok"}));
+    }
+
+    #[tokio::test]
+    async fn new_circuit_needs_tor() {
+        let (app, mut rx) = app();
+        app.handle(req(json!({"id": 1, "type": "hello", "payload": {"protocol": PROTOCOL_VERSION}}))).await;
+        rx.recv().await.unwrap();
+        app.handle(req(json!({"id": 2, "type": "tor.newCircuit", "payload": {"site": "example.org"}}))).await;
+        assert_eq!(json_of(rx.recv().await.unwrap())["payload"]["code"], "not_running");
     }
 }

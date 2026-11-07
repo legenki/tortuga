@@ -114,9 +114,25 @@ fn add_request(source: &Source) -> AddTorrent<'static> {
     }
 }
 
+/// How long a torrent may take to describe itself (a magnet needs peers).
+const INSPECT_WITHIN: std::time::Duration = std::time::Duration::from_secs(180);
+
+/// Seeding stops once a finished torrent has shared this many copies of itself
+/// since it last started: fair to the swarm, without showing the user's IP to
+/// it for as long as the browser runs.
+const SHARE_RATIO: u64 = 1;
+
+/// Should a torrent stop sharing? Finished, live, and has given back enough.
+pub fn shared_enough(stats: &TorrentStatsState, finished: bool, uploaded: u64, size: u64) -> bool {
+    matches!(stats, TorrentStatsState::Live) && finished && size > 0 && uploaded >= size.saturating_mul(SHARE_RATIO)
+}
+
 pub struct Torrents {
     session: Arc<Session>,
     folder: PathBuf,
+    /// Held while the session is open: a second helper (another browser)
+    /// would write the same downloads and state.
+    _lock: std::fs::File,
 }
 
 impl Torrents {
@@ -129,19 +145,30 @@ impl Torrents {
     async fn open_with(folder: PathBuf, state_dir: PathBuf, opts: SessionOptions) -> anyhow::Result<Self> {
         std::fs::create_dir_all(&folder)?;
         std::fs::create_dir_all(&state_dir)?;
+        let lock = std::fs::File::create(state_dir.join("lock"))?;
+        match lock.try_lock() {
+            Ok(()) => {}
+            Err(std::fs::TryLockError::WouldBlock) => anyhow::bail!(
+                "Tortuga's downloads are open in another browser. Close that browser (or remove its downloads) to download here."
+            ),
+            Err(std::fs::TryLockError::Error(e)) => return Err(e.into()),
+        }
         let opts = SessionOptions {
             persistence: Some(SessionPersistenceConfig::Json { folder: Some(state_dir) }),
             fastresume: true,
             ..opts
         };
         let session = Session::new_with_opts(folder.clone(), opts).await?;
-        Ok(Self { session, folder })
+        Ok(Self { session, folder, _lock: lock })
     }
 
     /// Fetch the torrent's metadata (from peers, for a magnet) without downloading.
     pub async fn inspect(&self, source: &Source) -> anyhow::Result<TorrentInfo> {
         let opts = AddTorrentOptions { list_only: true, ..Default::default() };
-        match self.session.add_torrent(add_request(source), Some(opts)).await? {
+        let answer = tokio::time::timeout(INSPECT_WITHIN, self.session.add_torrent(add_request(source), Some(opts)))
+            .await
+            .map_err(|_| anyhow::anyhow!("nothing described this torrent within {} minutes: the link may be dead", INSPECT_WITHIN.as_secs() / 60))??;
+        match answer {
             AddTorrentResponse::ListOnly(r) => Ok(TorrentInfo {
                 id: r.info_hash.as_string(),
                 name: r.info.name().map(|n| n.into_owned()).unwrap_or_else(|| r.info_hash.as_string()),
@@ -174,6 +201,24 @@ impl Torrents {
     /// Stop it (and its seeding); with `delete_files` its files go too.
     pub async fn remove(&self, id: &str, delete_files: bool) -> anyhow::Result<()> {
         self.session.delete(parse_id(id)?, delete_files).await
+    }
+
+    /// Pause every torrent that has shared enough (see `SHARE_RATIO`).
+    pub async fn stop_shared(&self) {
+        let done: Vec<Arc<ManagedTorrent>> = self.session.with_torrents(|torrents| {
+            torrents
+                .filter(|(_, t)| {
+                    let stats = t.stats();
+                    shared_enough(&stats.state, stats.finished, stats.uploaded_bytes, stats.total_bytes)
+                })
+                .map(|(_, t)| t.clone())
+                .collect()
+        });
+        for t in done {
+            if let Err(e) = self.session.pause(&t).await {
+                eprintln!("couldn't stop sharing {}: {e:#}", t.info_hash().as_string());
+            }
+        }
     }
 
     /// A row for every torrent, in the order they were added.
@@ -239,6 +284,17 @@ mod tests {
         assert_eq!(state_for(&TorrentStatsState::Live, true, false), TorrentState::Seeding);
         assert_eq!(state_for(&TorrentStatsState::Paused, false, false), TorrentState::Paused);
         assert_eq!(state_for(&TorrentStatsState::Live, false, true), TorrentState::Error);
+    }
+
+    #[test]
+    fn sharing_stops_after_one_copy() {
+        let live = TorrentStatsState::Live;
+        assert!(!shared_enough(&live, true, 99, 100));
+        assert!(shared_enough(&live, true, 100, 100));
+        // Still downloading, paused already, or empty: nothing to stop.
+        assert!(!shared_enough(&live, false, 500, 100));
+        assert!(!shared_enough(&TorrentStatsState::Paused, true, 500, 100));
+        assert!(!shared_enough(&live, true, 0, 0));
     }
 
     #[test]
@@ -320,6 +376,12 @@ mod tests {
         let t = Torrents::open_with(dir.join("files"), dir.join("state"), offline).await.unwrap();
         assert!(t.progress().is_empty());
         assert!(t.pause("cab507494d02ebb1178b38f2e9d7be299c86b862").await.is_err());
+        t.stop_shared().await;
+        // A second helper (another browser) can't open the same downloads.
+        let offline = SessionOptions { dht: None, listen: None, disable_local_service_discovery: true, ..Default::default() };
+        let second = Torrents::open_with(dir.join("files"), dir.join("state"), offline).await;
+        assert!(second.err().unwrap().to_string().contains("another browser"));
+        drop(t);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

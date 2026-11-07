@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Put lyrebird and pt_config.json from the official Tor Expert Bundle into a
-# folder, after checking the bundle's SHA-256 against Tor's signed sums list.
+# folder, after checking the bundle's SHA-256 against Tor's sums list, and the
+# list's signature against the Tor Browser Developers key kept next to this
+# script (tor-browser-developers.asc, from keys.openpgp.org). Needs gpg.
 #
 # Usage: helper/scripts/fetch-pt.sh [VERSION [PLATFORM [OUT_DIR]]]
 #   VERSION   Tor Browser version of the bundle (default 16.0)
@@ -25,11 +27,25 @@ OUT="${3:-$HELPER/resources/pt}"
 F="tor-expert-bundle-$P-$V.tar.gz"
 EXE=lyrebird
 case "$P" in windows-*) EXE=lyrebird.exe ;; esac
+# Tor Browser Developers (signing key) <torbrowser@torproject.org>
+FPR=EF6E286DDA85EA2A4BA7DE684E2C6E8793298290
+command -v gpg >/dev/null || { echo "gpg is needed to check Tor's signature on the sums list" >&2; exit 1; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 curl -sSf -o "$TMP/$F" "https://dist.torproject.org/torbrowser/$V/$F"
 curl -sSf -o "$TMP/sums.txt" "https://dist.torproject.org/torbrowser/$V/sha256sums-signed-build.txt"
+curl -sSf -o "$TMP/sums.txt.asc" "https://dist.torproject.org/torbrowser/$V/sha256sums-signed-build.txt.asc"
+# A keyring of its own holding only that key; the signature must be valid and
+# made by it (VALIDSIG's last field is the primary key's fingerprint).
+export GNUPGHOME="$TMP/gnupg"
+mkdir -m 700 "$GNUPGHOME"
+gpg --batch --quiet --import "$HELPER/scripts/tor-browser-developers.asc" 2>/dev/null
+gpg --batch --status-fd 3 --verify "$TMP/sums.txt.asc" "$TMP/sums.txt" 3>"$TMP/gpg-status" 2>/dev/null || true
+if ! grep -q "^\[GNUPG:\] VALIDSIG .* $FPR\$" "$TMP/gpg-status"; then
+  echo "the sums list for Tor Browser $V is not signed by the Tor Browser Developers key" >&2
+  exit 1
+fi
 if command -v sha256sum >/dev/null; then SUM="sha256sum -c -"; else SUM="shasum -a 256 -c -"; fi
 (cd "$TMP" && grep " $F\$" sums.txt | $SUM)
 tar -xzf "$TMP/$F" -C "$TMP"

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activeCount, formatBytes, isTorrentLink, percent, rowLine } from '../src/lib/downloads';
+import { activeCount, formatBytes, isDone, isTorrentLink, percent, rowLine } from '../src/lib/downloads';
 import type { TorrentRow } from '../src/lib/protocol';
 
 const row = (r: Partial<TorrentRow>): TorrentRow => ({
@@ -34,7 +34,11 @@ describe('formatting', () => {
   it('describes each state', () => {
     expect(rowLine(row({ state: 'starting' }))).toBe('Starting…');
     expect(rowLine(row({ done: 135266304, downRate: 7032509 }))).toBe('129 MB of 756 MB · 6.7 MB/s');
-    expect(rowLine(row({ state: 'seeding', done: 792723456, upRate: 1024 }))).toBe('Done · 756 MB · sharing 1.0 KB/s');
+    expect(rowLine(row({ state: 'seeding', done: 792723456, upRate: 1024 }))).toBe('Done · sharing from your IP · 1.0 KB/s');
+    // Stopped after sharing one copy (or paused when done).
+    expect(rowLine(row({ state: 'paused', done: 792723456 }))).toBe('Done · 756 MB · not sharing');
+    expect(isDone(row({ state: 'paused', done: 792723456 }))).toBe(true);
+    expect(isDone(row({ state: 'paused', done: 1 }))).toBe(false);
     expect(rowLine(row({ state: 'paused', done: 396361728 }))).toBe('Paused · 50% of 756 MB');
     expect(rowLine(row({ state: 'error', error: 'disk full' }))).toBe('Error: disk full');
     expect(percent(row({ size: 0 }))).toBe(0);

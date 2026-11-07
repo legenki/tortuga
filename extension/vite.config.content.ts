@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
-import { define, outDir } from './vite.target';
+import { define, outDir } from './vite.target.ts';
 
 // Content scripts can't be ES modules: links.js is one IIFE bundle.
 export default defineConfig({
@@ -9,6 +9,6 @@ export default defineConfig({
   build: {
     outDir,
     emptyOutDir: false,
-    lib: { entry: resolve(__dirname, 'src/content/links.ts'), formats: ['iife'], name: 'tortugaLinks', fileName: () => 'links.js' },
+    lib: { entry: resolve(import.meta.dirname, 'src/content/links.ts'), formats: ['iife'], name: 'tortugaLinks', fileName: () => 'links.js' },
   },
 });

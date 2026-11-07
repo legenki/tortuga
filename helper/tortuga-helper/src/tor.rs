@@ -104,10 +104,15 @@ impl Tor {
     /// Switch an existing client to a new bridge choice and wake it up. Done
     /// only once a circuit runs the new way: the directory is cached, so Arti
     /// says it's ready at once, before the new bridges have answered.
+    ///
+    /// Every site then gets fresh circuits: ones kept from before the change
+    /// may run through the old bridges or guard.
     pub async fn restart(&self, config: &TorClientConfig, bridge: BridgeKind, lines: &[String]) -> anyhow::Result<()> {
-        let old = std::mem::replace(&mut *self.bridge_addrs.lock().unwrap(), bridge_addrs(lines));
         self.client.reconfigure(config, Reconfigure::AllOrNothing)?;
+        let old = std::mem::replace(&mut *self.bridge_addrs.lock().unwrap(), bridge_addrs(lines));
         *self.bridge.lock().unwrap() = bridge;
+        self.isolation.lock().unwrap().clear();
+        self.tracker.lock().unwrap().clear();
         self.client.set_dormant(DormantMode::Normal);
         let new = self.bridge_addrs.lock().unwrap().clone();
         if new != old {
@@ -124,10 +129,10 @@ impl Tor {
         loop {
             let mut prefs = StreamPrefs::new();
             prefs.set_isolation(IsolationToken::new());
-            if let Ok(Ok(stream)) = tokio::time::timeout(PROBE_ATTEMPT, self.client.connect_with_prefs(PROBE, &prefs)).await {
-                if first_hop_ip(&stream).is_some_and(|ip| proves_switch(ip, new, old)) {
-                    return Ok(());
-                }
+            if let Ok(Ok(stream)) = tokio::time::timeout(PROBE_ATTEMPT, self.client.connect_with_prefs(PROBE, &prefs)).await
+                && first_hop_ip(&stream).is_some_and(|ip| proves_switch(ip, new, old))
+            {
+                return Ok(());
             }
             anyhow::ensure!(
                 Instant::now() < deadline,
@@ -209,12 +214,12 @@ impl Connector for Arc<Tor> {
                 .connect_with_prefs((req.host.as_str(), req.port), &prefs)
                 .await
                 .map_err(io::Error::other)?;
-            if let Some(hops) = tor.hops_of(&stream) {
-                if tor.tracker.lock().unwrap().observe(&req.site, &hops) {
-                    let bridge = *tor.bridge.lock().unwrap();
-                    let bridge = (bridge != BridgeKind::None).then_some(bridge);
-                    let _ = tor.events.send(Message::event(Outgoing::Circuit { site: req.site.clone(), bridge, hops }));
-                }
+            if let Some(hops) = tor.hops_of(&stream)
+                && tor.tracker.lock().unwrap().observe(&req.site, &hops)
+            {
+                let bridge = *tor.bridge.lock().unwrap();
+                let bridge = (bridge != BridgeKind::None).then_some(bridge);
+                let _ = tor.events.send(Message::event(Outgoing::Circuit { site: req.site.clone(), bridge, hops }));
             }
             Ok(stream)
         }
