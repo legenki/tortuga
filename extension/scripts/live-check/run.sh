@@ -4,6 +4,7 @@
 #   extension/scripts/live-check/run.sh downloads  torrents (downloads.mjs)
 #   extension/scripts/live-check/run.sh bridges    Get … lines on the settings page (bridges.mjs)
 #   extension/scripts/live-check/run.sh screenshots  README screenshots into docs/screenshots (screenshots.mjs)
+#     SHOTS=dir THEME=dark SCALE=2 …run.sh screenshots  elsewhere, dark, at 2x (store assets)
 # Both need network access; the Tor check needs Tor to be reachable.
 set -euo pipefail
 WHAT="${1:-tor}"
@@ -60,7 +61,7 @@ if [ "$WHAT" = downloads ]; then
   mkdir -p "$TMP/shots"
   node "$HERE/downloads.mjs" "$TMP/shots" "$TMP/downloads"
 elif [ "$WHAT" = screenshots ]; then
-  node "$HERE/screenshots.mjs" "$EXT/../docs/screenshots"
+  node "$HERE/screenshots.mjs" "${SHOTS:-$EXT/../docs/screenshots}"
 elif [ "$WHAT" = bridges ]; then
   node "$HERE/bridges.mjs" "${SHOTS:-}"
 else

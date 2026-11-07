@@ -30,14 +30,19 @@ async function waitFor(pred, ms, what) {
   throw new Error(`timed out: ${what}`);
 }
 // Lay the page out as wide as the real popup (340) or confirm window (440)
-// and clip to its content, below the fold too.
+// and clip to its content, below the fold too. SCALE=2 draws it at 2x with CSS
+// zoom: text and SVG are rendered sharp, not stretched.
+const SCALE = Number(process.env.SCALE ?? 1);
 async function shot(context, name, width = 340) {
-  await ev(context, `document.documentElement.style.width = '${width}px'; document.body.style.boxSizing = 'border-box'; document.body.style.width = '${width}px'; 1`);
-  await sleep(400);
+  await ev(context, `document.documentElement.style.zoom = ''; document.documentElement.style.width = '${width}px'; document.body.style.boxSizing = 'border-box'; document.body.style.width = '${width}px'; 1`);
+  await sleep(300);
   const height = Math.ceil(await ev(context, `Math.max(...[...document.body.children].filter(e => e.offsetParent || e === document.body.lastElementChild).map(e => e.getBoundingClientRect().bottom)) + 14`));
-  const { data } = await cmd('browsingContext.captureScreenshot', { context, origin: 'document', clip: { type: 'box', x: 0, y: 0, width, height } });
+  if (SCALE !== 1) await ev(context, `document.documentElement.style.zoom = '${SCALE}'; 1`);
+  await sleep(400);
+  const { data } = await cmd('browsingContext.captureScreenshot', { context, origin: 'document', clip: { type: 'box', x: 0, y: 0, width: width * SCALE, height: height * SCALE } });
   writeFileSync(`${OUT}/${name}.png`, Buffer.from(data, 'base64'));
-  log('saved', name, `${width}×${height}`);
+  if (SCALE !== 1) await ev(context, `document.documentElement.style.zoom = ''; 1`);
+  log('saved', name, `${width}×${height} at ${SCALE}x`);
 }
 const HIDE_PATHS = `(() => { const s = document.createElement('style');
   s.textContent = '#folder, dd#folder, div:has(> dd#folder) { display: none !important; }';
@@ -56,7 +61,7 @@ async function openPopup(select) {
 
 // Light theme (localStorage is shared by the extension's pages), then Tor on.
 const setup = await openPopup(true);
-await ev(setup, `localStorage.setItem('tortuga-theme', 'light'); localStorage.setItem('tortuga-tab', 'route'); 1`);
+await ev(setup, `localStorage.setItem('tortuga-theme', '${process.env.THEME ?? 'light'}'); localStorage.setItem('tortuga-tab', 'route'); 1`);
 await ev(setup, `chrome.runtime.sendMessage({ type: 'SET_BRIDGE', bridge: 'snowflake' }).then(() => { document.getElementById('connTor').click(); return 1; })`);
 const st = () => ev(setup, `chrome.runtime.sendMessage({ type: 'GET_STATE' }).then(s => JSON.stringify(s))`).then(JSON.parse);
 await waitFor(async () => (await st()).phase !== 'connecting', 180000, 'Tor');
@@ -101,6 +106,18 @@ await waitFor(async () => {
 }, 90000, 'download progress');
 await sleep(1500);
 await shot(popup, 'downloads');
+
+// Settings page, with obfs4 lines fetched through the helper.
+const before = new Set((await contexts()).map(c => c.context));
+await ev(win, `(gBrowser.selectedTab = gBrowser.addTrustedTab('moz-extension://${host}/options.html'), 1)`);
+const opts = await waitFor(async () => (await contexts()).find(c => !before.has(c.context) && c.url.includes('options.html'))?.context, 10000, 'settings');
+await sleep(1500);
+await ev(opts, `document.getElementById('getObfs4').click(); 1`);
+await waitFor(() => ev(opts, `document.getElementById('obfs4').value.trim().length > 0`), 90000, 'obfs4 lines').catch(e => log(e.message));
+// The run saves to a temp folder: show the real default instead.
+await ev(opts, `(() => { const p = document.querySelector('#downloads'); if (p && p.textContent.includes('/')) p.textContent = 'Torrents are saved in Downloads/Tortuga.'; return 1; })()`);
+log('helper line:', await ev(opts, `document.getElementById('helper').textContent`));
+await shot(opts, 'settings', 760);
 await ev(popup, `chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' }).then(d => Promise.all(d.rows.map(r => chrome.runtime.sendMessage({ type: 'TORRENT_REMOVE', id: r.id, deleteFiles: true })))).then(() => 1)`).catch(() => {});
 await ev(setup, `localStorage.removeItem('tortuga-theme'); 1`);
 await Promise.race([cmd('session.end', {}).catch(() => {}), sleep(1000)]);

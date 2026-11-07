@@ -67,14 +67,24 @@ copyrighted content». Поэтому в листинге, на скриншот
 | Исходники для ревьюеров | `tortuga-firefox-<v>-source.zip` | ✓ | – |
 | Chrome-ключ | `~/tortuga-chrome-key.pem` (держать в бэкапе!) | – | ✓ |
 | Иконка 128 | `extension/public/icons/icon-128.png` | ✓ | ✓ |
-| Скриншоты 1280×800 (или 640×400) | ещё нет — см. ниже | желательно | ✓ минимум 1 |
-| Small promo tile 440×280 | ещё нет | – | ✓ |
+| Скриншоты 1280×800 | `store-assets/screenshot-1…5-*.png` | ✓ все 5 | ✓ все 5 |
+| Small promo tile 440×280 | `store-assets/promo-small-440x280.png` | – | ✓ |
+| Marquee promo tile 1400×560 | `store-assets/promo-marquee-1400x560.png` | – | по желанию |
 | Политика конфиденциальности | ссылка на PRIVACY.md | желательно | ✓ |
 | Почта для поддержки | любая твоя | ✓ | ✓ |
 
-Скриншоты: в `docs/screenshots/` есть снимки попапа 340 px шириной. Для
-магазинов их нужно положить на холст 1280×800 (попап по центру, фон в цвет
-темы, короткая подпись сверху), как сделано в Nomada (`store-assets/`).
+Графика в `store-assets/`, в порядке загрузки:
+
+1. `screenshot-1-route.png` — маршрут сайта через Tor (главный кадр)
+2. `screenshot-2-bridges.png` — выбор моста
+3. `screenshot-3-downloads.png` — окно подтверждения и вкладка Downloads
+4. `screenshot-4-settings.png` — строки мостов в настройках
+5. `screenshot-5-dark.png` — тёмная тема
+
+Попапы на них — настоящие снимки в 2× (`SHOTS=… THEME=… SCALE=2
+extension/scripts/live-check/run.sh screenshots`), сложенные в кадры
+страницей `store-assets/src/slides.html`. Пересобрать картинки после правок
+текста: `store-assets/render.sh`.
 
 ## Firefox Add-ons (AMO)
 
@@ -224,8 +234,8 @@ cp ~/tortuga-chrome-key.pem /tmp/key.pem
 
 - **Category:** Privacy & Security (или Tools).
 - **Language:** English.
-- **Icon:** `icon-128.png`. **Screenshots:** 1–5 штук 1280×800.
-  **Small promo tile:** 440×280.
+- **Icon:** `icon-128.png`. **Screenshots:** все пять из `store-assets/`.
+  **Small promo tile:** `promo-small-440x280.png`; **Marquee:** `promo-marquee-1400x560.png`.
 - **Official URL / Homepage:** `https://github.com/legenki/tortuga`.
 - **Support URL:** `https://github.com/legenki/tortuga/issues`.
 
