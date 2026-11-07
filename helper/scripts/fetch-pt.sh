@@ -39,7 +39,9 @@ curl -sSf -o "$TMP/sums.txt.asc" "https://dist.torproject.org/torbrowser/$V/sha2
 # A keyring of its own holding only that key; the signature must be valid and
 # made by it (VALIDSIG's last field is the primary key's fingerprint).
 export GNUPGHOME="$TMP/gnupg"
-mkdir -m 700 "$GNUPGHOME"
+mkdir -p "$GNUPGHOME"
+# gpg wants it private; Git Bash on Windows can't set Unix permissions.
+chmod 700 "$GNUPGHOME" 2>/dev/null || true
 gpg --batch --quiet --import "$HELPER/scripts/tor-browser-developers.asc" 2>/dev/null
 gpg --batch --status-fd 3 --verify "$TMP/sums.txt.asc" "$TMP/sums.txt" 3>"$TMP/gpg-status" 2>/dev/null || true
 if ! grep -q "^\[GNUPG:\] VALIDSIG .* $FPR\$" "$TMP/gpg-status"; then
