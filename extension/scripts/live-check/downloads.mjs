@@ -32,6 +32,22 @@ async function waitFor(pred, ms, what) {
   for (let i = 0; i < ms / 250; i++) { const v = await pred(); if (v) return v; await sleep(250); }
   throw new Error(`timed out: ${what}`);
 }
+/**
+ * A real mouse click on element `id`: Tortuga takes only trusted clicks, so
+ * a page calling link.click() can't open windows or make the helper fetch.
+ */
+async function realClick(context, id) {
+  await cmd('browsingContext.activate', { context });
+  const { x, y } = JSON.parse(await ev(context, `(() => { const r = document.getElementById('${id}').getBoundingClientRect(); return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`));
+  await cmd('input.performActions', {
+    context,
+    actions: [{ type: 'pointer', id: 'mouse', parameters: { pointerType: 'mouse' }, actions: [
+      { type: 'pointerMove', x, y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 },
+    ] }],
+  });
+  await cmd('input.releaseActions', { context });
+}
+
 async function shot(context, name) {
   const width = Math.ceil(await ev(context, 'document.body.getBoundingClientRect().width'));
   const height = Math.ceil(await ev(context, 'document.documentElement.scrollHeight'));
@@ -48,7 +64,11 @@ const { context: page } = await cmd('browsingContext.create', { type: 'tab' });
 await cmd('browsingContext.navigate', { context: page, url: 'http://127.0.0.1:8765/links.html', wait: 'complete' });
 await sleep(500);
 const known = new Set((await contexts()).map(c => c.context));
+// A script's click is not the user's: nothing opens, nothing is fetched.
 await ev(page, `document.getElementById('magnet').click(); 1`);
+await sleep(1500);
+check(!(await contexts()).some(c => !known.has(c.context) && c.url.includes('confirm.html')), 'a click made by the page itself opens no confirm window');
+await realClick(page, 'magnet');
 const confirmCtx = await waitFor(async () => (await contexts()).find(c => !known.has(c.context) && c.url.includes('confirm.html'))?.context, 10000, 'confirm window');
 check(true, 'magnet click opened the confirm window');
 check((await ev(page, 'location.href')) === 'http://127.0.0.1:8765/links.html', 'the page did not follow the magnet link');
@@ -73,8 +93,9 @@ await ev(popup, `document.getElementById('tabDownloads').click(); 1`);
 const row = await waitFor(async () => {
   const d = await ev(popup, `chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' }).then(d => JSON.stringify(d))`).then(JSON.parse);
   const r = d.rows[0];
-  return r && r.state === 'downloading' && r.done > 20e6 ? r : null;
-}, 60000, 'download progress');
+  // Data arriving is enough: how fast depends on the swarm that day.
+  return r && r.state === 'downloading' && r.done > 1e6 ? r : null;
+}, 120000, 'download progress');
 log('row:', JSON.stringify(row));
 check(row.name === name, 'the download shows in the Downloads tab');
 await sleep(1200);
@@ -100,8 +121,7 @@ check(readdirSync(DL_DIR).length === 0, `files deleted (left: ${readdirSync(DL_D
 
 // 6. A .torrent link, then Cancel.
 const known2 = new Set((await contexts()).map(c => c.context));
-await cmd('browsingContext.activate', { context: page });
-await ev(page, `document.getElementById('file').click(); 1`);
+await realClick(page, 'file');
 const confirm2 = await waitFor(async () => (await contexts()).find(c => !known2.has(c.context) && c.url.includes('confirm.html'))?.context, 10000, 'second confirm window');
 await waitFor(() => ev(confirm2, `!document.getElementById('details').hidden`), 60000, 'details from the .torrent link');
 check(true, '.torrent link opens the confirm window with details');
@@ -112,7 +132,8 @@ const after = await ev(popup, `chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS
 check(after === 0, 'Cancel downloads nothing');
 
 // 7. A plain link is left alone.
-await ev(page, `document.getElementById('plain').addEventListener('click', e => e.preventDefault()); document.getElementById('plain').click(); 1`);
+await ev(page, `document.getElementById('plain').addEventListener('click', e => e.preventDefault()); 1`);
+await realClick(page, 'plain');
 await sleep(800);
 check(!(await contexts()).some(c => c.url.includes('confirm.html')), 'a normal link opens no confirm window');
 
