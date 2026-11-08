@@ -11,10 +11,13 @@
 #   DEVELOPER_ID_INSTALLER  "Developer ID Installer: Name (TEAMID)"
 #   NOTARY_PROFILE          a `xcrun notarytool store-credentials` profile
 #
-# The package installs (as root, for every user):
-#   /Library/Application Support/Tortuga/{tortuga-helper, pt/, uninstall.sh}
-#   the org.tortuga.helper manifests for Firefox, and — once the Chrome ID is
-#   pinned (helper/packaging/hosts.py) — for Chrome and Chromium.
+# The package installs for the current user only, so it needs no admin rights:
+#   ~/Library/Application Support/Tortuga/{tortuga-helper, pt/, hosts/, uninstall.sh}
+# and its postinstall registers the helper for that user: the org.tortuga.helper
+# manifests for Firefox, and — once the Chrome ID is pinned
+# (helper/packaging/hosts.py) — for Chrome and Chromium. The manifests need the
+# helper's full path, which depends on the home folder, so hosts/ holds them
+# with @HELPER@ in its place.
 set -euo pipefail
 HELPER="$(cd "$(dirname "$0")/../.." && pwd)"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$HELPER/tortuga-helper/Cargo.toml" | head -1)"
@@ -23,7 +26,7 @@ UNIVERSAL=0
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 APP_DIR="Library/Application Support/Tortuga"
-INSTALLED="/$APP_DIR/tortuga-helper"
+INSTALLED="$APP_DIR/tortuga-helper"
 ROOT="$STAGE/root"
 mkdir -p "$ROOT/$APP_DIR/pt"
 
@@ -50,18 +53,10 @@ else
   scripts/fetch-pt.sh 16.0 "" "$ROOT/$APP_DIR/pt"
 fi
 
-# 3. Native messaging host manifests.
-python3 packaging/hosts.py manifests "$INSTALLED" "$STAGE/manifests" >/dev/null
-mkdir -p "$ROOT/Library/Application Support/Mozilla/NativeMessagingHosts"
-cp "$STAGE/manifests/firefox.json" "$ROOT/Library/Application Support/Mozilla/NativeMessagingHosts/org.tortuga.helper.json"
-if [ -f "$STAGE/manifests/chrome.json" ]; then
-  for dir in "Library/Google/Chrome/NativeMessagingHosts" "Library/Application Support/Chromium/NativeMessagingHosts"; do
-    mkdir -p "$ROOT/$dir"
-    cp "$STAGE/manifests/chrome.json" "$ROOT/$dir/org.tortuga.helper.json"
-  done
-else
+# 3. Native messaging host manifests, for postinstall to fill in.
+python3 packaging/hosts.py manifests @HELPER@ "$ROOT/$APP_DIR/hosts" >/dev/null
+[ -f "$ROOT/$APP_DIR/hosts/chrome.json" ] ||
   echo "note: Chrome ID not pinned — the package registers the helper for Firefox only" >&2
-fi
 cp packaging/macos/uninstall.sh "$ROOT/$APP_DIR/uninstall.sh"
 chmod 755 "$ROOT/$INSTALLED" "$ROOT/$APP_DIR/pt/lyrebird" "$ROOT/$APP_DIR/uninstall.sh"
 
@@ -74,7 +69,8 @@ fi
 # extended attributes (com.apple.provenance, which can't be removed) as ._
 # files that would be installed too. The payload is a cpio archive (bsdcpio
 # leaves xattrs out with COPYFILE_DISABLE) and both it and the bill of
-# materials say root:admin, whoever built the package.
+# materials say root:admin, whoever built the package (the installer gives the
+# files to the user who installs them).
 export COPYFILE_DISABLE=1
 COMP="$STAGE/component"
 mkdir -p "$COMP"
@@ -87,17 +83,44 @@ FILES="$(find "$ROOT" | wc -l | tr -d ' ')"
 KBYTES="$(du -sk "$ROOT" | cut -f1)"
 cat > "$COMP/PackageInfo" <<XML
 <?xml version="1.0" encoding="utf-8"?>
-<pkg-info format-version="2" identifier="org.tortuga.helper" version="$VERSION" install-location="/" auth="root">
+<pkg-info format-version="2" identifier="org.tortuga.helper" version="$VERSION" install-location="/" auth="none">
   <payload numberOfFiles="$FILES" installKBytes="$KBYTES"/>
+  <scripts>
+    <postinstall file="./postinstall"/>
+  </scripts>
 </pkg-info>
 XML
+# pkgutil --flatten archives the Scripts folder itself.
+mkdir -p "$COMP/Scripts"
+cp packaging/macos/postinstall "$COMP/Scripts/postinstall"
+chmod 755 "$COMP/Scripts/postinstall"
 pkgutil --flatten "$COMP" "$STAGE/component.pkg"
+
+# The installer offers only "Install for me" (the home folder): no password.
+ARCHS=arm64
+[ $UNIVERSAL = 1 ] && ARCHS=arm64,x86_64
+[ $UNIVERSAL = 0 ] && [ "$(uname -m)" = x86_64 ] && ARCHS=x86_64
+cat > "$STAGE/distribution.xml" <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+  <title>Tortuga Helper</title>
+  <options customize="never" require-scripts="false" hostArchitectures="$ARCHS"/>
+  <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="false"/>
+  <choices-outline>
+    <line choice="org.tortuga.helper"/>
+  </choices-outline>
+  <choice id="org.tortuga.helper" visible="false" title="Tortuga Helper">
+    <pkg-ref id="org.tortuga.helper"/>
+  </choice>
+  <pkg-ref id="org.tortuga.helper" version="$VERSION" onConclusion="none">component.pkg</pkg-ref>
+</installer-gui-script>
+XML
 mkdir -p "$HELPER/dist"
 OUT="$HELPER/dist/Tortuga-Helper-$VERSION-macos.pkg"
 SIGN=()
 [ -n "${DEVELOPER_ID_INSTALLER:-}" ] && SIGN=(--sign "$DEVELOPER_ID_INSTALLER")
 # ${SIGN[@]+…}: macOS's bash 3.2 calls an empty array unbound under set -u.
-productbuild --identifier org.tortuga.helper --version "$VERSION" --package "$STAGE/component.pkg" ${SIGN[@]+"${SIGN[@]}"} "$OUT" >/dev/null
+productbuild --distribution "$STAGE/distribution.xml" --package-path "$STAGE" ${SIGN[@]+"${SIGN[@]}"} "$OUT" >/dev/null
 
 # 6. Notarise and staple.
 if [ -n "${NOTARY_PROFILE:-}" ]; then

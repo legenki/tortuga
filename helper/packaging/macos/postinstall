@@ -1,0 +1,23 @@
+#!/bin/sh
+# Runs after Tortuga-Helper-*-macos.pkg installs into the user's home (no admin
+# rights): registers the helper with Firefox, Chrome and Chromium for this user.
+# The package carries the host manifests with @HELPER@ in place of the helper's
+# path, which depends on the home folder.
+set -e
+DEST="${2%/}"
+[ -x "$DEST/Library/Application Support/Tortuga/tortuga-helper" ] || DEST="$HOME"
+APP="$DEST/Library/Application Support/Tortuga"
+HELPER="$APP/tortuga-helper"
+# The path as a JSON string, then as a sed replacement.
+JSON=$(printf '%s' "$HELPER" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+SED=$(printf '%s' "$JSON" | sed -e 's/[\\&|]/\\&/g')
+
+register() { # template, folder
+  [ -f "$APP/hosts/$1" ] || return 0
+  mkdir -p "$2"
+  sed "s|@HELPER@|$SED|" "$APP/hosts/$1" > "$2/org.tortuga.helper.json"
+}
+register firefox.json "$DEST/Library/Application Support/Mozilla/NativeMessagingHosts"
+register chrome.json "$DEST/Library/Application Support/Google/Chrome/NativeMessagingHosts"
+register chrome.json "$DEST/Library/Application Support/Chromium/NativeMessagingHosts"
+exit 0

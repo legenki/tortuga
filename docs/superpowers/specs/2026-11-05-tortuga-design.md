@@ -311,8 +311,10 @@ Known limitations (found while testing):
   manifest's "key") and AMO (`tortuga-firefox-<v>.zip` plus a source zip that
   rebuilds it byte for byte).
 - Helper, from the GitHub release: macOS `.pkg` (universal; signed and
-  notarised when the Developer ID secrets exist) installing to
-  `/Library/Application Support/Tortuga/`; Debian `.deb` for amd64 and arm64
+  notarised when the Developer ID secrets exist) installing for the current
+  user only, without admin rights, to `~/Library/Application Support/Tortuga/`
+  (a postinstall writes the host manifests, whose path depends on the home
+  folder); Debian `.deb` for amd64 and arm64
   installing to `/usr/lib/tortuga/`; Windows zip with `install.ps1`, a
   per-user install to `%LOCALAPPDATA%\Tortuga` registered in `HKCU` (no admin
   rights). No AppImage: a native host must be registered in fixed places,
