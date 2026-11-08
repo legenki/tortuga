@@ -27,7 +27,8 @@ npm run build:firefox
 
 ```sh
 npm ci
-npm run package    # → tortuga-chrome-<version>.zip (dist/ without manifest "key")
+npm run package    # → tortuga-chrome-<version>.zip (dist/ without manifest "key", for the store)
+                   #   tortuga-chrome-<version>-unpacked.zip (dist/ as is, for Load unpacked)
 ```
 
 ## What ends up in the package
