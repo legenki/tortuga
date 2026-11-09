@@ -88,7 +88,8 @@ macos/
   Tortuga/                app target: TortugaApp.swift, menu bar, window, Assets, Info.plist
   Packages/TortugaKit/    Swift package, no UI: models, TortugaEngine, DemoEngine
   Packages/TortugaUI/     Swift package: screens and parts (metro line, capsules, app rows)
-  TortugaUITests/         XCUITest target
+  TortugaAppUITests/      XCUITest target
+  Config/Base.xcconfig    signing defaults; includes Local.xcconfig when present
 ```
 
 `xcodegen generate` (in `macos/`) writes the project. Logic and views live in
@@ -98,11 +99,11 @@ Swift packages, so `swift test` runs their tests without Xcode.
 
 ```swift
 public protocol TortugaEngine: AnyObject, Sendable {
-    var states: AsyncStream<EngineState> { get }   // current state first, then every change
+    func states() async -> AsyncStream<EngineState>   // current state first, then every change
     func setMode(_ mode: Mode) async throws
     func restart() async throws
     func newCircuit(for app: AppID?) async throws  // nil: every app
-    func selectBridge(_ kind: BridgeKind) async throws
+    func selectBridge(_ kind: BridgeKind?) async throws   // nil: no bridge
     func saveBridgeLines(_ lines: [String], for kind: BridgeKind) async throws
     func fetchBridgeLines(_ kind: BridgeKind) async throws -> [String]   // Moat
     func addException(_ app: AppID) async throws
@@ -122,12 +123,13 @@ Models (all `Sendable`, `Equatable`):
 - `Status`: `.off`, `.starting(step: String, progress: Double)`, `.on`,
   `.blocked(reason: String)` (Tor stopped and traffic is held back),
   `.failed(reason: String)` (Tor could not start).
-- `Trunk`: `bridge: BridgeKind?`, `guard: Relay?`.
+- `Trunk`: `bridge: BridgeKind?`, `guardRelay: Relay?` (`guard` is a Swift keyword).
 - `AppRoute`: `app: AppID`, `middle: Relay`, `exit: Relay`,
   `connections: Int`, `lastActive: Date`.
 - `Relay`: `nickname: String`, `country: String` (ISO code), `address: String`.
 - `AppID`: the signing identifier (for example `com.apple.Safari`), plus an
-  optional bundle path for apps the system cannot find by identifier. The UI
+  optional bundle path for apps the system cannot find by identifier, and an
+  optional display name used when the app isn't installed. The UI
   looks up the name and icon with `NSWorkspace`; the engine sends only the ID.
 - `BridgeKind`: `.snowflake`, `.obfs4`, `.webtunnel`.
   `BridgeSettings`: the selected kind (`nil` = none) and saved lines for each
@@ -155,11 +157,11 @@ they are typed.
   has a route, it shows "No traffic from <App> yet".
 - **Buttons:** capsule `.glass` buttons: "New circuit" (front app),
   "Open Tortuga", "Quit".
-- **Icon:** a turtle template image, in four states:
-  - filled while Tor is on;
-  - pulsing while connecting;
-  - with a red badge while blocked or failed;
-  - outlined in Direct.
+- **Icon:** an SF Symbol, in four states:
+  - `tortoise.fill` while Tor is on;
+  - `tortoise.fill` with a pulse while connecting;
+  - `exclamationmark.triangle.fill` while blocked or failed;
+  - `tortoise` (outlined) in Direct.
 
 **Window.** A `NavigationSplitView` with a glass sidebar. The toolbar holds
 the Direct / Tor capsule and the status.
@@ -236,7 +238,7 @@ Its behaviour in the Normal scenario:
   after half a second. `.webtunnel` fails with "none are needed here".
 - **Downloads:** progress grows over time, and sharing stops at ratio 1.0.
 
-Scenarios are picked in a Debug menu (debug builds) or with the
+Scenarios are picked in a Demo tab of Settings (debug builds; the app has no main menu while it runs from the menu bar) or with the
 `-scenario <name>` launch argument (used by UI tests):
 
 | Scenario | Behaviour |
