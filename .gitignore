@@ -9,3 +9,10 @@ target/
 # Python bytecode (helper/packaging tests)
 __pycache__/
 *.pyc
+
+# macOS app (macos/)
+macos/Tortuga.xcodeproj/
+macos/Local.xcconfig
+macos/build/
+.build/
+.swiftpm/
