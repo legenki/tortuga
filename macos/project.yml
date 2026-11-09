@@ -1,0 +1,59 @@
+name: Tortuga
+options:
+  bundleIdPrefix: org.tortuga
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+packages:
+  TortugaKit:
+    path: Packages/TortugaKit
+  TortugaUI:
+    path: Packages/TortugaUI
+targets:
+  Tortuga:
+    type: application
+    platform: macOS
+    sources: [Tortuga]
+    dependencies:
+      - package: TortugaKit
+      - package: TortugaUI
+    info:
+      path: Tortuga/Info.plist
+      properties:
+        CFBundleDisplayName: Tortuga
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.utilities
+        NSHumanReadableCopyright: Tortuga contributors
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.tortuga.app
+        PRODUCT_NAME: Tortuga
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+  TortugaAppUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [TortugaAppUITests]
+    dependencies:
+      - target: Tortuga
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.tortuga.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        TEST_TARGET_NAME: Tortuga
+schemes:
+  Tortuga:
+    build:
+      targets:
+        Tortuga: all
+        TortugaAppUITests: [test]
+    test:
+      targets:
+        - TortugaAppUITests

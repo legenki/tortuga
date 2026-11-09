@@ -1,0 +1,6 @@
+// Signing defaults: sign to run locally. Local.xcconfig (not in git) sets
+// your team for Developer ID builds; copy it from Local.xcconfig.example.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+#include? "../Local.xcconfig"

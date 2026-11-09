@@ -1,0 +1,5 @@
+// Copy to macos/Local.xcconfig (ignored by git) and put in your team ID
+// (developer.apple.com → Membership).
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM = ABCDE12345

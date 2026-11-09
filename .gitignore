@@ -16,3 +16,4 @@ macos/Local.xcconfig
 macos/build/
 .build/
 .swiftpm/
+macos/Tortuga/Info.plist
