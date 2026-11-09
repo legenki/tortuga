@@ -66,7 +66,7 @@ for the app, XcodeGen 2.46.
 | `…/TortugaUI/Sources/TortugaUI/MenuPanel.swift` | menu bar panel, `FrontApp`, `MenuBarLabel` |
 | `…/TortugaUI/Sources/TortugaUI/SettingsView.swift` | Settings tabs (General, Downloads, About, Demo in debug) |
 | `…/TortugaUI/Sources/TortugaUI/Previews.swift` | `PreviewHost` and previews |
-| `…/TortugaUI/Tests/TortugaUIPackageTests/*.swift` | `AppModel`, status text and stop tests |
+| `…/TortugaUI/Tests/TortugaUILogicTests/*.swift` | `AppModel`, status text and stop tests |
 | `macos/project.yml`, `macos/Config/Base.xcconfig`, `macos/Local.xcconfig.example` | project and signing |
 | `macos/Tortuga/TortugaApp.swift` | the app: scenes, engine, activation policy |
 | `macos/TortugaAppUITests/TortugaAppUITests.swift` | XCUITest paths |
@@ -1488,7 +1488,7 @@ git commit -m "test(macos): DemoEngine commands and scenarios" -m "Co-Authored-B
 - Create: `macos/Packages/TortugaUI/Sources/TortugaUI/AppModel.swift`
 - Create: `macos/Packages/TortugaUI/Sources/TortugaUI/Theme.swift`
 - Create: `macos/Packages/TortugaUI/Sources/TortugaUI/MainWindow.swift` (only `SidebarSection` for now)
-- Create: `macos/Packages/TortugaUI/Tests/TortugaUIPackageTests/AppModelTests.swift`
+- Create: `macos/Packages/TortugaUI/Tests/TortugaUILogicTests/AppModelTests.swift`
 
 - [ ] **Step 1: Write the manifest**
 
@@ -1505,14 +1505,14 @@ let package = Package(
     dependencies: [.package(path: "../TortugaKit")],
     targets: [
         .target(name: "TortugaUI", dependencies: ["TortugaKit"]),
-        .testTarget(name: "TortugaUIPackageTests", dependencies: ["TortugaUI", "TortugaKit"]),
+        .testTarget(name: "TortugaUILogicTests", dependencies: ["TortugaUI", "TortugaKit"]),
     ]
 )
 ```
 
 - [ ] **Step 2: Write the failing tests**
 
-`macos/Packages/TortugaUI/Tests/TortugaUIPackageTests/AppModelTests.swift`:
+`macos/Packages/TortugaUI/Tests/TortugaUILogicTests/AppModelTests.swift`:
 
 ```swift
 import Testing
@@ -1743,11 +1743,11 @@ git commit -m "feat(macos): TortugaUI package with AppModel and theme" -m "Co-Au
 - Create: `macos/Packages/TortugaUI/Sources/TortugaUI/AppInfo.swift`
 - Create: `macos/Packages/TortugaUI/Sources/TortugaUI/ModeSwitch.swift`
 - Create: `macos/Packages/TortugaUI/Sources/TortugaUI/StatusLine.swift`
-- Create: `macos/Packages/TortugaUI/Tests/TortugaUIPackageTests/MetroStopsTests.swift`
+- Create: `macos/Packages/TortugaUI/Tests/TortugaUILogicTests/MetroStopsTests.swift`
 
 - [ ] **Step 1: Write the failing tests for the stop builders**
 
-`macos/Packages/TortugaUI/Tests/TortugaUIPackageTests/MetroStopsTests.swift`:
+`macos/Packages/TortugaUI/Tests/TortugaUILogicTests/MetroStopsTests.swift`:
 
 ```swift
 import Foundation

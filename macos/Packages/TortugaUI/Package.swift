@@ -8,6 +8,6 @@ let package = Package(
     dependencies: [.package(path: "../TortugaKit")],
     targets: [
         .target(name: "TortugaUI", dependencies: ["TortugaKit"]),
-        .testTarget(name: "TortugaUIPackageTests", dependencies: ["TortugaUI", "TortugaKit"]),
+        .testTarget(name: "TortugaUILogicTests", dependencies: ["TortugaUI", "TortugaKit"]),
     ]
 )
