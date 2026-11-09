@@ -59,7 +59,7 @@ struct DownloadRow: View {
             Text(detail).font(.caption).foregroundStyle(.secondary).monospacedDigit()
         }
         .padding(12)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .glassCard(cornerRadius: 16)
     }
 
     private var detail: String {

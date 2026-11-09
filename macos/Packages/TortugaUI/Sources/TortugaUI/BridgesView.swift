@@ -93,7 +93,7 @@ struct BridgeCard: View {
             }
         }
         .padding(14)
-        .glassEffect(selected ? .regular.tint(Color.route.opacity(0.15)) : .regular, in: .rect(cornerRadius: 18))
+        .glassCard(cornerRadius: 18, tint: selected ? Color.route.opacity(0.15) : nil)
     }
 
     private func select() {

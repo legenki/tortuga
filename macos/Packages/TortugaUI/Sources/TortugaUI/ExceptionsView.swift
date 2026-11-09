@@ -27,7 +27,7 @@ struct ExceptionsView: View {
                         .accessibilityIdentifier("remove.\(app.id)")
                     }
                     .padding(10)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                    .glassCard(cornerRadius: 14)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("exception.\(app.id)")
                 }

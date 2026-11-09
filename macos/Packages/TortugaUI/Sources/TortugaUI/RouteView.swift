@@ -4,9 +4,9 @@ import TortugaKit
 /// The shared trunk, then a row per app: active first, idle folded, excepted last.
 struct RouteView: View {
     @Environment(AppModel.self) private var model
-    @State private var expanded: String?
 
     var body: some View {
+        @Bindable var model = model
         let state = model.state
         let list = RouteList(apps: state.apps, exceptions: state.exceptions, now: .now)
         ScrollView {
@@ -14,19 +14,17 @@ struct RouteView: View {
                 StatusLine()
                 MetroLine(stops: MetroLine.Stop.trunk(state.trunk), lit: state.status == .on)
                     .padding(14)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                    .glassCard(cornerRadius: 20)
                 if state.status == .on, list.active.isEmpty, list.idle.isEmpty {
                     Text("Apps appear here as they connect.").foregroundStyle(.secondary)
                 }
-                GlassEffectContainer(spacing: 8) {
-                    VStack(spacing: 8) {
-                        ForEach(list.active) { AppRow(route: $0, trunk: state.trunk, expanded: $expanded) }
-                    }
+                VStack(spacing: 8) {
+                    ForEach(list.active) { AppRow(route: $0, trunk: state.trunk, lit: state.status == .on, expanded: $model.expandedApp) }
                 }
                 if !list.idle.isEmpty {
                     DisclosureGroup("Idle (\(list.idle.count))") {
                         VStack(spacing: 8) {
-                            ForEach(list.idle) { AppRow(route: $0, trunk: state.trunk, expanded: $expanded) }
+                            ForEach(list.idle) { AppRow(route: $0, trunk: state.trunk, lit: state.status == .on, expanded: $model.expandedApp) }
                         }
                         .padding(.top, 8)
                     }
@@ -47,6 +45,8 @@ struct AppRow: View {
     @Environment(AppModel.self) private var model
     let route: AppRoute
     let trunk: Trunk
+    /// Off while Tor isn't on: the route is drawn grey, not as if it worked.
+    let lit: Bool
     @Binding var expanded: String?
 
     private var isOpen: Bool { expanded == route.id }
@@ -59,7 +59,7 @@ struct AppRow: View {
                     .font(.body.weight(.semibold))
                     .lineLimit(1)
                     .frame(width: 120, alignment: .leading)
-                MetroLine(stops: MetroLine.Stop.tail(route), lit: true, compact: true)
+                MetroLine(stops: MetroLine.Stop.tail(route), lit: lit, compact: true)
                 Text("\(route.middle.flag) → \(route.exit.flag)")
                     .font(.callout)
                     .accessibilityIdentifier("row.exit.\(route.id)")
@@ -69,13 +69,16 @@ struct AppRow: View {
                     .foregroundStyle(.secondary)
             }
             .contentShape(.rect)
-            .onTapGesture { withAnimation(.snappy) { expanded = isOpen ? nil : route.id } }
+            .onTapGesture(perform: toggle)
+            // Not a Button: a button merges its parts into one accessibility
+            // element, and the exit should stay readable on its own.
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, toggle)
             .accessibilityIdentifier("route.row.\(route.id)")
 
             if isOpen {
-                MetroLine(stops: MetroLine.Stop.full(trunk, route), lit: true)
+                MetroLine(stops: MetroLine.Stop.full(trunk, route), lit: lit)
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
                     GridRow {
                         Text("Middle").foregroundStyle(.secondary)
@@ -101,11 +104,15 @@ struct AppRow: View {
             }
         }
         .padding(12)
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .glassCard(cornerRadius: 18)
         .contextMenu {
             Button("New circuit", action: newCircuit)
             Button("Exclude from Tor", action: exclude)
         }
+    }
+
+    private func toggle() {
+        withAnimation(.snappy) { expanded = isOpen ? nil : route.id }
     }
 
     private func newCircuit() {
@@ -132,6 +139,6 @@ struct ExceptedRow: View {
         }
         .padding(12)
         .opacity(0.6)
-        .glassEffect(.regular, in: .rect(cornerRadius: 18))
+        .glassCard(cornerRadius: 18)
     }
 }

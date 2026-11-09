@@ -41,3 +41,14 @@ extension Status {
         }
     }
 }
+
+extension View {
+    /// A glass card behind the content. The glass sits in the background
+    /// rather than on the view itself: glassEffect on a view takes the clicks
+    /// meant for the buttons inside it.
+    func glassCard(cornerRadius: CGFloat, tint: Color? = nil) -> some View {
+        background {
+            Color.clear.glassEffect(tint.map { .regular.tint($0) } ?? .regular, in: .rect(cornerRadius: cornerRadius))
+        }
+    }
+}

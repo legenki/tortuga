@@ -59,7 +59,7 @@ public struct MenuPanel: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                .glassCard(cornerRadius: 16)
             }
             GlassEffectContainer(spacing: 6) {
                 HStack(spacing: 6) {
