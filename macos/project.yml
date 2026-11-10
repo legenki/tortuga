@@ -48,6 +48,7 @@ targets:
       path: TortugaProxy/Info.plist
       properties:
         CFBundleDisplayName: Tortuga Proxy
+        CFBundlePackageType: SYSX
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         NSSystemExtensionUsageDescription: Sends this Mac's traffic through Tor.
