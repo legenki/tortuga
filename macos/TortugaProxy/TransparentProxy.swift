@@ -24,13 +24,14 @@ final class TransparentProxy: NETransparentProxyProvider {
                           localNetworkEndpoint: nil, localPrefix: 0, protocol: .any, direction: .outbound)
         }
         let configuration = ProxyConfiguration(providerConfiguration: (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration)
+        let started = Unchecked(value: completionHandler)
         setTunnelNetworkSettings(settings) { error in
             if let error { proxyLog.error("proxy settings failed: \(error.localizedDescription, privacy: .public)") }
             Task {
                 if let configuration { await Shared.core.configure(configuration) }
                 await Shared.core.start()
             }
-            completionHandler(error)
+            started.value(error)
         }
     }
 
