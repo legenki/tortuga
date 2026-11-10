@@ -21,7 +21,7 @@ isn't ready. DNS doesn't leak to the local network.
 | Capturing TCP | `NETransparentProxyProvider` |
 | Capturing DNS | `NEDNSProxyProvider` in the same system extension |
 | Other UDP (QUIC, calls) | Closed, so apps fall back to TCP |
-| Where settings live | In the extension, which runs without the app |
+| Where settings live | In the app (UserDefaults); sent to the extension in the provider configuration and by XPC |
 | Torrents | Not in this step (the extension runs as root; downloads must belong to the user) |
 
 ### Why the helper as a process
@@ -46,8 +46,8 @@ Tortuga.app  (UI, menu bar; ProxyEngine implements TortugaEngine)
 TortugaProxy.systemextension  (root, runs whether or not the app does)
    ├─ TransparentProxy (NETransparentProxyProvider)  TCP flows
    ├─ DNSProxy (NEDNSProxyProvider)                 DNS queries
-   ├─ Supervisor: runs Contents/Helpers/tortuga-helper (+ pt/lyrebird), restarts it
-   └─ Store: mode, bridge, bridge lines, exceptions (a plist in the extension's container)
+   ├─ Supervisor: runs tortuga-helper (+ lyrebird) from the app's bundle in /Applications, restarts it
+   └─ Settings arrive from the app (provider configuration + XPC configure)
 ```
 
 **The extension.**
@@ -237,3 +237,27 @@ be.
   inside the app bundle.
 - Notarised release packaging.
 - Any change to the browser extension.
+
+## Changes after the spike (2026-11-10)
+
+1. **Where the helper runs from.** The extension runs the helper and
+   lyrebird from the app's copy of the extension, in
+   `/Applications/Tortuga.app/Contents/Library/SystemExtensions/org.tortuga.app.proxy.systemextension/`.
+   The app sends that path in the configuration. If it's missing, Tor can't
+   start and the status says to move Tortuga to /Applications.
+2. **Where settings live.** The user's settings live in the app
+   (UserDefaults) and reach the extension in the provider configuration and
+   by XPC. They do not live in an extension store. The extension runs only
+   while the proxy is on, and the DNS proxy can't read its own provider
+   configuration.
+3. **The DNS proxy answers every query itself.** Through Tor, empty, or
+   SERVFAIL; it never returns `false`, because that drops the query. DNS over
+   TCP flows are closed, and resolvers retry over UDP.
+4. **Local networks never reach the transparent proxy.** It excludes
+   loopback, private, link-local and multicast networks in its settings, so
+   AirDrop, printers and mDNS keep working. UDP flows elsewhere are closed.
+5. **Our own programs.** The helper and lyrebird are recognised by their
+   signing identifiers `tortuga-helper` and `lyrebird`. Their traffic goes
+   out directly.
+6. **XPC.** Only the Tortuga app may connect: the extension sets a
+   code-signing requirement on each connection.
