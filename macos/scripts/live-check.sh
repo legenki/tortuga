@@ -5,6 +5,8 @@ set -u
 ok() { printf '  ok    %s\n' "$1"; }
 bad() { printf '  FAIL  %s\n' "$1"; FAILED=1; }
 FAILED=0
+# Ask for the password now, so tcpdump is capturing before dig runs.
+sudo -v || exit 1
 
 echo "1. Through Tor"
 CURL=$(curl -s --max-time 30 https://check.torproject.org/api/ip)
