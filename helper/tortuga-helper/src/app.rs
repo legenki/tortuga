@@ -94,6 +94,20 @@ impl App {
                 }
                 _ => self.send(Message::error(Some(req.id), ErrorCode::NotRunning, "Tor is off")),
             },
+            RequestBody::TorResolve { name } => match &state.tor {
+                Some(tor) if state.socks.is_some() => {
+                    let tor = tor.clone();
+                    let app = self.clone();
+                    tokio::spawn(async move {
+                        let reply = match tor.resolve(&name).await {
+                            Ok(ips) => Message::reply(req.id, Outgoing::Resolved { addresses: ips.iter().map(|ip| ip.to_string()).collect() }),
+                            Err(e) => Message::error(Some(req.id), ErrorCode::TorFailed, format!("{e:#}")),
+                        };
+                        app.send(reply);
+                    });
+                }
+                _ => self.send(Message::error(Some(req.id), ErrorCode::NotRunning, "Tor is off")),
+            },
             RequestBody::TorrentOpen => self.torrent(req.id, TorrentJob::Open),
             RequestBody::TorrentInspect { source, via } => self.torrent(req.id, TorrentJob::Inspect(source, via)),
             RequestBody::TorrentAdd { source, via } => self.torrent(req.id, TorrentJob::Add(source, via)),
@@ -368,6 +382,17 @@ mod tests {
         assert_eq!(answers[1]["id"], 3);
         assert_eq!(answers[1]["payload"]["code"], "cancelled");
         assert_eq!(answers[2], json!({"id": 4, "type": "ok"}));
+    }
+
+    #[tokio::test]
+    async fn resolve_needs_tor() {
+        let (app, mut rx, _dir) = app();
+        app.handle(req(json!({"id": 1, "type": "hello", "payload": {"protocol": PROTOCOL_VERSION}}))).await;
+        rx.recv().await.unwrap();
+        app.handle(req(json!({"id": 2, "type": "tor.resolve", "payload": {"name": "example.com"}}))).await;
+        let answer = json_of(rx.recv().await.unwrap());
+        assert_eq!(answer["id"], 2);
+        assert_eq!(answer["payload"]["code"], "not_running");
     }
 
     #[tokio::test]
