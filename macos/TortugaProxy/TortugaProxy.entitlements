@@ -13,5 +13,9 @@
 		<string>app-proxy-provider</string>
 		<string>dns-proxy</string>
 	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>$(TeamIdentifierPrefix)org.tortuga.app</string>
+	</array>
 </dict>
 </plist>
