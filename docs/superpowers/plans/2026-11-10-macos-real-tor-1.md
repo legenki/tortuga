@@ -2098,3 +2098,17 @@ git commit -m "ci(macos): test TortugaProxyKit; docs for the extension's setup" 
 - **Unsigned builds:** the app still builds and its UI tests pass without
   `Local.xcconfig`.
 - **Plan 2:** written from the spike's findings.
+
+## Found while carrying out the plan
+
+- **Where `pt/` lives:** `pt/` (lyrebird, pt_config.json) can't sit in the
+  extension's `Contents/MacOS`, because only code may be there and codesign
+  rejects the JSON. It goes into `Contents/Resources/pt`. The extension
+  points the helper at it with `TORTUGA_PT_DIR`.
+- **`NENetworkRule`:** the `NWHostEndpoint` initializer
+  `NENetworkRule(remoteNetwork:…)` is gone from the macOS 27 SDK. Use
+  `NENetworkRule(remoteNetworkEndpoint: nil, remotePrefix: 0,
+  localNetworkEndpoint: nil, localPrefix: 0, protocol:, direction:)`.
+- **Tests:** `async let` can't be captured by `#expect`, so the helper-client
+  tests use `Task { … }` and `.value`. swift-testing counts a parameterised
+  test once, so the totals are lower than the plan's estimates.

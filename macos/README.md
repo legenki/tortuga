@@ -59,3 +59,23 @@ in System Settings.
 Don't put `glassEffect` directly on a view that has buttons inside it: on
 macOS 27 the glass takes their clicks. Use `glassCard(cornerRadius:)` from
 `Theme.swift`, which draws the glass behind the content.
+
+## Real Tor (in progress)
+
+`TortugaProxy` is a system extension that will send the whole Mac through
+Tor (spec: `docs/superpowers/specs/2026-11-10-macos-real-tor-design.md`).
+It needs your team's signing:
+
+1. Sign in to your developer account in Xcode → Settings → Accounts.
+2. Copy `Local.xcconfig.example` to `Local.xcconfig` and put in your team ID.
+3. Run `scripts/install-dev.sh`: macOS activates system extensions only
+   from /Applications.
+
+Without `Local.xcconfig` the app builds and runs on `DemoEngine`, but can't
+install its extension. Building the extension also builds the helper
+(`cargo`) and fetches lyrebird (`gpg`); set `TORTUGA_SKIP_HELPER=1` to skip
+that.
+
+`Packages/TortugaProxyKit` holds the extension's logic. Its tests run with
+`swift test --package-path Packages/TortugaProxyKit`; one of them talks to
+the real helper if `helper/target/release/tortuga-helper` is built.
