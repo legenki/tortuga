@@ -23,10 +23,13 @@ final class DNSProxy: NEDNSProxyProvider {
             flow.closeWriteWithError(nil)
             return true
         }
-        let own = ProxyCore.ownIDs.contains(flow.metaData.sourceAppSigningIdentifier)
+        let app = flow.metaData.sourceAppSigningIdentifier
+        let own = ProxyCore.ownIDs.contains(app)
         let upstream = own ? systemDNSSettings?.flatMap(\.servers).first : nil
+        proxyLog.notice("dns flow from \(app, privacy: .public), own: \(own), upstream: \(upstream ?? "-", privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
         let boxed = Unchecked(value: udp)
         udp.open(withLocalFlowEndpoint: nil) { error in
+            if let error { proxyLog.error("dns flow didn't open: \(error.localizedDescription, privacy: .public)") }
             if error == nil { Self.serve(boxed, upstream: upstream) }
         }
         return true
@@ -51,7 +54,12 @@ final class DNSProxy: NEDNSProxyProvider {
                             try await Shared.core.resolve(name)
                         }
                     }
-                    if let answer { boxed.value.writeDatagrams([(answer, sender.value)]) { _ in } }
+                    proxyLog.notice("dns answer: \(answer.map { "rcode \($0[3] & 0x0F), \($0.count) bytes" } ?? "none", privacy: .public) via \(upstream == nil ? "tor" : "system", privacy: .public)")
+                    if let answer {
+                        boxed.value.writeDatagrams([(answer, sender.value)]) { error in
+                            if let error { proxyLog.error("dns write failed: \(error.localizedDescription, privacy: .public)") }
+                        }
+                    }
                 }
             }
             serve(boxed, upstream: upstream)

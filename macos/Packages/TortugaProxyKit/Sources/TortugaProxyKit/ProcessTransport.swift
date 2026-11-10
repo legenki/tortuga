@@ -6,8 +6,11 @@ public final class ProcessTransport: HelperTransport, @unchecked Sendable {
     private let process = Process()
     private let input = Pipe()
     private let output = Pipe()
+    private let errors = Pipe()
 
-    public init(executable: URL, environment: [String: String] = [:]) throws {
+    /// `onStandardError` gets the helper's stderr, line by line.
+    public init(executable: URL, environment: [String: String] = [:],
+                onStandardError: (@Sendable (String) -> Void)? = nil) throws {
         let (stream, feed) = AsyncStream.makeStream(of: Data.self)
         incoming = stream
         process.executableURL = executable
@@ -23,7 +26,18 @@ public final class ProcessTransport: HelperTransport, @unchecked Sendable {
                 feed.yield(data)
             }
         }
-        process.terminationHandler = { _ in feed.finish() }
+        if let onStandardError {
+            process.standardError = errors
+            errors.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if data.isEmpty { handle.readabilityHandler = nil; return }
+                for line in String(decoding: data, as: UTF8.self).split(separator: "\n") { onStandardError(String(line)) }
+            }
+        }
+        process.terminationHandler = { process in
+            onStandardError?("exited with status \(process.terminationStatus)")
+            feed.finish()
+        }
         try process.run()
     }
 

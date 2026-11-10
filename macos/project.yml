@@ -55,7 +55,7 @@ targets:
         CFBundleDisplayName: Tortuga Proxy
         CFBundlePackageType: SYSX
         CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "5"
+        CFBundleVersion: $(TORTUGA_BUILD)
         TortugaTeamID: $(DEVELOPMENT_TEAM)
         NSSystemExtensionUsageDescription: Sends this Mac's traffic through Tor.
         NetworkExtension:

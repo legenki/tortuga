@@ -7,7 +7,20 @@ let proxyLog = Logger(subsystem: "org.tortuga.app", category: "proxy")
 
 /// The extension process's one core, shared by both providers and XPC.
 enum Shared {
-    static let core = ProxyCore(launcher: ProcessLauncher(dataDirectory: dataDirectory))
+    static let core = ProxyCore(launcher: ProcessLauncher(dataDirectory: dataDirectory) { line in
+        proxyLog.notice("helper: \(line, privacy: .public)")
+    })
+
+    /// Logs each status change (no host names: statuses and app counts only).
+    static func watchStatus() {
+        Task {
+            var last: Status?
+            for await state in await core.states() where state.status != last {
+                last = state.status
+                proxyLog.notice("status: \(String(describing: state.status), privacy: .public), apps: \(state.apps.count)")
+            }
+        }
+    }
     static let names = NameCache()
 
     /// The helper's Arti state, in the extension's container.
