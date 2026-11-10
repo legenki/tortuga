@@ -58,7 +58,7 @@ public struct MainWindow: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) { ModeSwitch() }
         }
-        .frame(minWidth: 700, minHeight: 480)
+        .frame(minWidth: 700, minHeight: 640)
         .sheet(isPresented: Binding(get: { !didShowWelcome }, set: { if !$0 { didShowWelcome = true } })) {
             FirstRunView { didShowWelcome = true }
         }

@@ -9,7 +9,12 @@ struct DownloadsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 8) {
-                if model.state.downloads.isEmpty {
+                if !model.state.downloadsAvailable {
+                    Text("Downloads come in a later version.")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                }
+                if model.state.downloadsAvailable, model.state.downloads.isEmpty {
                     Text("Drop a .torrent file or a magnet link here.")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 120)

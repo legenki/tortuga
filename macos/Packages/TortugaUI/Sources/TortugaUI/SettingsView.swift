@@ -87,18 +87,23 @@ struct AboutSettings: View {
 }
 
 #if DEBUG
-/// Debug builds only: swap the DemoEngine scenario.
+/// Debug builds only: swap the DemoEngine scenario, or go back to the real
+/// engine (takes effect when Tortuga next opens).
 struct DemoSettings: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("scenario") private var scenario = Scenario.normal.rawValue
+    @AppStorage("scenario") private var scenario = "real"
 
     var body: some View {
         Form {
-            Picker("Scenario", selection: $scenario) {
-                ForEach(Scenario.allCases) { Text($0.rawValue).tag($0.rawValue) }
+            Picker("Engine", selection: $scenario) {
+                Text("Real (Tor)").tag("real")
+                ForEach(Scenario.allCases) { Text("Demo: \($0.rawValue)").tag($0.rawValue) }
             }
             .onChange(of: scenario) { _, name in
-                model.replace(engine: DemoEngine.running(Scenario(rawValue: name) ?? .normal))
+                if let demo = Scenario(rawValue: name) { model.replace(engine: DemoEngine.running(demo)) }
+            }
+            if scenario == "real" {
+                Text("Quit and reopen Tortuga to use the real engine.").font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
