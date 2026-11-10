@@ -18,6 +18,7 @@ struct SpikeWindow: View {
                     activator.activate()
                 }
                 Button("Enable proxies") { Task { await set(true) } }
+                Button("TCP proxy only") { Task { await set(true, dns: false) } }
                 Button("Disable proxies") { Task { await set(false) } }
             }
             .buttonStyle(.glass)
@@ -30,10 +31,10 @@ struct SpikeWindow: View {
         .frame(width: 560, height: 360)
     }
 
-    private func set(_ on: Bool) async {
+    private func set(_ on: Bool, dns: Bool = true) async {
         do {
-            try await SpikeProxies.set(on)
-            lines.append("proxies \(on ? "enabled" : "disabled")")
+            try await SpikeProxies.set(on, dns: dns)
+            lines.append("proxies \(on ? "enabled" : "disabled")\(on && !dns ? " (TCP only, no DNS proxy)" : "")")
         } catch {
             lines.append("proxies: \(error.localizedDescription)")
         }
@@ -74,7 +75,7 @@ final class SpikeActivator: NSObject, OSSystemExtensionRequestDelegate, @uncheck
 
 @MainActor
 enum SpikeProxies {
-    static func set(_ on: Bool) async throws {
+    static func set(_ on: Bool, dns dnsOn: Bool = true) async throws {
         let manager = try await NETransparentProxyManager.loadAllFromPreferences().first ?? NETransparentProxyManager()
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = "org.tortuga.app.proxy"
@@ -93,7 +94,7 @@ enum SpikeProxies {
         dnsProto.serverAddress = "Tortuga"
         dns.providerProtocol = dnsProto
         dns.localizedDescription = "Tortuga DNS"
-        dns.isEnabled = on
+        dns.isEnabled = on && dnsOn
         try await dns.saveToPreferences()
     }
 }
