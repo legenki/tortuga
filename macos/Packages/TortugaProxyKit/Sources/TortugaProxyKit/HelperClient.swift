@@ -6,6 +6,8 @@ public protocol HelperTransport: Sendable {
     func write(_ data: Data) async throws
     /// Bytes from the helper as they arrive; finishes when it exits.
     var incoming: AsyncStream<Data> { get }
+    /// End the helper (its `incoming` then finishes).
+    func terminate()
 }
 
 public enum HelperError: Error, Equatable, LocalizedError {
@@ -49,6 +51,11 @@ public actor HelperClient {
             return event
         }
         throw HelperError.gone
+    }
+
+    /// End the helper; waiting requests fail with `.gone`.
+    public nonisolated func shutdown() {
+        transport.terminate()
     }
 
     private func startReading() {

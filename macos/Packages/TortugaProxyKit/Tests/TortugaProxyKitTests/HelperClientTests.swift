@@ -27,6 +27,13 @@ final class FakeTransport: HelperTransport, @unchecked Sendable {
 
     func send(_ json: String) { feed.yield(Framing.encode(Data(json.utf8))) }
     func close() { feed.finish() }
+
+    private var ended = false
+    var terminated: Bool { lock.withLock { ended } }
+    func terminate() {
+        lock.withLock { ended = true }
+        close()
+    }
 }
 
 @Test func framesAreLengthPrefixedLittleEndian() {
