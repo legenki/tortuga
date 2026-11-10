@@ -36,6 +36,13 @@ struct TortugaApp: App {
         Settings {
             SettingsView().environment(model)
         }
+
+        #if DEBUG
+        Window("Spike", id: "spike") {
+            SpikeWindow()
+        }
+        .defaultLaunchBehavior(UserDefaults.standard.bool(forKey: "spike") ? .presented : .suppressed)
+        #endif
     }
 }
 
