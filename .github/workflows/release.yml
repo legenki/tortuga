@@ -63,6 +63,12 @@ jobs:
           pkgutil --expand-full helper/dist/*.pkg "$RUNNER_TEMP/pkg"
           BIN="$(find "$RUNNER_TEMP/pkg" -path '*Tortuga/tortuga-helper' | head -1)"
           lipo -archs "$BIN"
+          # Only the system's libraries: a Homebrew one works on the runner
+          # and nowhere else.
+          if otool -L "$BIN" | tail -n +2 | grep -v -E '^\s*(/usr/lib/|/System/)'; then
+            echo "tortuga-helper links libraries outside the system" >&2
+            exit 1
+          fi
           python3 helper/packaging/smoke.py "$BIN"
       - uses: actions/upload-artifact@v4
         with:
