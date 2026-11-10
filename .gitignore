@@ -17,3 +17,5 @@ macos/build/
 .build/
 .swiftpm/
 macos/Tortuga/Info.plist
+macos/TortugaProxy/Info.plist
+macos/build-unsigned/

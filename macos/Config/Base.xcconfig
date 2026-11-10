@@ -3,4 +3,8 @@
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = -
 DEVELOPMENT_TEAM =
+// Entitlements need the team's provisioning profiles: Local.xcconfig turns
+// them on. Without them the app runs, but can't install its extension.
+TORTUGA_APP_ENTITLEMENTS =
+TORTUGA_PROXY_ENTITLEMENTS =
 #include? "../Local.xcconfig"

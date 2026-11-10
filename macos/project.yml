@@ -20,6 +20,7 @@ targets:
     dependencies:
       - package: TortugaKit
       - package: TortugaUI
+      - target: TortugaProxy
     info:
       path: Tortuga/Info.plist
       properties:
@@ -36,6 +37,37 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGN_ENTITLEMENTS: $(TORTUGA_APP_ENTITLEMENTS)
+  TortugaProxy:
+    type: system-extension
+    platform: macOS
+    sources: [TortugaProxy]
+    dependencies:
+      - package: TortugaKit
+    info:
+      path: TortugaProxy/Info.plist
+      properties:
+        CFBundleDisplayName: Tortuga Proxy
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSSystemExtensionUsageDescription: Sends this Mac's traffic through Tor.
+        NetworkExtension:
+          NEMachServiceName: $(DEVELOPMENT_TEAM).org.tortuga.app.proxy
+          NEProviderClasses:
+            com.apple.networkextension.app-proxy: $(PRODUCT_MODULE_NAME).SpikeTransparentProxy
+            com.apple.networkextension.dns-proxy: $(PRODUCT_MODULE_NAME).SpikeDNSProxy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.tortuga.app.proxy
+        PRODUCT_NAME: org.tortuga.app.proxy
+        PRODUCT_MODULE_NAME: TortugaProxy
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_ENTITLEMENTS: $(TORTUGA_PROXY_ENTITLEMENTS)
+    postBuildScripts:
+      - name: Embed tortuga-helper and lyrebird
+        script: '"$SRCROOT/scripts/embed-helper.sh"'
+        basedOnDependencyAnalysis: false
   TortugaAppUITests:
     type: bundle.ui-testing
     platform: macOS
