@@ -112,3 +112,54 @@ dig answers).
   `-systemextension` ones for Developer ID builds (two entitlements files, or
   a build setting).
 - Keep the three Info.plist/entitlement fixes above.
+
+## Live check of the whole-Mac proxy (2026-11-10)
+
+Extension 0.2.0, macOS 27.0.1, Snowflake, on the user's Mac.
+
+`macos/scripts/live-check.sh` with Tor on:
+
+```
+1. Through Tor
+  ok    curl: {"IsTor":true,"IP":"204.8.96.163"}
+2. Two apps, two exits
+  ok    curl 204.8.96.163, python 45.66.35.46
+3. DNS through Tor, none on the wire
+  ok    dig example.com → 172.66.147.243
+  (no DNS packets on en0; the script's first version called a one-newline file a failure)
+4. Nothing goes out while Tor is down
+  ok    curl fails with the helper dead
+  ok    back through Tor
+```
+
+The script gave these results with Tor on. The same run with Tortuga in
+Direct showed everything going out directly, with the real IP, as Direct
+should.
+
+By hand:
+- **Safari, through Tor:** check.torproject.org says "Congratulations",
+  exit 23.129.64.192.
+- **Safari as an exception:** "Sorry. You are not using Tor", with the real
+  IP.
+- **Exceptions follow the process that connects.** That's `curl` itself
+  (`com.apple.curl`), not the terminal it runs in, so excepting Ghostty
+  doesn't except a `curl` started from it. Safari's WebKit networking is
+  reported as `com.apple.Safari`, so excepting Safari works.
+
+Found and fixed on the way:
+- **The extension's seal.** An incremental build left the extension's seal
+  stale ("a sealed resource is missing or invalid"), and sysextd kept the
+  old version. `install-dev.sh` now builds the app and extension fresh,
+  verifies the signature, and gives the extension a new build number.
+- **DNS went to the transparent proxy.** It is offered flows before the DNS
+  proxy, so closing UDP there swallowed every DNS query. Port 53 is now
+  excluded from its rules.
+- **No system resolvers.** `systemDNSSettings` was nil, so our own
+  programs' DNS (lyrebird's Snowflake broker) had nowhere to go before Tor
+  was up. The fallback is resolv.conf, then 1.1.1.1.
+
+Not good enough yet:
+- **The first connections after "Tor on" are slow through Snowflake.**
+  Status turns "on" from Arti's cache in under a second. Safari's first
+  page then took over 20 s, and Safari called that "not connected". It
+  loads once circuits exist, about 30 s after switching on.

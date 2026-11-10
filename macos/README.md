@@ -60,22 +60,26 @@ Don't put `glassEffect` directly on a view that has buttons inside it: on
 macOS 27 the glass takes their clicks. Use `glassCard(cornerRadius:)` from
 `Theme.swift`, which draws the glass behind the content.
 
-## Real Tor (in progress)
+## Real Tor
 
-`TortugaProxy` is a system extension that will send the whole Mac through
-Tor (spec: `docs/superpowers/specs/2026-11-10-macos-real-tor-design.md`).
-It needs your team's signing:
+With Tor on, every app on the Mac goes through Tor, each on its own circuit;
+DNS goes through Tor; nothing leaves directly while Tor isn't ready.
+Excepted apps, local networks, and Tortuga's own helper go out directly.
+An exception covers the process that connects: `curl` started from an
+excepted terminal still goes through Tor.
 
-1. Sign in to your developer account in Xcode → Settings → Accounts.
-2. Copy `Local.xcconfig.example` to `Local.xcconfig` and put in your team ID.
-3. Run `scripts/install-dev.sh`: macOS activates system extensions only
-   from /Applications.
+It needs your team's signing (`Local.xcconfig`, from `Local.xcconfig.example`)
+and the app in /Applications:
 
-Without `Local.xcconfig` the app builds and runs on `DemoEngine`, but can't
-install its extension. Building the extension also builds the helper
-(`cargo`) and fetches lyrebird (`gpg`); set `TORTUGA_SKIP_HELPER=1` to skip
-that.
+```sh
+scripts/install-dev.sh            # build fresh, verify, install to /Applications, open
+```
 
-`Packages/TortugaProxyKit` holds the extension's logic. Its tests run with
-`swift test --package-path Packages/TortugaProxyKit`; one of them talks to
-the real helper if `helper/target/release/tortuga-helper` is built.
+The first time Tor is switched on, macOS asks you to allow Tortuga's network
+extension (System Settings → General → Login Items & Extensions → Network
+Extensions). `scripts/live-check.sh` checks it from the terminal with Tor on.
+The extension logs to the unified log (`log stream --predicate 'subsystem == "org.tortuga.app"'`):
+statuses, each flow's app and decision, DNS paths; never host names.
+
+Builds launched with `-scenario <name>`, and the Demo tab in debug builds,
+use `DemoEngine` instead.
