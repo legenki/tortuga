@@ -9,6 +9,7 @@ import TortugaProxyKit
 /// Snowflake has to find its broker before Tor can start.
 final class DNSProxy: NEDNSProxyProvider {
     override func startProxy(options: [String: Any]? = nil, completionHandler: @escaping (Error?) -> Void) {
+        proxyLog.notice("dns proxy started")
         completionHandler(nil)
     }
 

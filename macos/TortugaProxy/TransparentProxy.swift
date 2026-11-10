@@ -19,7 +19,13 @@ final class TransparentProxy: NETransparentProxyProvider {
             NENetworkRule(remoteNetworkEndpoint: nil, remotePrefix: 0, localNetworkEndpoint: nil, localPrefix: 0, protocol: .TCP, direction: .outbound),
             NENetworkRule(remoteNetworkEndpoint: nil, remotePrefix: 0, localNetworkEndpoint: nil, localPrefix: 0, protocol: .UDP, direction: .outbound),
         ]
-        settings.excludedNetworkRules = Self.localNetworks.map { address, prefix in
+        // DNS (port 53, any address) is left to the DNS proxy: the transparent
+        // proxy sees flows first, and DNS it took would never reach the DNS proxy.
+        let dns = ["0.0.0.0", "::"].map { address in
+            NENetworkRule(remoteNetworkEndpoint: .hostPort(host: NWEndpoint.Host(address), port: 53), remotePrefix: 0,
+                          localNetworkEndpoint: nil, localPrefix: 0, protocol: .any, direction: .outbound)
+        }
+        settings.excludedNetworkRules = dns + Self.localNetworks.map { address, prefix in
             NENetworkRule(remoteNetworkEndpoint: .hostPort(host: NWEndpoint.Host(address), port: 0), remotePrefix: prefix,
                           localNetworkEndpoint: nil, localPrefix: 0, protocol: .any, direction: .outbound)
         }
@@ -53,7 +59,10 @@ final class TransparentProxy: NETransparentProxyProvider {
         }
         let info = FlowInfo(app: flow.metaData.sourceAppSigningIdentifier, remoteHost: flow.remoteHostname,
                             remoteIP: ip, port: port, isUDP: flow is NEAppProxyUDPFlow)
-        switch FlowRouter.decide(info, snapshot.state, names: Shared.names) {
+        let decision = FlowRouter.decide(info, snapshot.state, names: Shared.names)
+        let kind: String = switch decision { case .direct: "direct"; case .refuse: "refuse"; case .tor: "tor" }
+        proxyLog.notice("flow \(info.isUDP ? "udp" : "tcp", privacy: .public) from \(info.app, privacy: .public): \(kind, privacy: .public), by name: \(info.remoteHost != nil)")
+        switch decision {
         case .direct:
             return false
         case .refuse:

@@ -45,7 +45,10 @@ final class TCPRelay: @unchecked Sendable {
                         guard (try? Socks5.checkAuth(reply)) != nil else { return fail() }
                         send(Socks5.connect(host: host, port: port)) { [self] in
                             receive(5) { [self] head in
-                                guard let total = try? Socks5.connectReplyLength(head) else { return fail() }
+                                guard let total = try? Socks5.connectReplyLength(head) else {
+                                    proxyLog.notice("relay \(self.isolation, privacy: .public): CONNECT refused, reply \(head, privacy: .public)")
+                                    return fail()
+                                }
                                 receive(total - 5) { [self] _ in openFlow() }
                             }
                         }
@@ -57,6 +60,7 @@ final class TCPRelay: @unchecked Sendable {
 
     private func openFlow() {
         flow.open(withLocalFlowEndpoint: nil) { [self] error in
+            proxyLog.notice("relay \(self.isolation, privacy: .public): flow opened, error: \(String(describing: error), privacy: .public)")
             guard error == nil else { return fail() }
             lock.withLock { opened = true }
             let app = isolation
@@ -68,6 +72,7 @@ final class TCPRelay: @unchecked Sendable {
 
     private func flowToSocks() {
         flow.readData { [self] data, error in
+            proxyLog.debug("relay \(self.isolation, privacy: .public): app sent \(data?.count ?? -1) bytes, error: \(String(describing: error), privacy: .public)")
             guard let data, !data.isEmpty, error == nil else {
                 connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in })
                 return halfClosed()
@@ -124,6 +129,7 @@ final class TCPRelay: @unchecked Sendable {
     }
 
     private func finish(error: (any Error)?) {
+        proxyLog.notice("relay \(self.isolation, privacy: .public): finished, error: \(String(describing: error), privacy: .public)")
         let (first, wasOpen) = lock.withLock { () -> (Bool, Bool) in
             defer { finished = true }
             return (!finished, opened)
