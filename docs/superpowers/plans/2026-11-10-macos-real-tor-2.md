@@ -2432,3 +2432,28 @@ git commit -m "docs(macos): the real engine" -m "Co-Authored-By: Claude Opus 5.5
   - blocked while the helper is dead, then back;
   - an exception goes direct;
   - Direct turns it all off.
+
+## Found while carrying out the plan
+
+- **DNS from our own programs.** lyrebird (Snowflake's broker, STUN) and the
+  helper (Moat) resolve names through the system, so through the DNS proxy.
+  While Tor isn't ready the DNS proxy answers SERVFAIL, so Snowflake could
+  never reach its broker and Tor could never start. Fix: the DNS proxy sends
+  queries from `ProxyCore.ownIDs` to the system resolver itself
+  (`systemDNSSettings`, over UDP from the provider, which isn't proxied).
+  Everything else still goes through Tor or gets SERVFAIL.
+- **Restarting the helper.** `ProxyCore.helperGone` runs in the old helper's
+  watcher task. It detaches that task before restarting, or `startHelper`'s
+  `stopHelper` would cancel it. The `aDeadHelperBlocksThenComesBack` test
+  caught this.
+- **Name clash.** `Network` has its own `ProxyConfiguration`, so the app
+  target writes `TortugaProxyKit.ProxyConfiguration`.
+- **Exclusion rules.** `NENetworkRule(remoteNetworkEndpoint:)` takes a
+  `Network.NWEndpoint` (`.hostPort(host:port:)`) in Swift, not an
+  `nw_endpoint_t`.
+- **Window height.** The main window's minimum height is 640, so an opened
+  Route row fits without scrolling (XCUITest on macOS doesn't scroll).
+- **Our own programs by ID.** They're recognised by signing identifier only
+  (`tortuga-helper`, `lyrebird`); another program signed with the same
+  identifier would also go out directly. Checking the team too needs the
+  audit token, which flows carry (`sourceAppAuditToken`); left for later.
