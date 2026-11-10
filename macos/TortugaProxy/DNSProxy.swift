@@ -26,7 +26,7 @@ final class DNSProxy: NEDNSProxyProvider {
         }
         let app = flow.metaData.sourceAppSigningIdentifier
         let own = ProxyCore.ownIDs.contains(app)
-        let upstream = own ? systemDNSSettings?.flatMap(\.servers).first : nil
+        let upstream = own ? (systemDNSSettings?.flatMap(\.servers).first ?? Self.resolvConfServer() ?? "1.1.1.1") : nil
         proxyLog.notice("dns flow from \(app, privacy: .public), own: \(own), upstream: \(upstream ?? "-", privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
         let boxed = Unchecked(value: udp)
         udp.open(withLocalFlowEndpoint: nil) { error in
@@ -65,6 +65,17 @@ final class DNSProxy: NEDNSProxyProvider {
             }
             serve(boxed, upstream: upstream)
         }
+    }
+
+    /// The first nameserver in /etc/resolv.conf: macOS doesn't always tell a
+    /// DNS proxy the system's servers (systemDNSSettings was nil on 27.0.1).
+    static func resolvConfServer() -> String? {
+        guard let text = try? String(contentsOfFile: "/etc/resolv.conf", encoding: .utf8) else { return nil }
+        for line in text.split(separator: "\n") {
+            let parts = line.split(whereSeparator: \.isWhitespace)
+            if parts.count >= 2, parts[0] == "nameserver" { return String(parts[1]) }
+        }
+        return nil
     }
 
     /// Ask the system's resolver directly (the provider's own traffic isn't

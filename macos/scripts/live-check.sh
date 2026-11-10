@@ -25,7 +25,7 @@ A=$(dig +short +time=10 example.com | head -1)
 sleep 2
 sudo kill $TCPDUMP 2>/dev/null
 [ -n "$A" ] && ok "dig example.com → $A" || bad "dig example.com: no answer"
-[ ! -s /tmp/tortuga-dns.txt ] && ok "no DNS packets on en0" || bad "DNS on en0: $(head -2 /tmp/tortuga-dns.txt)"
+grep -q ' IP' /tmp/tortuga-dns.txt && bad "DNS on en0: $(grep ' IP' /tmp/tortuga-dns.txt | head -2)" || ok "no DNS packets on en0"
 
 echo "4. Nothing goes out while Tor is down"
 sudo pkill -x tortuga-helper
