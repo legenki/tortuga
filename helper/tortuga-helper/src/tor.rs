@@ -209,6 +209,11 @@ impl Tor {
         self.isolation.lock().unwrap().renew(site);
     }
 
+    /// Resolve `name` through Tor; the exit does the lookup.
+    pub async fn resolve(&self, name: &str) -> anyhow::Result<Vec<std::net::IpAddr>> {
+        Ok(self.client.resolve(name).await?)
+    }
+
     async fn bootstrap(&self) -> anyhow::Result<()> {
         let mut statuses = self.client.bootstrap_events();
         let events = self.events.clone();

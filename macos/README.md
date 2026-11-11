@@ -59,3 +59,27 @@ in System Settings.
 Don't put `glassEffect` directly on a view that has buttons inside it: on
 macOS 27 the glass takes their clicks. Use `glassCard(cornerRadius:)` from
 `Theme.swift`, which draws the glass behind the content.
+
+## Real Tor
+
+With Tor on, every app on the Mac goes through Tor, each on its own circuit;
+DNS goes through Tor; nothing leaves directly while Tor isn't ready.
+Excepted apps, local networks, and Tortuga's own helper go out directly.
+An exception covers the process that connects: `curl` started from an
+excepted terminal still goes through Tor.
+
+It needs your team's signing (`Local.xcconfig`, from `Local.xcconfig.example`)
+and the app in /Applications:
+
+```sh
+scripts/install-dev.sh            # build fresh, verify, install to /Applications, open
+```
+
+The first time Tor is switched on, macOS asks you to allow Tortuga's network
+extension (System Settings → General → Login Items & Extensions → Network
+Extensions). `scripts/live-check.sh` checks it from the terminal with Tor on.
+The extension logs to the unified log (`log stream --predicate 'subsystem == "org.tortuga.app"'`):
+statuses, each flow's app and decision, DNS paths; never host names.
+
+Builds launched with `-scenario <name>`, and the Demo tab in debug builds,
+use `DemoEngine` instead.

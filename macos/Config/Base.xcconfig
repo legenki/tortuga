@@ -3,4 +3,11 @@
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = -
 DEVELOPMENT_TEAM =
+// Entitlements need the team's provisioning profiles: Local.xcconfig turns
+// them on. Without them the app runs, but can't install its extension.
+TORTUGA_APP_ENTITLEMENTS =
+TORTUGA_PROXY_ENTITLEMENTS =
+// The extension's build number; install-dev.sh sets a new one each time so
+// macOS replaces the installed extension.
+TORTUGA_BUILD = 5
 #include? "../Local.xcconfig"

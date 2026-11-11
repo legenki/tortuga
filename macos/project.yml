@@ -12,6 +12,8 @@ packages:
     path: Packages/TortugaKit
   TortugaUI:
     path: Packages/TortugaUI
+  TortugaProxyKit:
+    path: Packages/TortugaProxyKit
 targets:
   Tortuga:
     type: application
@@ -20,6 +22,8 @@ targets:
     dependencies:
       - package: TortugaKit
       - package: TortugaUI
+      - package: TortugaProxyKit
+      - target: TortugaProxy
     info:
       path: Tortuga/Info.plist
       properties:
@@ -29,6 +33,7 @@ targets:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.utilities
         NSHumanReadableCopyright: Tortuga contributors
+        TortugaProxyMachService: $(DEVELOPMENT_TEAM).org.tortuga.app.proxy
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.tortuga.app
@@ -36,6 +41,40 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
+        CODE_SIGN_ENTITLEMENTS: $(TORTUGA_APP_ENTITLEMENTS)
+  TortugaProxy:
+    type: system-extension
+    platform: macOS
+    sources: [TortugaProxy]
+    dependencies:
+      - package: TortugaKit
+      - package: TortugaProxyKit
+    info:
+      path: TortugaProxy/Info.plist
+      properties:
+        CFBundleDisplayName: Tortuga Proxy
+        CFBundlePackageType: SYSX
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: $(TORTUGA_BUILD)
+        TortugaTeamID: $(DEVELOPMENT_TEAM)
+        NSSystemExtensionUsageDescription: Sends this Mac's traffic through Tor.
+        NetworkExtension:
+          NEMachServiceName: $(DEVELOPMENT_TEAM).org.tortuga.app.proxy
+          NEProviderClasses:
+            com.apple.networkextension.app-proxy: $(PRODUCT_MODULE_NAME).TransparentProxy
+            com.apple.networkextension.dns-proxy: $(PRODUCT_MODULE_NAME).DNSProxy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.tortuga.app.proxy
+        PRODUCT_NAME: org.tortuga.app.proxy
+        PRODUCT_MODULE_NAME: TortugaProxy
+        ENABLE_HARDENED_RUNTIME: YES
+        SWIFT_VERSION: "6.0"
+        CODE_SIGN_ENTITLEMENTS: $(TORTUGA_PROXY_ENTITLEMENTS)
+    postBuildScripts:
+      - name: Embed tortuga-helper and lyrebird
+        script: '"$SRCROOT/scripts/embed-helper.sh"'
+        basedOnDependencyAnalysis: false
   TortugaAppUITests:
     type: bundle.ui-testing
     platform: macOS

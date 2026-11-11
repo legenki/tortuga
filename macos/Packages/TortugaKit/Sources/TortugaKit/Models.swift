@@ -1,12 +1,12 @@
 import Foundation
 
 /// Whether traffic goes through Tor.
-public enum Mode: String, Sendable, Equatable, CaseIterable {
+public enum Mode: String, Sendable, Equatable, CaseIterable, Codable {
     case direct, tor
 }
 
 /// Where Tor is.
-public enum Status: Sendable, Equatable {
+public enum Status: Sendable, Equatable, Codable {
     case off
     case starting(step: String, progress: Double)
     case on
@@ -14,6 +14,12 @@ public enum Status: Sendable, Equatable {
     case blocked(reason: String)
     /// Tor could not start.
     case failed(reason: String)
+}
+
+extension Status {
+    /// The reason the real engine gives while macOS waits for the user to
+    /// allow the network extension; the UI offers to open System Settings.
+    public static let allowExtensionReason = "Allow Tortuga's network extension in System Settings"
 }
 
 public enum BridgeKind: String, Sendable, Hashable, CaseIterable, Codable {
@@ -31,7 +37,7 @@ public enum BridgeKind: String, Sendable, Hashable, CaseIterable, Codable {
     public var needsLines: Bool { self != .snowflake }
 }
 
-public struct Relay: Sendable, Hashable {
+public struct Relay: Sendable, Hashable, Codable {
     public var nickname: String
     /// ISO 3166 country code, like "DE".
     public var country: String
@@ -48,7 +54,7 @@ public struct Relay: Sendable, Hashable {
 
 /// An app, by its code-signing identifier. Two AppIDs are the same app when
 /// their identifiers match; `path` and `name` only help to show it.
-public struct AppID: Sendable, Hashable, Identifiable {
+public struct AppID: Sendable, Hashable, Identifiable, Codable {
     public var id: String
     /// Where the app is, for apps the system can't find by identifier.
     public var path: String?
@@ -66,7 +72,7 @@ public struct AppID: Sendable, Hashable, Identifiable {
 }
 
 /// The part of the route every app shares: the bridge and the guard.
-public struct Trunk: Sendable, Equatable {
+public struct Trunk: Sendable, Equatable, Codable {
     public var bridge: BridgeKind?
     public var guardRelay: Relay?
 
@@ -77,7 +83,7 @@ public struct Trunk: Sendable, Equatable {
 }
 
 /// One app's own part of the route.
-public struct AppRoute: Sendable, Equatable, Identifiable {
+public struct AppRoute: Sendable, Equatable, Identifiable, Codable {
     public var app: AppID
     public var middle: Relay
     public var exit: Relay
@@ -95,7 +101,7 @@ public struct AppRoute: Sendable, Equatable, Identifiable {
     }
 }
 
-public struct BridgeSettings: Sendable, Equatable {
+public struct BridgeSettings: Sendable, Equatable, Codable {
     /// nil: no bridge.
     public var selected: BridgeKind?
     /// Saved lines by kind, each starting with "Bridge ".
@@ -109,11 +115,11 @@ public struct BridgeSettings: Sendable, Equatable {
     public func saved(_ kind: BridgeKind) -> [String] { lines[kind] ?? [] }
 }
 
-public enum DownloadState: String, Sendable, Equatable {
+public enum DownloadState: String, Sendable, Equatable, Codable {
     case downloading, sharing, paused, done, failed
 }
 
-public struct Download: Sendable, Equatable, Identifiable {
+public struct Download: Sendable, Equatable, Identifiable, Codable {
     public let id: UUID
     public var name: String
     public var size: Int64
@@ -143,7 +149,7 @@ public enum DownloadSource: Sendable, Equatable {
     case file(URL)
 }
 
-public struct EngineState: Sendable, Equatable {
+public struct EngineState: Sendable, Equatable, Codable {
     public var mode: Mode = .direct
     public var status: Status = .off
     public var trunk = Trunk()
@@ -151,6 +157,8 @@ public struct EngineState: Sendable, Equatable {
     public var bridges = BridgeSettings()
     public var exceptions: [AppID] = []
     public var downloads: [Download] = []
+    /// False with the real engine until downloads move into the app (part 4).
+    public var downloadsAvailable = true
 
     public init() {}
 

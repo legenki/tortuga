@@ -162,8 +162,11 @@ jobs:
         run: |
           swift test --package-path macos/Packages/TortugaKit
           swift test --package-path macos/Packages/TortugaUI
+          swift test --package-path macos/Packages/TortugaProxyKit
       - name: Build and UI tests
         working-directory: macos
+        env:
+          TORTUGA_SKIP_HELPER: "1"
         run: |
           xcodegen generate
           xcodebuild test -project Tortuga.xcodeproj -scheme Tortuga -destination 'platform=macOS' -derivedDataPath build

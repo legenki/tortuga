@@ -1,16 +1,23 @@
 import AppKit
 import SwiftUI
 import TortugaKit
+import TortugaProxyKit
 import TortugaUI
 
 @main
 struct TortugaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var model = AppModel(engine: DemoEngine.running(TortugaApp.scenario))
+    @State private var model = AppModel(engine: TortugaApp.makeEngine())
 
-    /// `-scenario <name>` on the command line, or the Demo tab's choice.
-    static var scenario: Scenario {
-        UserDefaults.standard.string(forKey: "scenario").flatMap(Scenario.init(rawValue:)) ?? .normal
+    /// `-scenario <name>` (UI tests) or the Demo tab's choice runs DemoEngine;
+    /// otherwise the real engine.
+    static func makeEngine() -> any TortugaEngine {
+        if let name = UserDefaults.standard.string(forKey: "scenario"), let scenario = Scenario(rawValue: name) {
+            return DemoEngine.running(scenario)
+        }
+        let engine = ProxyEngine(control: SystemProxyControl(), store: DefaultsSettingsStore())
+        Task { await engine.resume() }
+        return engine
     }
 
     /// The window opens at launch the first time (for the welcome card), or
@@ -36,6 +43,7 @@ struct TortugaApp: App {
         Settings {
             SettingsView().environment(model)
         }
+
     }
 }
 

@@ -14,7 +14,8 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// extension never relies on one an older helper would silently ignore.
 /// `torrent-via-tor`: `via` on `torrent.inspect` / `torrent.add`.
 /// `torrent-open`: the `torrent.open` request.
-pub const FEATURES: &[&str] = &["torrent-via-tor", "torrent-open"];
+/// `apps`: `tor.resolve`, for a client whose isolation keys are apps.
+pub const FEATURES: &[&str] = &["torrent-via-tor", "torrent-open", "apps"];
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Request {
@@ -34,6 +35,9 @@ pub enum RequestBody {
     TorStop,
     #[serde(rename = "tor.newCircuit")]
     TorNewCircuit { site: String },
+    /// Resolve a name through Tor (answered at an exit).
+    #[serde(rename = "tor.resolve")]
+    TorResolve { name: String },
     #[serde(rename = "torrent.inspect")]
     TorrentInspect {
         source: SourceMsg,
@@ -137,6 +141,8 @@ pub enum Outgoing {
     TorStatus { phase: Phase, percent: u8, blocked: Option<String> },
     #[serde(rename = "tor.ready", rename_all = "camelCase")]
     TorReady { socks_port: u16 },
+    #[serde(rename = "resolved")]
+    Resolved { addresses: Vec<String> },
     #[serde(rename = "circuit")]
     Circuit { site: String, bridge: Option<BridgeKind>, hops: Vec<Hop> },
     #[serde(rename = "torrent.info")]
@@ -192,6 +198,25 @@ mod tests {
 
     fn parse(v: serde_json::Value) -> Request {
         serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn parses_resolve() {
+        assert_eq!(
+            parse(json!({"id": 7, "type": "tor.resolve", "payload": {"name": "example.com"}})),
+            Request { id: 7, body: RequestBody::TorResolve { name: "example.com".into() } }
+        );
+    }
+
+    #[test]
+    fn writes_resolved() {
+        let m = serde_json::to_value(Message::reply(7, Outgoing::Resolved { addresses: vec!["93.184.215.14".into()] })).unwrap();
+        assert_eq!(m, json!({"id": 7, "type": "resolved", "payload": {"addresses": ["93.184.215.14"]}}));
+    }
+
+    #[test]
+    fn says_it_serves_apps() {
+        assert!(FEATURES.contains(&"apps"));
     }
 
     #[test]
@@ -289,7 +314,7 @@ mod tests {
     #[test]
     fn serializes_replies_and_events() {
         let hello = serde_json::to_value(Message::reply(1, Outgoing::Hello { protocol: 1, version: "0.1.1".into(), features: FEATURES.to_vec() })).unwrap();
-        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["torrent-via-tor", "torrent-open"]}}));
+        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["torrent-via-tor", "torrent-open", "apps"]}}));
 
         let ok = serde_json::to_value(Message::reply(3, Outgoing::Ok)).unwrap();
         assert_eq!(ok, json!({"id": 3, "type": "ok"}));

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import TortugaKit
 
@@ -17,6 +18,13 @@ struct StatusLine: View {
                 Spacer(minLength: 0)
                 switch state.status {
                 case .blocked, .failed:
+                    if state.status == .failed(reason: Status.allowExtensionReason) {
+                        Button("Open System Settings") {
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension")!)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(Color.route)
+                    }
                     Button("Restart") {
                         Task { await model.perform(.restart) { try await $0.restart() } }
                     }
