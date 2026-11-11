@@ -163,3 +163,8 @@ Not good enough yet:
   Status turns "on" from Arti's cache in under a second. Safari's first
   page then took over 20 s, and Safari called that "not connected". It
   loads once circuits exist, about 30 s after switching on.
+
+Fixed after the live check: the core now shows "Tor on" only after a lookup
+through Tor (`www.torproject.org`) works; until then "Building circuits",
+with apps refused quickly instead of hanging. Re-checked on the user's Mac:
+Safari loaded check.torproject.org at once, right at "Tor on".
