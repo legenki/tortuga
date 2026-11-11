@@ -33,9 +33,12 @@ command -v gpg >/dev/null || { echo "gpg is needed to check Tor's signature on t
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-curl -sSf -o "$TMP/$F" "https://dist.torproject.org/torbrowser/$V/$F"
-curl -sSf -o "$TMP/sums.txt" "https://dist.torproject.org/torbrowser/$V/sha256sums-signed-build.txt"
-curl -sSf -o "$TMP/sums.txt.asc" "https://dist.torproject.org/torbrowser/$V/sha256sums-signed-build.txt.asc"
+# The archive keeps every release; dist.torproject.org drops a version once
+# a newer one is out, which broke builds pinned to it.
+BASE=https://archive.torproject.org/tor-package-archive/torbrowser
+curl -sSf -o "$TMP/$F" "$BASE/$V/$F"
+curl -sSf -o "$TMP/sums.txt" "$BASE/$V/sha256sums-signed-build.txt"
+curl -sSf -o "$TMP/sums.txt.asc" "$BASE/$V/sha256sums-signed-build.txt.asc"
 # A keyring of its own holding only that key; the signature must be valid and
 # made by it (VALIDSIG's last field is the primary key's fingerprint).
 export GNUPGHOME="$TMP/gnupg"
