@@ -57,12 +57,15 @@ Tortuga has two parts: the **helper**, a small program that runs Tor and downloa
 
 | System | File | How |
 |---|---|---|
-| **macOS** (Apple silicon and Intel) | `Tortuga-Helper-<version>-macos.pkg` | Open it and follow the installer. |
+| **macOS** (Apple silicon and Intel) | `Tortuga-Helper-<version>-macos.pkg` | Open it and follow the installer. It installs for your user only and doesn't ask for an admin password. |
 | **Debian, Ubuntu** (x86-64) | `tortuga-helper_<version>_amd64.deb` | `sudo apt install ./tortuga-helper_<version>_amd64.deb` |
 | **Debian, Ubuntu** (ARM64) | `tortuga-helper_<version>_arm64.deb` | `sudo apt install ./tortuga-helper_<version>_arm64.deb` |
 | **Windows** (x86-64) | `Tortuga-Helper-<version>-windows-x86_64.zip` | Unzip, then run `powershell -ExecutionPolicy Bypass -File install.ps1`. No admin rights needed. |
 
-**2. Add the extension.** Store listings for Chrome and Firefox are on the way. Until then, build it yourself as described below.
+**2. Add the extension.** Store listings for Chrome and Firefox are on the way. Until then:
+
+- **Chrome:** download `tortuga-chrome-<version>-unpacked.zip` from the same release and unzip it into a folder you'll keep. Open `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked** and select that folder. Don't use `tortuga-chrome-<version>.zip` for this: it's the store package, and loaded unpacked it gets an extension ID the helper refuses.
+- **Firefox:** build it yourself as described below.
 
 | Browser | Needs |
 |---|---|
@@ -99,7 +102,7 @@ While Tor is on in Firefox, Tortuga turns on Firefox's `resistFingerprinting` an
 
 **Uninstalling the helper:**
 
-- **macOS:** `sudo "/Library/Application Support/Tortuga/uninstall.sh"`
+- **macOS:** `"$HOME/Library/Application Support/Tortuga/uninstall.sh"` (version 0.2.0 and older installed for every user: `sudo "/Library/Application Support/Tortuga/uninstall.sh"`)
 - **Debian, Ubuntu:** `sudo apt remove tortuga-helper`
 - **Windows:** run `uninstall.ps1` in `%LOCALAPPDATA%\Tortuga`
 
