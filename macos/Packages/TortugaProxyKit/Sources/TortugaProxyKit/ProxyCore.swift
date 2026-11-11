@@ -13,6 +13,10 @@ public actor ProxyCore {
     /// Signing identifiers of our own programs: their traffic goes out directly.
     public static let ownIDs: Set<String> = ["tortuga-helper", "lyrebird"]
     static let maxRetries = 3
+    /// Resolved through Tor before traffic is let through: it needs the
+    /// bridge, a circuit and an exit to work, which Arti's "ready" (from its
+    /// cache) doesn't promise.
+    static let warmUpName = "www.torproject.org"
 
     public nonisolated let routes = RouteTable()
     private let launcher: any HelperLauncher
@@ -23,6 +27,7 @@ public actor ProxyCore {
     private var state = ExtensionState.idle
     private var client: HelperClient?
     private var watcher: Task<Void, Never>?
+    private var warmer: Task<Void, Never>?
     private var socksPort: Int?
     private var wanted = false
     private var retries = 0
@@ -154,7 +159,8 @@ public actor ProxyCore {
             if case .torReady(let port) = reply {
                 socksPort = port
                 retries = 0
-                setStatus(.on)
+                setStatus(.starting(step: "Building circuits", progress: 0.95))
+                warmer = Task { [weak self] in await self?.warmUp(client) }
             }
         } catch HelperError.remote(_, let message) {
             guard client === self.client else { return }
@@ -164,9 +170,23 @@ public actor ProxyCore {
         }
     }
 
+    /// Hold traffic back until a lookup through Tor works, then go on.
+    private func warmUp(_ client: HelperClient) async {
+        while wanted, client === self.client, !Task.isCancelled {
+            if (try? await client.request(.resolve(Self.warmUpName))) != nil {
+                guard client === self.client else { return }
+                setStatus(.on)
+                return
+            }
+            try? await Task.sleep(for: retryDelay)
+        }
+    }
+
     private func stopHelper() {
         watcher?.cancel()
         watcher = nil
+        warmer?.cancel()
+        warmer = nil
         let old = client
         client = nil
         socksPort = nil

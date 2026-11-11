@@ -164,12 +164,13 @@ public actor ProxyEngine: TortugaEngine {
     private func attach() async throws {
         let link = try await control.connect()
         self.link = link
-        try check(await link.send(.configure(configuration())))
+        // Listen first: configuring can restart Tor, and its progress should show.
         let states = link.states
         linkTask = Task { [weak self] in
             for await state in states { await self?.received(state) }
             await self?.lost(link)
         }
+        try check(await link.send(.configure(configuration())))
     }
 
     private func waitingForApproval() {

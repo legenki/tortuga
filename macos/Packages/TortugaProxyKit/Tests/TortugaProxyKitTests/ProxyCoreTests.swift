@@ -9,12 +9,34 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
     await core.configure(sampleConfig)
     let starting = Task { await core.start() }
     try await eventually { launcher.transports.count == 1 }
-    let server = serve(launcher.transports[0], ["hello": helloAnswer, "tor.start": readyAnswer])
+    let server = serve(launcher.transports[0], ["hello": helloAnswer, "tor.start": readyAnswer, "tor.resolve": resolvedAnswer])
     await starting.value
+    try await eventually { await core.current.status == .on }
     return (core, launcher, server)
 }
 
 @Suite struct ProxyCoreTests {
+    @Test func noTrafficUntilACircuitWorks() async throws {
+        let launcher = FakeLauncher()
+        let core = ProxyCore(launcher: launcher, retryDelay: .zero)
+        await core.configure(sampleConfig)
+        let starting = Task { await core.start() }
+        try await eventually { launcher.transports.count == 1 }
+        let fake = launcher.transports[0]
+        let server = serve(fake, ["hello": helloAnswer, "tor.start": readyAnswer])
+        await starting.value
+        // Ready from Arti's cache, but no circuit has worked yet.
+        #expect(await core.current.status == .starting(step: "Building circuits", progress: 0.95))
+        #expect(core.routes.snapshot().state.torReady == false)
+        #expect(core.routes.snapshot().socksPort == 40000)
+        try await eventually { fake.requests.contains { $0["type"] as? String == "tor.resolve" } }
+        let resolver = serve(fake, ["tor.resolve": resolvedAnswer])
+        try await eventually { await core.current.status == .on }
+        #expect(core.routes.snapshot().state.torReady)
+        server.cancel()
+        resolver.cancel()
+    }
+
     @Test func startsTheHelperWithTheBridgeAndGoesOn() async throws {
         let (core, launcher, server) = try await onCore()
         defer { server.cancel() }
@@ -66,7 +88,7 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         launcher.transports[0].close()
         try await eventually { launcher.transports.count == 2 }
         #expect(core.routes.snapshot().state.torReady == false)
-        let second = serve(launcher.transports[1], ["hello": helloAnswer, "tor.start": readyAnswer])
+        let second = serve(launcher.transports[1], ["hello": helloAnswer, "tor.start": readyAnswer, "tor.resolve": resolvedAnswer])
         defer { second.cancel() }
         try await eventually { await core.current.status == .on }
     }
@@ -114,7 +136,7 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         changed.bridge = nil
         let configuring = Task { await core.configure(changed) }
         try await eventually { launcher.transports.count == 2 }
-        let second = serve(launcher.transports[1], ["hello": helloAnswer, "tor.start": readyAnswer])
+        let second = serve(launcher.transports[1], ["hello": helloAnswer, "tor.start": readyAnswer, "tor.resolve": resolvedAnswer])
         defer { second.cancel() }
         await configuring.value
         let start = try #require(launcher.transports[1].requests.first { $0["type"] as? String == "tor.start" })

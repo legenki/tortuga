@@ -28,6 +28,7 @@ func serve(_ fake: FakeTransport, _ answers: [String: @Sendable (Int) -> String]
 }
 
 let helloAnswer: @Sendable (Int) -> String = { #"{"id":\#($0),"type":"hello","payload":{"protocol":1,"version":"0.2.0","features":["apps"]}}"# }
+let resolvedAnswer: @Sendable (Int) -> String = { #"{"id":\#($0),"type":"resolved","payload":{"addresses":["116.202.120.165"]}}"# }
 let readyAnswer: @Sendable (Int) -> String = { #"{"id":\#($0),"type":"tor.ready","payload":{"socksPort":40000}}"# }
 
 final class FakeLauncher: HelperLauncher, @unchecked Sendable {
