@@ -12,6 +12,8 @@ public final class AppModel {
     public private(set) var state = EngineState.initial
     public private(set) var errors: [Control: String] = [:]
     public var section: SidebarSection = .route
+    /// The Route row that's open, by app ID.
+    public var expandedApp: String?
     public private(set) var engine: any TortugaEngine
     @ObservationIgnored private var watcher: Task<Void, Never>?
 

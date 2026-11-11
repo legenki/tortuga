@@ -105,6 +105,8 @@ While Tor is on in Firefox, Tortuga turns on Firefox's `resistFingerprinting` an
 
 Your downloads are left where they are.
 
+**Native macOS app (in development).** `macos/` holds a native app that will send the whole Mac through Tor, with a circuit for each app. Right now it runs on a simulated engine only. See [macos/README.md](macos/README.md).
+
 ## Privacy
 
 Tortuga has no account, no analytics and no server of its own. It doesn't collect or sell your data, and your settings stay in your browser. The connections it makes:
