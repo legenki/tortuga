@@ -65,7 +65,7 @@ jobs:
           lipo -archs "$BIN"
           # Only the system's libraries: a Homebrew one works on the runner
           # and nowhere else.
-          if otool -L "$BIN" | tail -n +2 | grep -v -E '^\s*(/usr/lib/|/System/)'; then
+          if otool -L "$BIN" | grep -E '^[[:space:]]' | grep -v -E '^[[:space:]]*(/usr/lib/|/System/)'; then
             echo "tortuga-helper links libraries outside the system" >&2
             exit 1
           fi
