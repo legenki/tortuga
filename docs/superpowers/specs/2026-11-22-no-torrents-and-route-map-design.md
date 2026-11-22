@@ -62,8 +62,9 @@ so the user sees at a glance which countries each app's traffic crosses.
   pages used only for downloads; the description loses "and downloads
   torrents".
 - Compatibility: the new extension with an old helper works (it never asks
-  for torrents). An old extension with the new helper stops offering
-  torrents, since the helper no longer lists the feature.
+  for torrents). An old extension with the new helper still shows its torrent
+  UI; the new helper answers its torrent requests with "Torrent downloads
+  were removed in Tortuga 0.3.0. Update the Tortuga extension."
 
 ### macOS app
 

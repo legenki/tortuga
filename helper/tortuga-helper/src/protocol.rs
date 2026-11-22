@@ -116,6 +116,15 @@ pub fn id_of(raw: &[u8]) -> Option<u64> {
     serde_json::from_slice::<serde_json::Value>(raw).ok()?.get("id")?.as_u64()
 }
 
+/// Whether a request that didn't parse is one of the `torrent.*` requests an
+/// extension up to 0.2.1 still sends.
+pub fn is_removed_torrent_request(raw: &[u8]) -> bool {
+    serde_json::from_slice::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|v| v.get("type")?.as_str().map(|t| t.starts_with("torrent.")))
+        .unwrap_or(false)
+}
+
 impl Message {
     pub fn reply(id: u64, body: Outgoing) -> Self {
         Self { id: Some(id), body }
@@ -200,6 +209,13 @@ mod tests {
         for t in ["torrent.open", "torrent.inspect", "torrent.add", "torrent.pause", "torrent.resume", "torrent.remove"] {
             assert!(serde_json::from_value::<Request>(json!({"id": 1, "type": t, "payload": {"id": "ab"}})).is_err(), "{t}");
         }
+    }
+
+    #[test]
+    fn recognises_removed_torrent_requests() {
+        assert!(is_removed_torrent_request(br#"{"id":1,"type":"torrent.add"}"#));
+        assert!(!is_removed_torrent_request(br#"{"id":1,"type":"tor.start"}"#));
+        assert!(!is_removed_torrent_request(b"not json"));
     }
 
     #[test]
