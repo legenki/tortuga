@@ -1,8 +1,8 @@
-Tortuga sends your browser through Tor, draws the route each site takes, and downloads torrents from links. It hides your IP; it is not Tor Browser. See the [README](https://github.com/legenki/tortuga#readme) for what it does and doesn't do.
+Tortuga sends your browser through Tor and draws the route each site takes. It hides your IP; it is not Tor Browser. See the [README](https://github.com/legenki/tortuga#readme) for what it does and doesn't do.
 
 ## Install the helper
 
-The helper is the small program that runs Tor and downloads torrents. Pick the file for your system below.
+The helper is the small program that runs Tor. Pick the file for your system below.
 
 | System | File | How |
 |---|---|---|
@@ -23,5 +23,4 @@ Upgrading from 0.2.0 or older on macOS? Those versions installed for every user.
 
 ## Good to know
 
-- **Torrents don't go through Tor.** They download from your own IP, and other people in the swarm can see it.
 - **In Chrome, only Incognito windows go through Tor**, on one shared circuit. Firefox sends the whole browser, with a separate circuit for each site.

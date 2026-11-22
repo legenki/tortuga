@@ -16,7 +16,6 @@ render() { # slide width height output
 }
 render route     1280 800 screenshot-1-route.png
 render bridges   1280 800 screenshot-2-bridges.png
-render downloads 1280 800 screenshot-3-downloads.png
 render settings  1280 800 screenshot-4-settings.png
 render dark      1280 800 screenshot-5-dark.png
 render tile      440  280 promo-small-440x280.png

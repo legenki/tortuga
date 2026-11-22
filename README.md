@@ -4,9 +4,9 @@
 
 # Tortuga
 
-**Tor routing and torrent downloads, right in the browser you already use.**
+**Tor routing, right in the browser you already use.**
 
-Flip one switch and your browser goes through Tor. Each site gets its own circuit, and you can see the route it takes. Torrent links download in the same popup.
+Flip one switch and your browser goes through Tor. Each site gets its own circuit, and you can see the route it takes.
 
 [![Latest release](https://img.shields.io/github/v/release/legenki/tortuga?label=release)](https://github.com/legenki/tortuga/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/legenki/tortuga/release.yml?branch=main&label=build)](https://github.com/legenki/tortuga/actions/workflows/release.yml)
@@ -40,18 +40,12 @@ It's for when you want your IP hidden or need to reach a blocked site, but don't
 - **One circuit per site.** In Firefox each site gets its own path through Tor, so one site's exit doesn't see your traffic to another.
 - **Bridges for blocked networks.** Snowflake works out of the box. obfs4 and WebTunnel lines can be fetched from the Tor Project on the settings page in one click, or pasted in. Each bridge is drawn as its own kind of line, so you can see which one you're on.
 - **No leaks when Tor stops.** If the helper or Tor stops, requests are blocked instead of being sent from your real IP, until you press **Restart** or switch to `Direct`.
-- **Torrent downloads.** Click a magnet or `.torrent` link on any page, right-click one, or paste it in the popup. Tortuga shows the name and size and asks before downloading. Downloads can be paused, resumed and removed, with or without their files.
 - **Light or dark.** Follows your system, or pick one on the settings page.
 - **No account, no analytics.**
 
-<div align="center">
-<img src="docs/screenshots/confirm.png" width="440" alt="The confirm window for a magnet link: the torrent's name, its size, and a note that torrents download from your own IP">
-<img src="docs/screenshots/downloads.png" width="340" alt="The Downloads tab with a Debian image downloading at 1.4 MB/s">
-</div>
-
 ## Install
 
-Tortuga has two parts: the **helper**, a small program that runs Tor and downloads torrents, and the **extension**, which controls it from the browser.
+Tortuga has two parts: the **helper**, a small program that runs Tor, and the **extension**, which controls it from the browser.
 
 **1. Install the helper** from the [latest release](https://github.com/legenki/tortuga/releases/latest):
 
@@ -80,11 +74,7 @@ Tortuga has two parts: the **helper**, a small program that runs Tor and downloa
 
 If Tor can't connect, your network may be blocking it. Open the bridge menu under the route and pick **Snowflake**. If that doesn't help either, open **Settings**, choose **Get obfs4 lines** or **Get WebTunnel lines**, and pick that bridge.
 
-To download a torrent, just click its link. Files are saved in `Downloads/Tortuga`.
-
 ## Good to know
-
-**Torrents don't go through Tor.** The Tor Project asks people not to use BitTorrent over Tor, because it slows the network for everyone and can leak your IP anyway. Tortuga downloads torrents directly, from your own IP, and says so every time. Other people in the swarm can see your address.
 
 **Chrome and Firefox work differently:**
 
@@ -94,7 +84,6 @@ To download a torrent, just click its link. Files are saved in `Downloads/Tortug
 | A separate circuit for each site | ✓ | – (one shared circuit) |
 | Fingerprinting protection while Tor is on | ✓ (`resistFingerprinting`) | – |
 | WebRTC can't reveal your IP | ✓ | ✓ |
-| Torrent downloads | ✓ | ✓ |
 
 In Chrome, allow Tortuga in Incognito: open `chrome://extensions`, click **Details** under Tortuga and turn on **Allow in Incognito**. The popup explains this when it's needed.
 
@@ -106,8 +95,6 @@ While Tor is on in Firefox, Tortuga turns on Firefox's `resistFingerprinting` an
 - **Debian, Ubuntu:** `sudo apt remove tortuga-helper`
 - **Windows:** run `uninstall.ps1` in `%LOCALAPPDATA%\Tortuga`
 
-Your downloads are left where they are.
-
 **Native macOS app (in development).** `macos/` holds a native app that will send the whole Mac through Tor, with a circuit for each app. Right now it runs on a simulated engine only. See [macos/README.md](macos/README.md).
 
 ## Privacy
@@ -116,7 +103,6 @@ Tortuga has no account, no analytics and no server of its own. It doesn't collec
 
 - **The Tor network.** While Tor is on, the helper connects to Tor relays, or to the bridge you picked, and your browsing goes through them.
 - **bridges.torproject.org**, only when you click **Get obfs4 lines** or **Get WebTunnel lines**. It goes through Tor when Tor is on.
-- **Torrent peers and trackers**, directly, only while you download or share. A finished download shares until it has uploaded one copy, then stops. A `.torrent` link is fetched by the helper, without your browser's cookies, and through Tor while Tor covers the page it was on. While Tor is on, Tortuga asks before looking up a magnet link, since that reveals your IP to the swarm.
 
 The [privacy policy](PRIVACY.md) has the details.
 
@@ -153,19 +139,16 @@ For Chrome, run `npm run build`, open `chrome://extensions`, turn on Developer m
 | `npm run package` | Builds the Chrome zip |
 | `npm run package:firefox` | Builds the Firefox zip and source archive |
 | `scripts/live-check/run.sh` | Tests Tor mode end to end in headless Firefox |
-| `scripts/live-check/run.sh downloads` | Tests torrent downloads end to end |
 
 `cargo test -p tortuga-helper` in `helper/` runs the helper's tests.
 
-The extension is TypeScript and plain DOM, bundled with Vite. The helper is Rust, with [Arti](https://gitlab.torproject.org/tpo/core/arti) for Tor and [librqbit](https://github.com/ikatson/rqbit) for torrents.
+The extension is TypeScript and plain DOM, bundled with Vite. The helper is Rust, with [Arti](https://gitlab.torproject.org/tpo/core/arti) for Tor.
 
 ```
-extension/src/background/  routing, the helper connection, torrent links
-extension/src/popup/       the popup, metro diagram and downloads
+extension/src/background/  routing and the helper connection
+extension/src/popup/       the popup and metro diagram
 extension/src/options/     the settings page and bridge lines
-extension/src/confirm/     the window that asks before a download
-extension/src/content/     catches clicks on torrent links
-helper/tortuga-helper/     the helper: Tor, SOCKS server, torrents, bridges
+helper/tortuga-helper/     the helper: Tor, SOCKS server, bridges
 helper/packaging/          macOS, Debian and Windows installers
 ```
 
@@ -181,7 +164,6 @@ Thanks to:
 
 - [Arti](https://gitlab.torproject.org/tpo/core/arti), the Tor Project's Tor in Rust (MIT or Apache-2.0)
 - [lyrebird](https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird) from the Tor Expert Bundle, for obfs4, Snowflake and WebTunnel (BSD)
-- [librqbit](https://github.com/ikatson/rqbit) for torrents (Apache-2.0)
 - [Twemoji](https://github.com/twitter/twemoji) for the flag artwork (CC-BY 4.0, see [`extension/public/fonts/LICENSE.md`](extension/public/fonts/LICENSE.md))
 - [tldts](https://github.com/remusao/tldts) for telling sites apart (MIT)
 
