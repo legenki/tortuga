@@ -16,11 +16,11 @@ analytics and no server of its own. Your settings stay on your own device.
 ## Data stored locally
 
 The extension saves the following with the browser's local storage
-(`storage.local`, and `localStorage` for the theme and last opened tab):
+(`storage.local`, and `localStorage` for the theme):
 
 - Whether Tor is on, and which bridge you picked
 - obfs4 and WebTunnel bridge lines you fetched or pasted
-- Your light or dark theme choice, and which popup tab was open last
+- Your light or dark theme choice
 
 The helper keeps, in its own data folder on your computer:
 
