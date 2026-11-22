@@ -11,7 +11,7 @@ Flip one switch and your browser goes through Tor. Each site gets its own circui
 [![Latest release](https://img.shields.io/github/v/release/legenki/tortuga?label=release)](https://github.com/legenki/tortuga/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/legenki/tortuga/release.yml?branch=main&label=build)](https://github.com/legenki/tortuga/actions/workflows/release.yml)
 
-<img src="docs/screenshots/route.png" width="340" alt="The Tortuga popup: a metro-style route from You through a Snowflake bridge, a middle relay in the US and an exit in Romania to torproject.org">
+<img src="docs/screenshots/route.png" width="340" alt="The Tortuga popup: a metro-style route from You through a Snowflake bridge, a middle relay in Germany and an exit in Austria to torproject.org">
 <img src="docs/screenshots/bridges.png" width="340" alt="The bridge picker: No bridge, Snowflake, obfs4 and WebTunnel, each drawn as its own kind of line">
 
 </div>

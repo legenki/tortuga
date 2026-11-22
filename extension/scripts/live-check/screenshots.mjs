@@ -61,7 +61,7 @@ async function openPopup(select) {
 
 // Light theme (localStorage is shared by the extension's pages), then Tor on.
 const setup = await openPopup(true);
-await ev(setup, `localStorage.setItem('tortuga-theme', '${process.env.THEME ?? 'light'}'); localStorage.setItem('tortuga-tab', 'route'); 1`);
+await ev(setup, `localStorage.setItem('tortuga-theme', '${process.env.THEME ?? 'light'}'); 1`);
 await ev(setup, `chrome.runtime.sendMessage({ type: 'SET_BRIDGE', bridge: 'snowflake' }).then(() => { document.getElementById('connTor').click(); return 1; })`);
 const st = () => ev(setup, `chrome.runtime.sendMessage({ type: 'GET_STATE' }).then(s => JSON.stringify(s))`).then(JSON.parse);
 await waitFor(async () => (await st()).phase !== 'connecting', 180000, 'Tor');

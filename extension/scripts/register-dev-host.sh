@@ -47,8 +47,9 @@ if [ ! -f "$MANIFESTS/chrome.json" ] && [ $# -ge 1 ]; then
 fi
 if [ -f "$MANIFESTS/chrome.json" ]; then
   for dir in "$CR" "$CM"; do
-    mkdir -p "$dir"
+    # A browser that isn't installed (or whose folder can't be made) is skipped.
+    mkdir -p "$dir" 2>/dev/null || { echo "Skipped:  $dir"; continue; }
     cp "$MANIFESTS/chrome.json" "$dir/org.tortuga.helper.json"
+    echo "Chromium-based: $dir/org.tortuga.helper.json"
   done
-  echo "Chrome:   $CR/org.tortuga.helper.json (and Chromium)"
 fi
