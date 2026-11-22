@@ -1,6 +1,6 @@
 # Privacy Policy — Tortuga
 
-_Last updated: 2026-11-05_
+_Last updated: 2026-11-23_
 
 Tortuga ("the extension") is a browser extension for Chrome and Firefox that
 routes your browser through the Tor network, using the

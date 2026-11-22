@@ -1,6 +1,6 @@
 # Remove the Tortuga helper installed by install.ps1 for this Windows user.
-# The helper's data (%APPDATA%\Tortuga\tortuga-helper) and downloads
-# (Downloads\Tortuga) are left alone.
+# The helper's data (%APPDATA%\Tortuga\tortuga-helper) and files downloaded
+# by versions up to 0.2.1 (Downloads\Tortuga) are left alone.
 $ErrorActionPreference = 'SilentlyContinue'
 foreach ($k in 'Mozilla', 'Google\Chrome', 'Chromium') {
   Remove-Item -Path "HKCU:\Software\$k\NativeMessagingHosts\org.tortuga.helper" -Force

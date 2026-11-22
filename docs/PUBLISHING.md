@@ -150,7 +150,7 @@ extension/scripts/live-check/run.sh screenshots`), сложенные в кад�
 > Windows zip with `install.ps1` (per-user, no admin rights).
 >
 > To test: install the helper, open the popup, switch Direct → Tor. It
-> connects in 5–30 s; open https://check.torproject.org/ and the Route tab
+> connects in 5–30 s; open https://check.torproject.org/ and the popup
 > shows that site's circuit.
 >
 > Build: see extension/BUILD.md in the source archive (`npm ci && npm run
@@ -234,8 +234,7 @@ cp ~/tortuga-chrome-key.pem /tmp/key.pem
 | `proxy` | Sends Incognito windows' traffic to the local Tor SOCKS port opened by the Tortuga helper. |
 | `privacy` | While Tor is on, sets WebRTC IP handling to disable_non_proxied_udp so WebRTC can't reveal the user's real IP; restored when Tor is off. |
 | `nativeMessaging` | Talks to the Tortuga helper app on the user's computer, which runs Tor. |
-| `storage` | Saves settings locally: Tor on/off, chosen bridge, bridge lines, theme. |
-| Host permission `<all_urls>` (Firefox only) | Lets the proxy route requests to any site through Tor. The extension has no content scripts and does not read page content. |
+| `storage` | Saves settings locally: Tor on/off, chosen bridge, bridge lines. |
 | Remote code | **No**, I am not using remote code. |
 
 **Data usage:** не собираешь ничего — не отмечай ни одной категории. Отметь

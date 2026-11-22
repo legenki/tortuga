@@ -70,7 +70,7 @@ Tortuga has two parts: the **helper**, a small program that runs Tor, and the **
 
 1. Click the Tortuga icon and switch from `Direct` to `Tor`.
 2. Wait a few seconds while Tor connects. The status line turns green.
-3. Open any site. The **Route** tab shows the path your traffic takes to it.
+3. Open any site. The popup shows the path your traffic takes to it.
 
 If Tor can't connect, your network may be blocking it. Open the bridge menu under the route and pick **Snowflake**. If that doesn't help either, open **Settings**, choose **Get obfs4 lines** or **Get WebTunnel lines**, and pick that bridge.
 

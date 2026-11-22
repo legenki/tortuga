@@ -88,7 +88,7 @@ them into `docs/screenshots/` (light theme, Tor on, local paths hidden).
 (cd helper && cargo test -p tortuga-helper)
 python3 -m unittest discover -s helper/packaging
 (cd extension && npm test && npm run lint:firefox)
-extension/scripts/live-check/run.sh && extension/scripts/live-check/run.sh downloads && extension/scripts/live-check/run.sh bridges
+extension/scripts/live-check/run.sh && extension/scripts/live-check/run.sh bridges
 ```
 
 Local packages: `helper/packaging/macos/build-pkg.sh` (this Mac's arch,

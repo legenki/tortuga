@@ -1,4 +1,4 @@
-# liblzma-sys (via async-compression, for librqbit and tor-dirclient) links
+# liblzma-sys (via async-compression, for tor-dirclient) links
 # the system's liblzma when pkg-config finds one: on a Mac with Homebrew's xz
 # that's /opt/homebrew/opt/xz/lib/liblzma.5.dylib, which other Macs don't
 # have. Always build it in, statically.
