@@ -26,6 +26,9 @@ function broadcast(msg: BgBroadcast): void {
 /** Moat while Tor is off, on a helper of its own. */
 const direct = new DirectHelper({ connect: connectHelper });
 
+// Left by versions up to 0.2.1, which downloaded torrents.
+void chrome.storage.local.remove('tortugaDownloads');
+
 // Lines saved on the settings page for the bridge Tor runs on (or tried to)
 // take effect at once, as choosing the bridge again would.
 chrome.storage.onChanged.addListener((changes, area) => {

@@ -28,7 +28,12 @@ export class DirectHelper {
         const helper = this.deps.connect(() => undefined, () => {
           if (this.ready === ready) this.ready = null;
         });
-        await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
+        try {
+          await helper.request({ type: 'hello', payload: { protocol: PROTOCOL_VERSION } });
+        } catch (e) {
+          helper.close(); // else every retry would leave another helper process running
+          throw e;
+        }
         return helper;
       })();
       this.ready = ready;
