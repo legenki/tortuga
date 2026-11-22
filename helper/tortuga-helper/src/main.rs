@@ -10,7 +10,6 @@ mod moat;
 mod protocol;
 mod socks;
 mod tor;
-mod torrents;
 
 use protocol::{ErrorCode, Message, Request};
 use tokio::io::AsyncWrite;
@@ -76,7 +75,7 @@ mod tests {
     async fn an_oversized_reply_becomes_an_error_and_the_rest_still_go_out() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let huge = "x".repeat(framing::MAX_TO_BROWSER);
-        tx.send(Message::error(Some(1), ErrorCode::TorrentFailed, huge)).unwrap();
+        tx.send(Message::error(Some(1), ErrorCode::TorFailed, huge)).unwrap();
         tx.send(Message::reply(2, Outgoing::Ok)).unwrap();
         drop(tx);
         let mut wire = Vec::new();
