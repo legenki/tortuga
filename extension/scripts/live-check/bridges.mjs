@@ -1,6 +1,6 @@
 // "Get … lines" on the settings page, run by `run.sh bridges` against headless
 // Firefox (BiDi :9222) with Tor off, so the request goes straight to
-// bridges.torproject.org through the downloads helper: obfs4 lines fill the
+// bridges.torproject.org through the helper: obfs4 lines fill the
 // box and are saved (the popup's picker then offers obfs4); WebTunnel either
 // fills its box too or shows Moat's "none are needed here".
 import { writeFileSync } from 'node:fs';
