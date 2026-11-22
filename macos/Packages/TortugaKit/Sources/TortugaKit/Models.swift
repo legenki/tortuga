@@ -115,40 +115,6 @@ public struct BridgeSettings: Sendable, Equatable, Codable {
     public func saved(_ kind: BridgeKind) -> [String] { lines[kind] ?? [] }
 }
 
-public enum DownloadState: String, Sendable, Equatable, Codable {
-    case downloading, sharing, paused, done, failed
-}
-
-public struct Download: Sendable, Equatable, Identifiable, Codable {
-    public let id: UUID
-    public var name: String
-    public var size: Int64
-    /// 0…1.
-    public var done: Double
-    /// Bytes per second.
-    public var downRate: Int64
-    public var upRate: Int64
-    public var state: DownloadState
-    public var error: String?
-
-    public init(id: UUID = UUID(), name: String, size: Int64, done: Double = 0, downRate: Int64 = 0,
-                upRate: Int64 = 0, state: DownloadState = .downloading, error: String? = nil) {
-        self.id = id
-        self.name = name
-        self.size = size
-        self.done = done
-        self.downRate = downRate
-        self.upRate = upRate
-        self.state = state
-        self.error = error
-    }
-}
-
-public enum DownloadSource: Sendable, Equatable {
-    case magnet(String)
-    case file(URL)
-}
-
 public struct EngineState: Sendable, Equatable, Codable {
     public var mode: Mode = .direct
     public var status: Status = .off
@@ -156,9 +122,6 @@ public struct EngineState: Sendable, Equatable, Codable {
     public var apps: [AppRoute] = []
     public var bridges = BridgeSettings()
     public var exceptions: [AppID] = []
-    public var downloads: [Download] = []
-    /// False with the real engine until downloads move into the app (part 4).
-    public var downloadsAvailable = true
 
     public init() {}
 

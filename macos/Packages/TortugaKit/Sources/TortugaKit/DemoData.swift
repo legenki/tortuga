@@ -56,12 +56,4 @@ enum DemoData {
         let fingerprint = String(repeating: String(format: "%X", i), count: 40)
         return "Bridge obfs4 192.0.2.\(i):443 \(fingerprint) cert=ZGVtbyBjZXJ0aWZpY2F0ZQ iat-mode=0"
     }
-
-    static func downloads() -> [Download] {
-        [
-            Download(name: "debian-13.2.0-arm64-netinst.iso", size: 754_974_720, done: 0.35,
-                     downRate: 2_400_000, state: .downloading),
-            Download(name: "archlinux-2026.11.01-x86_64.iso", size: 1_288_490_188, done: 1, state: .done),
-        ]
-    }
 }

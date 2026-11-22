@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import TortugaKit
 
@@ -25,4 +26,11 @@ import Testing
     #expect(s.mode == .direct)
     #expect(s.status == .off)
     #expect(s.apps.isEmpty)
+}
+
+@Test func stateHasNoDownloads() throws {
+    let json = try JSONEncoder().encode(EngineState.initial)
+    let keys = try #require(JSONSerialization.jsonObject(with: json) as? [String: Any]).keys
+    #expect(!keys.contains("downloads"))
+    #expect(!keys.contains("downloadsAvailable"))
 }

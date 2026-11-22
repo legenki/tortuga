@@ -13,7 +13,6 @@ import Testing
                            connections: 2, lastActive: Date(timeIntervalSince1970: 1_800_000_000))]
     state.bridges = BridgeSettings(selected: .obfs4, lines: [.obfs4: ["Bridge obfs4 x"]])
     state.exceptions = [AppID("com.apple.mail")]
-    state.downloadsAvailable = false
     let data = try JSONEncoder().encode(state)
     #expect(try JSONDecoder().decode(EngineState.self, from: data) == state)
 }
