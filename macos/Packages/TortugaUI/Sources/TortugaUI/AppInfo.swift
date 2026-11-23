@@ -27,4 +27,9 @@ enum AppInfo {
         guard let id = Bundle(url: url)?.bundleIdentifier else { return nil }
         return AppID(id, path: url.path, name: FileManager.default.displayName(atPath: url.path))
     }
+
+    /// Whether the system finds an app bundle for it (daemons have none).
+    static func isApp(_ app: AppID) -> Bool {
+        url(app)?.pathExtension == "app"
+    }
 }

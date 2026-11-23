@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import TortugaKit
 
@@ -53,6 +54,16 @@ public final class AppModel {
     public func removeTorApp(_ app: AppID) async {
         if expandedApp == app.id { expandedApp = nil }
         await perform(.apps) { try await $0.removeTorApp(app) }
+    }
+
+    /// An app the user picked in Finder.
+    public func addApp(at url: URL) async {
+        guard let app = AppInfo.id(forAppAt: url) else {
+            let name = FileManager.default.displayName(atPath: url.path)
+            errors[.apps] = "Tortuga can't route \(name): it has no bundle identifier."
+            return
+        }
+        await addTorApp(app)
     }
 
     /// Lines from bridges.torproject.org, or nil with the error under `.fetch`.
