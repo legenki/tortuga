@@ -42,10 +42,15 @@ public struct MenuPanel: View {
                 Spacer()
                 ModeSwitch()
             }
-            StatusLine()
+            StatusLine(showsAppCount: true)
             if let app {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(AppInfo.name(app)).font(.subheadline.weight(.semibold))
+                    HStack(spacing: 6) {
+                        if let route {
+                            Circle().fill(Color.app(route.id)).frame(width: 8, height: 8).accessibilityHidden(true)
+                        }
+                        Text(AppInfo.name(app)).font(.subheadline.weight(.semibold))
+                    }
                     if let route {
                         MetroLine(stops: MetroLine.Stop.full(state.trunk, route), lit: true)
                         Text("Exit \(route.exit.address) · \(route.exit.country)")
