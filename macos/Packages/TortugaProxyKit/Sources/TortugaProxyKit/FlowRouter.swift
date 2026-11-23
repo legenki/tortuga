@@ -42,7 +42,8 @@ public enum FlowDecision: Sendable, Equatable {
     case direct
     /// Let macOS send it as usual: the app isn't in the Tor list.
     case unlisted
-    /// Close it: Tor isn't ready, or it's UDP.
+    /// Close it: a listed app's flow while Tor isn't ready, or its UDP; or,
+    /// until the Tor list arrives, any flow that isn't ours or local.
     case refuse
     /// Through the helper's SOCKS port, isolated by `isolation`.
     case tor(host: String, port: Int, isolation: String)

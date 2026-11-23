@@ -26,6 +26,21 @@ let sampleConfig = ProxyConfiguration(bridge: .snowflake, lines: [.obfs4: ["Brid
     #expect(Wire.decode(ExtensionReply.self, Data("garbage".utf8)) == nil)
 }
 
+@Test func aStateWithAppsGoingDirectRoundTrips() {
+    let state = ExtensionState(status: .on, trunk: Trunk(), apps: [], seenDirect: ["com.apple.mail", "com.apple.Music"])
+    #expect(Wire.decode(ExtensionState.self, Wire.encode(state)) == state)
+}
+
+@Test func aStateFromAnOlderExtensionDecodesWithoutSeenDirect() throws {
+    let state = ExtensionState(status: .on, trunk: Trunk(bridge: .snowflake, guardRelay: nil), apps: [], seenDirect: ["x"])
+    var json = try #require(JSONSerialization.jsonObject(with: Wire.encode(state)) as? [String: Any])
+    json["seenDirect"] = nil
+    let decoded = try #require(Wire.decode(ExtensionState.self, try JSONSerialization.data(withJSONObject: json)))
+    #expect(decoded.seenDirect == [])
+    #expect(decoded.status == .on)
+    #expect(decoded.trunk == state.trunk)
+}
+
 @Test func theRouteTableHandsOutWhatWasPut() {
     let table = RouteTable()
     #expect(table.snapshot().socksPort == nil)

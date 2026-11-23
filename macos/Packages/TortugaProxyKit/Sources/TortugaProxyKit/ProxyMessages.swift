@@ -51,6 +51,15 @@ public struct ExtensionState: Codable, Sendable, Equatable {
         self.seenDirect = seenDirect
     }
 
+    /// An extension from before the Tor list sends no `seenDirect`.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        status = try container.decode(Status.self, forKey: .status)
+        trunk = try container.decode(Trunk.self, forKey: .trunk)
+        apps = try container.decode([AppRoute].self, forKey: .apps)
+        seenDirect = try container.decodeIfPresent([String].self, forKey: .seenDirect) ?? []
+    }
+
     public static let idle = ExtensionState(status: .off, trunk: Trunk(), apps: [])
 }
 
