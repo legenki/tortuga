@@ -1,0 +1,7 @@
+{
+  "name": "tortuga-map-data",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node make-map-data.mjs" },
+  "dependencies": { "d3-geo": "3.1.1" }
+}
