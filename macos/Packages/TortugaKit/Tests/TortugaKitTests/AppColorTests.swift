@@ -5,8 +5,17 @@ import Testing
 @Test func anAppKeepsItsColour() {
     // Fixed values: a stable hash, not Swift's per-run seeded one.
     #expect(AppColor.index(for: "com.apple.Safari") == AppColor.index(for: "com.apple.Safari"))
-    #expect(AppColor.index(for: "com.apple.Safari") == Int(AppColor.fnv1a("com.apple.Safari") % UInt32(AppColor.count)))
     #expect((0..<AppColor.count).contains(AppColor.index(for: "")))
+}
+
+@Test func theHashIsPinned() {
+    // A literal, so a change to the hash (and every app's colour) is noticed.
+    #expect(AppColor.index(for: "com.apple.Safari") == 2)
+}
+
+@Test func theNormalDemoAppsGetDifferentColours() {
+    let ids = ["com.apple.Safari", "ru.keepcoder.Telegram", "com.tinyspeck.slackmacgap", "com.apple.Music"]
+    #expect(Set(ids.map(AppColor.index(for:))).count == 4)
 }
 
 @Test func coloursAreSpreadAcrossApps() {
@@ -21,9 +30,14 @@ import Testing
     #expect(AppColor.fnv1a("foobar") == 0xBF9CF968)
 }
 
-@Test func slotsSpreadDots() {
+@Test func slotsSpreadDotsWithoutOverlap() {
+    // Exit dots are 8 points across; spread ones may touch but not cover each other.
     #expect(AppColor.offset(slot: 0) == .zero)
-    let offsets = (0..<8).map { AppColor.offset(slot: $0) }
-    #expect(Set(offsets.map { "\($0.dx.rounded()),\($0.dy.rounded())" }).count == 8)
-    for o in offsets.dropFirst() { #expect(abs(hypot(o.dx, o.dy) - 6) < 0.001) }
+    let offsets = (0..<12).map { AppColor.offset(slot: $0) }
+    for i in offsets.indices {
+        for j in offsets.indices where j > i {
+            let d = hypot(offsets[i].dx - offsets[j].dx, offsets[i].dy - offsets[j].dy)
+            #expect(d >= 7.5, "slots \(i) and \(j): \(d)")
+        }
+    }
 }
