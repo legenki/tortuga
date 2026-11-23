@@ -12,16 +12,23 @@ private func route(_ id: String, secondsAgo: Double) -> AppRoute {
 @Test func sortsByLastActivityAndFoldsIdleApps() {
     let list = RouteList(
         apps: [route("old", secondsAgo: 300), route("new", secondsAgo: 5), route("sleepy", secondsAgo: 601)],
-        exceptions: [],
+        torApps: [AppID("old"), AppID("new"), AppID("sleepy")],
         now: now
     )
     #expect(list.active.map(\.id) == ["new", "old"])
     #expect(list.idle.map(\.id) == ["sleepy"])
+    #expect(list.waiting.isEmpty)
 }
 
-@Test func leavesExceptedAppsOutOfTheRoutes() {
-    let list = RouteList(apps: [route("mail", secondsAgo: 1), route("safari", secondsAgo: 2)],
-                         exceptions: [AppID("mail")], now: now)
+@Test func listedAppsWithoutTrafficWait() {
+    let list = RouteList(apps: [route("safari", secondsAgo: 2)],
+                         torApps: [AppID("safari"), AppID("firefox")], now: now)
     #expect(list.active.map(\.id) == ["safari"])
-    #expect(list.excepted == [AppID("mail")])
+    #expect(list.waiting == [AppID("firefox")])
+}
+
+@Test func routesOfUnlistedAppsAreLeftOut() {
+    let list = RouteList(apps: [route("mail", secondsAgo: 1), route("safari", secondsAgo: 2)],
+                         torApps: [AppID("safari")], now: now)
+    #expect(list.active.map(\.id) == ["safari"])
 }

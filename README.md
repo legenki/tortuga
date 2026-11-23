@@ -95,7 +95,7 @@ While Tor is on in Firefox, Tortuga turns on Firefox's `resistFingerprinting` an
 - **Debian, Ubuntu:** `sudo apt remove tortuga-helper`
 - **Windows:** run `uninstall.ps1` in `%LOCALAPPDATA%\Tortuga`
 
-**Native macOS app (in development).** `macos/` holds a native app that will send the whole Mac through Tor, with a circuit for each app. Right now it runs on a simulated engine only. See [macos/README.md](macos/README.md).
+**Native macOS app (in development).** `macos/` holds a native app that will send the apps you choose (your browsers first) through Tor, with a circuit for each app. Right now it runs on a simulated engine only. See [macos/README.md](macos/README.md).
 
 ## Privacy
 

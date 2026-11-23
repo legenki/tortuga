@@ -10,7 +10,7 @@ public enum Status: Sendable, Equatable, Codable {
     case off
     case starting(step: String, progress: Double)
     case on
-    /// Tor stopped; traffic is held back until it runs again.
+    /// Tor stopped; listed apps' traffic is held back until it runs again.
     case blocked(reason: String)
     /// Tor could not start.
     case failed(reason: String)
@@ -121,7 +121,11 @@ public struct EngineState: Sendable, Equatable, Codable {
     public var trunk = Trunk()
     public var apps: [AppRoute] = []
     public var bridges = BridgeSettings()
-    public var exceptions: [AppID] = []
+    /// The apps that go through Tor, in the order the user sees them.
+    public var torApps: [AppID] = []
+    /// Apps whose connections went directly in the last hour (they aren't
+    /// listed), most recent first.
+    public var seenDirect: [AppID] = []
 
     public init() {}
 

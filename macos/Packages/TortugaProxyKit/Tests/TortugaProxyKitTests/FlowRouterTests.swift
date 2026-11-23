@@ -16,11 +16,22 @@ func publicAddresses(_ ip: String) {
 }
 
 private func flow(app: String = "com.apple.Safari", host: String? = "example.com", ip: String = "93.184.215.14",
-                  port: Int = 443, udp: Bool = false) -> FlowInfo {
-    FlowInfo(app: app, remoteHost: host, remoteIP: ip, port: port, isUDP: udp)
+                  port: Int = 443, udp: Bool = false, ancestors: @escaping @Sendable () -> [String] = { [] }) -> FlowInfo {
+    FlowInfo(app: app, remoteHost: host, remoteIP: ip, port: port, isUDP: udp, ancestors: ancestors)
 }
 
-private let ready = RouterState(torReady: true, exceptions: ["com.apple.mail"], own: ["org.tortuga.helper"])
+private let notAsked: @Sendable () -> [String] = {
+    Issue.record("ancestors asked for")
+    return []
+}
+
+private let ready = RouterState(torReady: true, torApps: ["com.apple.Safari", "com.google.Chrome"],
+                                own: ["org.tortuga.helper"])
+
+@Test func aHelperUsesItsAppsCircuit() {
+    #expect(FlowRouter.decide(flow(app: "com.google.Chrome.helper"), ready, names: NameCache(), now: t0)
+            == .tor(host: "example.com", port: 443, isolation: "com.google.Chrome"))
+}
 
 @Test func byNameThroughTorIsolatedByApp() {
     #expect(FlowRouter.decide(flow(), ready, names: NameCache(), now: t0)
@@ -39,20 +50,38 @@ private let ready = RouterState(torReady: true, exceptions: ["com.apple.mail"], 
             == .tor(host: "93.184.215.14", port: 443, isolation: "com.apple.Safari"))
 }
 
-@Test func exceptedOwnAndLocalGoDirect() {
-    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), ready, names: NameCache(), now: t0) == .direct)
+@Test func unlistedAppsGoDirect() {
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), ready, names: NameCache(), now: t0) == .unlisted)
+}
+
+@Test func unlistedUDPGoesDirect() {
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail", udp: true), ready, names: NameCache(), now: t0) == .unlisted)
+    let notReady = RouterState(torReady: false, torApps: ["com.apple.Safari"], own: [])
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail", udp: true), notReady, names: NameCache(), now: t0) == .unlisted)
+}
+
+@Test func ownAndLocalGoDirect() {
     #expect(FlowRouter.decide(flow(app: "org.tortuga.helper"), ready, names: NameCache(), now: t0) == .direct)
     #expect(FlowRouter.decide(flow(host: "printer.local", ip: "192.168.1.20"), ready, names: NameCache(), now: t0) == .direct)
 }
 
-@Test func nothingGoesOutWhileTorIsntReady() {
-    let notReady = RouterState(torReady: false, exceptions: [], own: [])
+@Test func onlyListedAppsWaitForTor() {
+    let notReady = RouterState(torReady: false, torApps: ["com.apple.Safari"], own: [])
     #expect(FlowRouter.decide(flow(), notReady, names: NameCache(), now: t0) == .refuse)
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), notReady, names: NameCache(), now: t0) == .unlisted)
     #expect(FlowRouter.decide(flow(host: "router.lan", ip: "192.168.1.1"), notReady, names: NameCache(), now: t0) == .direct)
 }
 
-@Test func udpIsClosed() {
-    #expect(FlowRouter.decide(flow(port: 443, udp: true), ready, names: NameCache(), now: t0) == .refuse)
+@Test func nothingButOwnAndLocalGoesOutUntilTheListArrives() {
+    let unconfigured = RouterState(torReady: false, torApps: nil, own: ["org.tortuga.helper"])
+    #expect(FlowRouter.decide(flow(), unconfigured, names: NameCache(), now: t0) == .refuse)
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), unconfigured, names: NameCache(), now: t0) == .refuse)
+    #expect(FlowRouter.decide(flow(app: "org.tortuga.helper"), unconfigured, names: NameCache(), now: t0) == .direct)
+    #expect(FlowRouter.decide(flow(host: "printer.local", ip: "192.168.1.20"), unconfigured, names: NameCache(), now: t0) == .direct)
+}
+
+@Test func udpFromAListedAppIsRefused() {
+    #expect(FlowRouter.decide(flow(udp: true), ready, names: NameCache(), now: t0) == .refuse)
 }
 
 @Test func namesExpireAndTheCacheStaysSmall() {
@@ -65,4 +94,39 @@ private let ready = RouterState(torReady: true, exceptions: ["com.apple.mail"], 
     names.record(ip: "4.4.4.4", name: "d", now: t0)
     #expect(names.count == 2)
     #expect(names.name(for: "4.4.4.4", now: t0) == "d")
+}
+
+private let withFirefox = RouterState(torReady: true, torApps: ["org.mozilla.firefox"], own: ["org.tortuga.helper"])
+private let firefoxLineage: @Sendable () -> [String] = { ["org.mozilla.firefox", "com.apple.launchd"] }
+
+@Test func aChildsUDPIsRefusedLikeItsApps() {
+    // Firefox's WebRTC runs in org.mozilla.plugincontainer: its UDP went out directly.
+    #expect(FlowRouter.decide(flow(app: "org.mozilla.plugincontainer", udp: true, ancestors: firefoxLineage),
+                              withFirefox, names: NameCache(), now: t0) == .refuse)
+}
+
+@Test func aChildsTCPUsesItsAppsCircuit() {
+    #expect(FlowRouter.decide(flow(app: "org.mozilla.plugincontainer", ancestors: firefoxLineage),
+                              withFirefox, names: NameCache(), now: t0)
+            == .tor(host: "example.com", port: 443, isolation: "org.mozilla.firefox"))
+}
+
+@Test func anUnlistedProcessWithUnlistedAncestorsIsUnlisted() {
+    #expect(FlowRouter.decide(flow(app: "com.apple.curl", ancestors: { ["com.apple.zsh", "com.apple.Terminal"] }),
+                              withFirefox, names: NameCache(), now: t0) == .unlisted)
+}
+
+@Test func ancestorsAreAskedForOnlyWhenNeeded() {
+    #expect(FlowRouter.decide(flow(ancestors: notAsked), ready, names: NameCache(), now: t0)
+            == .tor(host: "example.com", port: 443, isolation: "com.apple.Safari"))
+    #expect(FlowRouter.decide(flow(app: "com.google.Chrome.helper", ancestors: notAsked), ready, names: NameCache(), now: t0)
+            == .tor(host: "example.com", port: 443, isolation: "com.google.Chrome"))
+    #expect(FlowRouter.decide(flow(app: "org.tortuga.helper", ancestors: notAsked), ready, names: NameCache(), now: t0) == .direct)
+    #expect(FlowRouter.decide(flow(host: "printer.local", ip: "192.168.1.20", ancestors: notAsked), ready, names: NameCache(), now: t0)
+            == .direct)
+}
+
+@Test func flowsCompareWithoutTheirAncestors() {
+    #expect(flow(ancestors: firefoxLineage) == flow())
+    #expect(flow(app: "com.apple.mail") != flow())
 }

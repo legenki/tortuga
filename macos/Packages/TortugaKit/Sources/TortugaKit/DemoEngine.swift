@@ -38,8 +38,12 @@ public actor DemoEngine: TortugaEngine {
         self.rng = SeededRandom(seed: seed)
         self.start = start
         state.bridges.selected = .snowflake
-        if scenario != .empty && scenario != .manyApps {
-            state.exceptions = [DemoData.mail]
+        switch scenario {
+        case .empty: break
+        case .manyApps: state.torApps = DemoData.manyApps
+        default:
+            state.torApps = DemoData.torApps
+            state.seenDirect = DemoData.direct
         }
     }
 
@@ -126,14 +130,18 @@ public actor DemoEngine: TortugaEngine {
         throw EngineError("No answer from bridges.torproject.org")
     }
 
-    public func addException(_ app: AppID) throws {
-        if !state.exceptions.contains(app) { state.exceptions.append(app) }
-        state.apps.removeAll { $0.app == app }
+    public func addTorApp(_ app: AppID) throws {
+        if !state.torApps.contains(app) { state.torApps.append(app) }
+        state.seenDirect.removeAll { $0 == app }
+        if state.status == .on { schedule(.seconds(1), .arrive(app)) }
         publish()
     }
 
-    public func removeException(_ app: AppID) throws {
-        state.exceptions.removeAll { $0 == app }
+    public func removeTorApp(_ app: AppID) throws {
+        state.torApps.removeAll { $0 == app }
+        state.apps.removeAll { $0.app == app }
+        state.seenDirect.removeAll { $0 == app }
+        state.seenDirect.insert(app, at: 0)
         publish()
     }
 
@@ -222,7 +230,7 @@ public actor DemoEngine: TortugaEngine {
     private func fire(_ event: Event) {
         switch event {
         case .arrive(let app):
-            guard state.status == .on, !state.exceptions.contains(app),
+            guard state.status == .on, state.torApps.contains(app),
                   !state.apps.contains(where: { $0.app == app }) else { return }
             state.apps.append(route(app, lastActive: now))
         case .newCircuit(let app):

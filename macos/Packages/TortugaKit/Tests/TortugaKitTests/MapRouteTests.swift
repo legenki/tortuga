@@ -9,14 +9,14 @@ private let map = WorldMap(dots: [], countries: [
 
 private func relay(_ country: String) -> Relay { Relay(nickname: "r", country: country, address: "192.0.2.1") }
 
-private func state(apps: [AppRoute], guardCountry: String? = "DE", exceptions: [AppID] = [],
+private func state(apps: [AppRoute], guardCountry: String? = "DE", unlisted: [AppID] = [],
                    mode: Mode = .tor, bridge: BridgeKind? = nil) -> EngineState {
     var s = EngineState()
     s.mode = mode
     s.status = .on
     s.trunk = Trunk(bridge: bridge, guardRelay: guardCountry.map(relay))
     s.apps = apps
-    s.exceptions = exceptions
+    s.torApps = apps.map(\.app).filter { !unlisted.contains($0) }
     return s
 }
 
@@ -88,8 +88,8 @@ private func app(_ id: String, _ middle: String, _ exit: String) -> AppRoute {
     #expect(try #require(r.tails.first).points.first == map.place(country: "AT"))
 }
 
-@Test func exceptedAppsAreLeftOut() {
-    let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE")], exceptions: [AppID("b")])
+@Test func unlistedAppsAreLeftOut() {
+    let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE")], unlisted: [AppID("b")])
     #expect(MapRoute(state: s, region: "AT", map: map).tails.map(\.id) == ["a"])
 }
 
@@ -137,10 +137,10 @@ private func app(_ id: String, _ middle: String, _ exit: String) -> AppRoute {
 }
 
 @Test func focusPlacesAreEmptyForAnAppWithoutARoute() {
-    let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE"), app("c", "XX", "??")], exceptions: [AppID("b")])
+    let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE"), app("c", "XX", "??")], unlisted: [AppID("b")])
     let r = MapRoute(state: s, region: "AT", map: map)
     #expect(r.focusPlaces(for: "nope").isEmpty)
-    #expect(r.focusPlaces(for: "b").isEmpty)  // excepted
+    #expect(r.focusPlaces(for: "b").isEmpty)  // unlisted
     #expect(r.focusPlaces(for: "c").isEmpty)  // no known middle or exit
     #expect(MapRoute(state: state(apps: [app("a", "FR", "SE")], mode: .direct), region: "AT", map: map)
         .focusPlaces(for: "a").isEmpty)

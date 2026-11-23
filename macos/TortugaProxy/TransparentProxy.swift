@@ -1,11 +1,12 @@
 import Foundation
 import Network
 import NetworkExtension
+import TortugaKit
 import TortugaProxyKit
 
 /// Every TCP and UDP flow off this Mac, except local networks (excluded in
-/// the settings): to Tor by the app's own circuit, straight out for
-/// exceptions and our own programs, or closed.
+/// the settings): to Tor by the app's own circuit for the apps in the Tor list,
+/// straight out for the rest and our own programs, or closed.
 final class TransparentProxy: NETransparentProxyProvider {
     /// Loopback, private, link-local, multicast: never offered to us.
     static let localNetworks: [(String, Int)] = [
@@ -34,10 +35,11 @@ final class TransparentProxy: NETransparentProxyProvider {
         setTunnelNetworkSettings(settings) { error in
             if let error { proxyLog.error("proxy settings failed: \(error.localizedDescription, privacy: .public)") }
             Task {
+                // Routes know the Tor list before macOS offers the first flow.
                 if let configuration { await Shared.core.configure(configuration) }
+                started.value(error)
                 await Shared.core.start()
             }
-            started.value(error)
         }
     }
 
@@ -57,13 +59,22 @@ final class TransparentProxy: NETransparentProxyProvider {
             ip = Self.address(host)
             port = Int(p.rawValue)
         }
+        // A listed app's child processes count as the app (Firefox's WebRTC
+        // runs in org.mozilla.plugincontainer); looked up only when needed.
+        let token = flow.metaData.sourceAppAuditToken
         let info = FlowInfo(app: flow.metaData.sourceAppSigningIdentifier, remoteHost: flow.remoteHostname,
-                            remoteIP: ip, port: port, isUDP: flow is NEAppProxyUDPFlow)
+                            remoteIP: ip, port: port, isUDP: flow is NEAppProxyUDPFlow,
+                            ancestors: { ProcessLineage.ancestors(auditToken: token) })
         let decision = FlowRouter.decide(info, snapshot.state, names: Shared.names)
-        let kind: String = switch decision { case .direct: "direct"; case .refuse: "refuse"; case .tor: "tor" }
-        proxyLog.notice("flow \(info.isUDP ? "udp" : "tcp", privacy: .public) from \(info.app, privacy: .public): \(kind, privacy: .public), by name: \(info.remoteHost != nil)")
+        let kind: String = switch decision { case .direct: "direct"; case .unlisted: "unlisted"; case .refuse: "refuse"; case .tor: "tor" }
+        let via = Self.matchedAncestor(info, decision, torApps: snapshot.state.torApps).map { " via ancestor \($0)" } ?? ""
+        proxyLog.notice("flow \(info.isUDP ? "udp" : "tcp", privacy: .public) from \(info.app, privacy: .public): \(kind, privacy: .public)\(via, privacy: .public), by name: \(info.remoteHost != nil)")
         switch decision {
         case .direct:
+            return false
+        case .unlisted:
+            let app = info.app
+            Task { await Shared.core.sawDirect(app: app) }
             return false
         case .refuse:
             Self.refuse(flow)
@@ -76,6 +87,18 @@ final class TransparentProxy: NETransparentProxyProvider {
             TCPRelay(flow: tcp, host: host, port: port, isolation: isolation, socksPort: socksPort).start()
             return true
         }
+    }
+
+    /// The ancestor a listed decision came through, for the log; nil when the
+    /// app itself is listed or the decision didn't use the list (the lineage
+    /// is cached, so asking again is cheap).
+    static func matchedAncestor(_ info: FlowInfo, _ decision: FlowDecision, torApps: Set<String>?) -> String? {
+        switch decision {
+        case .direct, .unlisted: return nil
+        case .refuse, .tor: break
+        }
+        guard let torApps, TorAppMatcher.match(info.app, in: torApps) == nil else { return nil }
+        return info.ancestors().first { TorAppMatcher.match($0, in: torApps) != nil }
     }
 
     static func refuse(_ flow: NEAppProxyFlow) {

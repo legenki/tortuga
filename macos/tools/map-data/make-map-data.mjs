@@ -1,4 +1,4 @@
-// Writes TortugaKit's WorldMap.json: land as a 2° grid of dots, and each
+// Writes TortugaKit's WorldMap.json: land as a 0.5° grid of dots, and each
 // country's label point by ISO 3166 alpha-2 code. Data: Natural Earth
 // (public domain), fetched from a pinned release of natural-earth-vector.
 import { writeFileSync } from 'node:fs';
@@ -6,7 +6,7 @@ import { geoContains } from 'd3-geo';
 
 const NE = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson';
 const OUT = new URL('../../Packages/TortugaKit/Sources/TortugaKit/Resources/WorldMap.json', import.meta.url);
-const STEP = 2;
+const STEP = 0.5;
 // Antarctica is left out: no relays there, and it would take a third of the map.
 const SOUTH = -58;
 const NORTH = 84;

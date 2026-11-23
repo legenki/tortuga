@@ -6,17 +6,17 @@ import TortugaKit
 public struct ProxyConfiguration: Codable, Sendable, Equatable {
     public var bridge: BridgeKind?
     public var lines: [BridgeKind: [String]]
-    /// Signing identifiers of excepted apps.
-    public var exceptions: [String]
+    /// Signing identifiers of the apps that go through Tor.
+    public var torApps: [String]
     /// tortuga-helper in the app's copy of the extension (spike Q5).
     public var helperPath: String
     /// pt/ (lyrebird, pt_config.json) next to it.
     public var ptDir: String
 
-    public init(bridge: BridgeKind?, lines: [BridgeKind: [String]], exceptions: [String], helperPath: String, ptDir: String) {
+    public init(bridge: BridgeKind?, lines: [BridgeKind: [String]], torApps: [String], helperPath: String, ptDir: String) {
         self.bridge = bridge
         self.lines = lines
-        self.exceptions = exceptions
+        self.torApps = torApps
         self.helperPath = helperPath
         self.ptDir = ptDir
     }
@@ -40,11 +40,24 @@ public struct ExtensionState: Codable, Sendable, Equatable {
     public var status: Status
     public var trunk: Trunk
     public var apps: [AppRoute]
+    /// Signing identifiers of apps that went direct in the last hour (not
+    /// in the Tor list), most recent first.
+    public var seenDirect: [String]
 
-    public init(status: Status, trunk: Trunk, apps: [AppRoute]) {
+    public init(status: Status, trunk: Trunk, apps: [AppRoute], seenDirect: [String] = []) {
         self.status = status
         self.trunk = trunk
         self.apps = apps
+        self.seenDirect = seenDirect
+    }
+
+    /// An extension from before the Tor list sends no `seenDirect`.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        status = try container.decode(Status.self, forKey: .status)
+        trunk = try container.decode(Trunk.self, forKey: .trunk)
+        apps = try container.decode([AppRoute].self, forKey: .apps)
+        seenDirect = try container.decodeIfPresent([String].self, forKey: .seenDirect) ?? []
     }
 
     public static let idle = ExtensionState(status: .off, trunk: Trunk(), apps: [])

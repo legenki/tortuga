@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import TortugaKit
 
@@ -6,12 +7,12 @@ import TortugaKit
 @MainActor @Observable
 public final class AppModel {
     public enum Control: Hashable, Sendable {
-        case mode, restart, circuit, bridges, fetch, exceptions
+        case mode, restart, circuit, bridges, fetch, apps
     }
 
     public private(set) var state = EngineState.initial
     public private(set) var errors: [Control: String] = [:]
-    public var section: SidebarSection = .route
+    public var section: WindowSection = .route
     /// The Route row that's open, by app ID.
     public var expandedApp: String?
     /// The Route row under the pointer, by app ID: its route stands out on the map.
@@ -42,6 +43,28 @@ public final class AppModel {
         } catch {
             errors[control] = error.localizedDescription
         }
+    }
+
+    /// Send an app through Tor; it becomes the selected row.
+    public func addTorApp(_ app: AppID) async {
+        expandedApp = app.id
+        await perform(.apps) { try await $0.addTorApp(app) }
+    }
+
+    public func removeTorApp(_ app: AppID) async {
+        if expandedApp == app.id { expandedApp = nil }
+        if hoveredApp == app.id { hoveredApp = nil }
+        await perform(.apps) { try await $0.removeTorApp(app) }
+    }
+
+    /// An app the user picked in Finder.
+    public func addApp(at url: URL) async {
+        guard let app = AppInfo.id(forAppAt: url) else {
+            let name = FileManager.default.displayName(atPath: url.path)
+            errors[.apps] = "Tortuga can't route \(name): it has no bundle identifier."
+            return
+        }
+        await addTorApp(app)
     }
 
     /// Lines from bridges.torproject.org, or nil with the error under `.fetch`.

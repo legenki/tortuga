@@ -24,6 +24,26 @@ final class TortugaAppUITests: XCTestCase {
         target.click()
     }
 
+    /// Pick Route or Bridges in the toolbar's segmented control. Depending on
+    /// the macOS version a segment shows up as a radio button or a button
+    /// inside the control (identified `section.picker`); take whichever is there.
+    private func selectSection(_ app: XCUIApplication, _ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        let picker = element(app, "section.picker")
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "no section.picker", file: file, line: line)
+        let candidates = [picker.radioButtons[title], picker.buttons[title],
+                          picker.descendants(matching: .any)[title],
+                          app.radioButtons[title], app.segmentedControls.buttons[title]]
+        let deadline = Date().addingTimeInterval(5)
+        repeat {
+            if let segment = candidates.first(where: { $0.firstMatch.exists }) {
+                segment.firstMatch.click()
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        } while Date() < deadline
+        XCTFail("no \(title) segment in section.picker", file: file, line: line)
+    }
+
     private func waitFor(_ element: XCUIElement, labelContaining text: String, timeout: TimeInterval = 15) {
         // On macOS a StaticText's words are its value, not its label.
         let found = expectation(for: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", text, text),
@@ -32,9 +52,9 @@ final class TortugaAppUITests: XCTestCase {
     }
 
     /// New apps join the top of the list and push the others down; wait for
-    /// the last of the four so a click lands on the row it aims at.
+    /// the last of the three so a click lands on the row it aims at.
     private func waitForAllApps(_ app: XCUIApplication) {
-        XCTAssertTrue(element(app, "route.row.com.apple.Music").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "row.exit.org.mozilla.firefox").waitForExistence(timeout: 10))
     }
 
     /// Keep a screenshot of the window in the test results, for looking at.
@@ -47,7 +67,7 @@ final class TortugaAppUITests: XCTestCase {
 
     func testTorOnAppsAppearAndNewCircuitChangesTheExit() {
         let app = launch("normal")
-        press(app, "mode.tor")
+        press(app, "status")
         waitFor(element(app, "status"), labelContaining: "Tor on")
         let row = element(app, "route.row.com.apple.Safari")
         XCTAssertTrue(row.waitForExistence(timeout: 5))
@@ -65,46 +85,32 @@ final class TortugaAppUITests: XCTestCase {
 
     func testRouteScreenHasTheMap() {
         let app = launch("normal")
-        press(app, "mode.tor")
+        press(app, "status")
         waitFor(element(app, "status"), labelContaining: "Tor on")
         waitForAllApps(app)
         let map = element(app, "route.map")
         XCTAssertTrue(map.waitForExistence(timeout: 5))
         XCTAssertTrue(map.label.contains("Safari:"), map.label)
-        XCTAssertTrue(element(app, "route.guard").exists)
+        waitFor(element(app, "status"), labelContaining: "Guard")
+        selectSection(app, "Bridges")
+        XCTAssertTrue(element(app, "bridge.obfs4").waitForExistence(timeout: 5))
+        selectSection(app, "Route")
         snap(app, "map")
     }
 
     func testTorDiesThenRestartBringsItBack() {
         let app = launch("torDies")
-        press(app, "mode.tor")
+        press(app, "status")
         waitFor(element(app, "status"), labelContaining: "Tor on")
-        waitFor(element(app, "status"), labelContaining: "traffic is blocked")
+        waitFor(element(app, "status"), labelContaining: "Tor apps are blocked")
         snap(app, "blocked")
         press(app, "restart")
         waitFor(element(app, "status"), labelContaining: "Tor on")
     }
 
-    func testAnExceptionCanBeAddedAndRemoved() {
-        let app = launch("normal")
-        press(app, "mode.tor")
-        let row = element(app, "route.row.com.apple.Safari")
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
-        waitForAllApps(app)
-        row.click()
-        press(app, "exclude.com.apple.Safari")
-        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
-        press(app, "sidebar.exceptions")
-        let entry = element(app, "exception.com.apple.Safari")
-        XCTAssertTrue(entry.waitForExistence(timeout: 5))
-        snap(app, "exceptions")
-        press(app, "remove.com.apple.Safari")
-        XCTAssertTrue(entry.waitForNonExistence(timeout: 5))
-    }
-
     func testABadObfs4LineIsMarkedAndAGoodOneSaved() {
         let app = launch("normal")
-        press(app, "sidebar.bridges")
+        selectSection(app, "Bridges")
         press(app, "bridge.obfs4")
         let lines = element(app, "bridges.obfs4.lines")
         XCTAssertTrue(lines.waitForExistence(timeout: 5))
@@ -118,5 +124,20 @@ final class TortugaAppUITests: XCTestCase {
         XCTAssertTrue(element(app, "bridges.error").waitForNonExistence(timeout: 3))
         press(app, "bridges.obfs4.save")
         waitFor(element(app, "bridges.obfs4.count"), labelContaining: "1 saved", timeout: 5)
+    }
+
+    func testAnAppCanBeRemovedAndAddedBack() {
+        let app = launch("normal")
+        press(app, "status")
+        waitForAllApps(app)
+        let row = element(app, "route.row.com.apple.Safari")
+        row.click()
+        press(app, "trash.com.apple.Safari")
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+        let add = element(app, "add.com.apple.Safari")
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        snap(app, "going-direct")
+        add.click()
+        XCTAssertTrue(element(app, "row.exit.com.apple.Safari").waitForExistence(timeout: 10))
     }
 }

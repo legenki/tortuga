@@ -4,7 +4,8 @@ import Testing
 
 @Test func theBundledMapLoads() {
     let map = WorldMap.shared
-    #expect(map.dots.count > 1000)
+    // A 0.5° grid: about 62,000 dots.
+    #expect((55_000...70_000).contains(map.dots.count))
     #expect(map.place(country: "DE") != nil)
 }
 

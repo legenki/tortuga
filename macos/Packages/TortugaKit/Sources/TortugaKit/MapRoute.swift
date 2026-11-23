@@ -1,7 +1,7 @@
 import Foundation
 
 /// What the route map draws for a state: the trunk from this Mac to the guard,
-/// and each routed app's tail through its middle to its exit. Places come from
+/// and each listed app's tail through its middle to its exit. Places come from
 /// the countries Tor reports; a country the map doesn't know is skipped.
 /// Outside Tor mode there are no routes: everything is empty and the whole
 /// world shows.
@@ -58,7 +58,7 @@ public struct MapRoute: Sendable, Equatable {
         }
 
         tails = state.apps
-            .filter { !state.exceptions.contains($0.app) }
+            .filter { state.torApps.contains($0.app) }
             .sorted { $0.app.id < $1.app.id }
             .map { route in
                 let middle = place(route.middle.country)
@@ -78,7 +78,7 @@ public struct MapRoute: Sendable, Equatable {
 
     /// One app's route, for flying the map to it: the Mac, then the tail's
     /// start, middle and exit, the known ones. Empty when the app has no tail
-    /// (not routed, excepted, gone) or neither its middle nor its exit is
+    /// (not routed, not listed, gone) or neither its middle nor its exit is
     /// known, so the map keeps the overview.
     public func focusPlaces(for appID: String) -> [Coordinate] {
         guard let tail = tails.first(where: { $0.id == appID }), tail.middle != nil || tail.exit != nil else { return [] }

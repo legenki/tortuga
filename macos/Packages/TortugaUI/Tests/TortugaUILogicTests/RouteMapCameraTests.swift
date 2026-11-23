@@ -12,6 +12,7 @@ private let route: MapRoute = {
     s.trunk = Trunk(guardRelay: relay("DE"))
     s.apps = [AppRoute(app: AppID("a"), middle: relay("FR"), exit: relay("SE"), connections: 1, lastActive: .now),
               AppRoute(app: AppID("b"), middle: relay("NL"), exit: relay("JP"), connections: 1, lastActive: .now)]
+    s.torApps = s.apps.map(\.app)
     return MapRoute(state: s, region: "AT")
 }()
 
@@ -46,4 +47,17 @@ private let route: MapRoute = {
     var c = MapCamera(centerLon: 0, centerLat: 0, lonSpan: 40, latSpan: 0)
     c.animatableData = c.animatableData
     #expect(c.latSpan.isFinite && c.latSpan > 0)
+}
+
+@Test func busierExitsPulseFaster() {
+    #expect(RouteMap.pulsePeriod(connections: 0) == 3.2)
+    #expect(abs(RouteMap.pulsePeriod(connections: 12) - 1.0) < 1e-9)
+    #expect(abs(RouteMap.pulsePeriod(connections: 40) - 1.0) < 1e-9)
+    #expect(RouteMap.pulsePeriod(connections: 6) < RouteMap.pulsePeriod(connections: 2))
+}
+
+@Test func trafficFlowsAtTwelvePointsASecond() {
+    #expect(RouteMap.flowPhase(at: 0) == 0)
+    #expect(abs(RouteMap.flowPhase(at: 0.5) - 6) < 1e-9)
+    #expect(abs(RouteMap.flowPhase(at: 1.25) - 3) < 1e-9)
 }

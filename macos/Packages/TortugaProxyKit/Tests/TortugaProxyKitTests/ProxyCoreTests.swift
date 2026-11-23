@@ -16,6 +16,92 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
 }
 
 @Suite struct ProxyCoreTests {
+    @Test func appsGoingDirectAreRememberedForAnHour() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        await core.sawDirect(app: "com.apple.mail")
+        clock.now += 10
+        await core.sawDirect(app: "com.apple.Music")
+        #expect(await core.current.seenDirect == ["com.apple.Music", "com.apple.mail"])
+        clock.now += 3595
+        await core.sawDirect(app: "com.apple.Music")
+        #expect(await core.current.seenDirect == ["com.apple.Music"])
+    }
+
+    @Test func seenDirectIsPublishedOnlyWhenItsAppsChange() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        let seen = Recorder<[String]>()
+        let states = await core.states()
+        let watcher = Task { for await state in states { seen.append(state.seenDirect) } }
+        defer { watcher.cancel() }
+        try await eventually { seen.count == 1 }
+        await core.sawDirect(app: "com.apple.mail")
+        try await eventually { seen.count == 2 }
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.Music")
+        try await eventually { seen.count == 3 }
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.Music")
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.mail")
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(seen.values == [[], ["com.apple.mail"], ["com.apple.Music", "com.apple.mail"]])
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.Notes")
+        try await eventually { seen.count == 4 }
+        // Most recently seen first, as of the publish.
+        #expect(seen.values.last == ["com.apple.Notes", "com.apple.mail", "com.apple.Music"])
+    }
+
+    @Test func addingAnAppClearsItAndItsHelpersFromGoingDirect() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        await core.configure(sampleConfig)
+        await core.sawDirect(app: "com.apple.mail")
+        clock.now += 1
+        await core.sawDirect(app: "com.google.Chrome.helper")
+        clock.now += 1
+        await core.sawDirect(app: "com.google.Chrome")
+        let seen = Recorder<[String]>()
+        let states = await core.states()
+        let watcher = Task { for await state in states { seen.append(state.seenDirect) } }
+        defer { watcher.cancel() }
+        try await eventually { seen.count == 1 }
+        var withChrome = sampleConfig
+        withChrome.torApps.append("com.google.Chrome")
+        await core.configure(withChrome)
+        #expect(await core.current.seenDirect == ["com.apple.mail"])
+        try await eventually { seen.count == 2 }
+        // The same list again changes nothing, and isn't published.
+        await core.configure(withChrome)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(seen.count == 2)
+    }
+
+    @Test func stoppingForgetsTheAppsThatWentDirect() async throws {
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero)
+        await core.sawDirect(app: "com.apple.mail")
+        #expect(await core.current.seenDirect == ["com.apple.mail"])
+        await core.stop()
+        #expect(await core.current.seenDirect == [])
+        await core.sawDirect(app: "com.apple.mail")
+        #expect(await core.current.seenDirect == ["com.apple.mail"])
+    }
+
+    @Test func atMost200AppsAreRemembered() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        for i in 0..<205 {
+            clock.now += 1
+            await core.sawDirect(app: "app\(i)")
+        }
+        let seen = await core.current.seenDirect
+        #expect(seen.count == 200)
+        #expect(seen.first == "app204")
+        #expect(!seen.contains("app4"))
+    }
+
     @Test func noTrafficUntilACircuitWorks() async throws {
         let launcher = FakeLauncher()
         let core = ProxyCore(launcher: launcher, retryDelay: .zero)
@@ -44,7 +130,7 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         let snapshot = core.routes.snapshot()
         #expect(snapshot.state.torReady)
         #expect(snapshot.socksPort == 40000)
-        #expect(snapshot.state.exceptions == ["com.apple.mail"])
+        #expect(snapshot.state.torApps == ["com.apple.Safari"])
         let start = try #require(launcher.transports[0].requests.first { $0["type"] as? String == "tor.start" })
         let bridge = (start["payload"] as? [String: Any])?["bridge"] as? [String: Any]
         #expect(bridge?["kind"] as? String == "snowflake")
@@ -142,4 +228,22 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         let start = try #require(launcher.transports[1].requests.first { $0["type"] as? String == "tor.start" })
         #expect(((start["payload"] as? [String: Any])?["bridge"] as? [String: Any])?["kind"] as? String == "none")
     }
+}
+
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = Date(timeIntervalSince1970: 1_800_000_000)
+    var now: Date {
+        get { lock.withLock { value } }
+        set { lock.withLock { value = newValue } }
+    }
+}
+
+/// Collects what a stream yields, for tests that count publishes.
+final class Recorder<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [Value] = []
+    var values: [Value] { lock.withLock { stored } }
+    var count: Int { values.count }
+    func append(_ value: Value) { lock.withLock { stored.append(value) } }
 }
