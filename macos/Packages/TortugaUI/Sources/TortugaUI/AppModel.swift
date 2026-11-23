@@ -7,7 +7,7 @@ import TortugaKit
 @MainActor @Observable
 public final class AppModel {
     public enum Control: Hashable, Sendable {
-        case mode, restart, circuit, bridges, fetch, apps
+        case mode, restart, circuit, bridges, fetch, apps, update
     }
 
     public private(set) var state = EngineState.initial

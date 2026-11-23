@@ -145,6 +145,11 @@ public actor DemoEngine: TortugaEngine {
         publish()
     }
 
+    public func finishUpdate() throws {
+        state.pendingUpdate = nil
+        publish()
+    }
+
     // MARK: Simulated time
 
     /// Move the simulated clock forward and apply whatever falls due.

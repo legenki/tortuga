@@ -88,5 +88,21 @@ Extensions). `scripts/live-check.sh` checks it from the terminal with Tor on.
 The extension logs to the unified log (`log stream --predicate 'subsystem == "org.tortuga.app"'`):
 statuses, each flow's app and decision, DNS paths; never host names.
 
+### Updates and the network extension
+
+Replacing the network extension stops both proxies, and macOS starts the new
+one only after Gatekeeper has checked it. Nothing holds flows in between
+(`includeAllNetworks` and on-demand don't apply to transparent proxies), so
+traffic goes out directly, without Tor: about 2 s for a dev build, measured
+with a curl loop during `install-dev.sh` (see `docs/spike-findings.md`).
+
+So with Tor on, a new Tortuga doesn't replace the running extension by itself.
+It keeps using the old one and shows "Update ready" with that warning (in the
+window and in the menu bar panel, where problems show); the
+update happens when you click **Update now**, or silently the next time you
+switch from Direct to Tor (in Direct nothing goes through the extension).
+A dev reinstall with `install-dev.sh` in Tor mode therefore keeps the old
+extension until you click **Update now**.
+
 Builds launched with `-scenario <name>`, and the Demo tab in debug builds,
 use `DemoEngine` instead.

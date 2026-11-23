@@ -5,13 +5,22 @@ import TortugaKit
 /// configurations, and the XPC connection to it. Real in the app, a fake in tests.
 public protocol ProxyControl: Sendable {
     /// Install or update the extension. Calls `onNeedsApproval` when macOS
-    /// waits for the user, and returns once it's active.
-    func activate(onNeedsApproval: @escaping @Sendable () -> Void) async throws
+    /// waits for the user, and returns once it's active. When the app holds a
+    /// different version than the one running, `replace: false` leaves the
+    /// running one and returns `.updateWaiting`: replacing it stops the
+    /// proxies, and traffic goes out directly until the new one starts.
+    func activate(replace: Bool, onNeedsApproval: @escaping @Sendable () -> Void) async throws -> ActivationOutcome
     /// Turn both proxies on (with `configuration`) or off.
     func setEnabled(_ on: Bool, configuration: ProxyConfiguration) async throws
     func connect() async throws -> any ExtensionLink
     /// tortuga-helper and pt/ in this app's bundle.
     var helperPaths: (helper: String, pt: String) { get }
+}
+
+public enum ActivationOutcome: Sendable, Equatable {
+    case active
+    /// The running extension was kept; this update waits.
+    case updateWaiting(ExtensionUpdate)
 }
 
 /// A connection to the running extension.
@@ -32,6 +41,7 @@ public actor ProxyEngine: TortugaEngine {
     private var settings: StoredSettings
     private var remote = ExtensionState.idle
     private var local: Status = .off
+    private var pendingUpdate: ExtensionUpdate?
     private var link: (any ExtensionLink)?
     private var linkTask: Task<Void, Never>?
     private var observers: [UUID: AsyncStream<EngineState>.Continuation] = [:]
@@ -67,6 +77,7 @@ public actor ProxyEngine: TortugaEngine {
         state.mode = settings.mode
         state.bridges = BridgeSettings(selected: settings.bridge, lines: settings.lines)
         state.torApps = settings.torApps ?? []
+        state.pendingUpdate = pendingUpdate
         if link != nil {
             state.status = remote.status
             state.trunk = remote.trunk
@@ -80,9 +91,10 @@ public actor ProxyEngine: TortugaEngine {
         return state
     }
 
-    /// Bring Tor back at launch if it was on.
+    /// Bring Tor back at launch if it was on. The extension that's running
+    /// carries the traffic now, so an update to it waits for the user.
     public func resume() async {
-        if settings.mode == .tor { try? await turnOn() }
+        if settings.mode == .tor { try? await turnOn(replace: false) }
     }
 
     // MARK: TortugaEngine
@@ -99,12 +111,14 @@ public actor ProxyEngine: TortugaEngine {
     public func setMode(_ mode: Mode) async throws {
         settings.mode = mode
         store.save(settings)
-        if mode == .tor { try await turnOn() } else { await turnOff() }
+        // Nothing goes through the extension in Direct, so switching to Tor
+        // can replace it without a gap.
+        if mode == .tor { try await turnOn(replace: current.status == .off) } else { await turnOff() }
     }
 
     public func restart() async throws {
         guard settings.mode == .tor else { throw EngineError("Switch to Tor first") }
-        if let link { try check(await link.send(.restart)) } else { try await turnOn() }
+        if let link { try check(await link.send(.restart)) } else { try await turnOn(replace: false) }
     }
 
     public func newCircuit(for app: AppID?) async throws {
@@ -147,15 +161,34 @@ public actor ProxyEngine: TortugaEngine {
         try await settingsChanged()
     }
 
+    public func finishUpdate() async throws {
+        guard pendingUpdate != nil else { return }
+        guard settings.mode == .tor else {
+            // The proxies are off: replace now, they start with Tor.
+            _ = try await control.activate(replace: true, onNeedsApproval: {})
+            pendingUpdate = nil
+            publish()
+            return
+        }
+        // The old extension's link ends with it; that's not a lost
+        // connection to reach again, so let go of it first.
+        detach()
+        try await turnOn(replace: true, step: "Updating Tortuga's network extension")
+    }
+
     // MARK: On and off
 
-    private func turnOn() async throws {
-        local = .starting(step: "Starting Tortuga's network extension", progress: 0)
+    private func turnOn(replace: Bool, step: String = "Starting Tortuga's network extension") async throws {
+        local = .starting(step: step, progress: 0)
         publish()
         do {
-            try await control.activate(onNeedsApproval: { [weak self] in
+            let outcome = try await control.activate(replace: replace, onNeedsApproval: { [weak self] in
                 Task { await self?.waitingForApproval() }
             })
+            switch outcome {
+            case .active: pendingUpdate = nil
+            case .updateWaiting(let update): pendingUpdate = update
+            }
             try await control.setEnabled(true, configuration: configuration())
             if let link {
                 try check(await link.send(.configure(configuration())))
@@ -170,13 +203,19 @@ public actor ProxyEngine: TortugaEngine {
     }
 
     private func turnOff() async {
-        reattach?.cancel()
-        reattach = nil
-        dropLink()
-        remote = .idle
+        detach()
         try? await control.setEnabled(false, configuration: configuration())
         local = .off
         publish()
+    }
+
+    /// Let go of the extension on purpose: no reconnecting.
+    private func detach() {
+        reattach?.cancel()
+        reattach = nil
+        dropLink()
+        reconnects = 0
+        remote = .idle
     }
 
     /// Connect to the extension and send it the settings, trying again for a
@@ -186,6 +225,9 @@ public actor ProxyEngine: TortugaEngine {
         var lastError: (any Error)?
         for attempt in 1...Self.attachAttempts {
             if attempt > 1 { try? await Task.sleep(for: retryDelay) }
+            // A reconnection that was called off (Direct, or an update
+            // replacing the extension) stops here.
+            try Task.checkCancellation()
             guard settings.mode == .tor else { return }
             do {
                 try await connectOnce()
@@ -258,7 +300,7 @@ public actor ProxyEngine: TortugaEngine {
         do {
             try await attach()
         } catch {
-            guard settings.mode == .tor, link == nil else { return }
+            guard !Task.isCancelled, settings.mode == .tor, link == nil else { return }
             local = .failed(reason: Self.extensionGone)
             publish()
         }

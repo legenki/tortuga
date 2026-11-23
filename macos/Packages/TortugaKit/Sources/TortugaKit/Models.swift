@@ -126,10 +126,31 @@ public struct EngineState: Sendable, Equatable, Codable {
     /// Apps whose connections went directly in the last hour (they aren't
     /// listed), most recent first.
     public var seenDirect: [AppID] = []
+    /// A newer network extension waiting to replace the running one.
+    public var pendingUpdate: ExtensionUpdate?
 
     public init() {}
 
     public static let initial = EngineState()
+}
+
+/// A network extension update that waits for the user: replacing the
+/// extension stops the proxies until the new one starts, and in that time
+/// traffic goes out directly, without Tor.
+public struct ExtensionUpdate: Sendable, Equatable, Codable {
+    public var from: String
+    public var to: String
+
+    public init(from: String, to: String) {
+        self.from = from
+        self.to = to
+    }
+
+    /// The headline the user sees while it waits.
+    public var title: String { "Update ready: network extension \(from) → \(to)" }
+
+    /// What the user is told before updating.
+    public static let warning = "Updating restarts Tortuga's network extension. For a few seconds, until the new one starts, traffic goes out without Tor."
 }
 
 public enum Flag {

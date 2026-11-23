@@ -18,6 +18,9 @@ public protocol TortugaEngine: AnyObject, Sendable {
     func addTorApp(_ app: AppID) async throws
     /// The app connects directly again.
     func removeTorApp(_ app: AppID) async throws
+    /// Replace the running network extension with the waiting update
+    /// (`EngineState.pendingUpdate`), and start the proxies again.
+    func finishUpdate() async throws
 }
 
 /// An engine's refusal, in words to show the user as they are.
