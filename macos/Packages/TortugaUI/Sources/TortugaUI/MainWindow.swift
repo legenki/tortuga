@@ -14,42 +14,45 @@ public struct MainWindow: View {
         @Bindable var model = model
         let onRoute = model.section == .route
         let hovered = model.hoveredApp.flatMap { id in model.state.torApps.contains { $0.id == id } ? id : nil }
-        ZStack(alignment: .topLeading) {
-            RouteMap(state: model.state,
-                     highlighted: onRoute ? hovered ?? model.expandedApp : nil,
-                     focused: onRoute ? model.expandedApp : nil,
-                     insets: EdgeInsets(top: 64, leading: onRoute ? AppPanel.width + 36 : 24, bottom: 24, trailing: 24),
-                     dimmed: !onRoute) { id in
-                withAnimation(.snappy) { model.expandedApp = id }
-            }
-            .ignoresSafeArea()
-
-            if onRoute {
-                AppPanel()
-                    .padding(.leading, 12)
-                    .padding(.bottom, 12)
-                    .padding(.top, 8)
-                VStack {
-                    ProblemBanner()
-                    Spacer()
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                RouteMap(state: model.state,
+                         highlighted: onRoute ? hovered ?? model.expandedApp : nil,
+                         focused: onRoute ? model.expandedApp : nil,
+                         insets: EdgeInsets(top: max(64, geo.safeAreaInsets.top + 12), leading: onRoute ? AppPanel.width + 36 : 24, bottom: 24, trailing: 24),
+                         dimmed: !onRoute) { id in
+                    withAnimation(.snappy) { model.expandedApp = id }
                 }
-                .padding(.top, 8)
-                .padding(.leading, AppPanel.width + 24)
-                .frame(maxWidth: .infinity)
-            } else {
-                BridgesView()
-                    .frame(width: 480)
-                    .frame(maxHeight: 560)
-                    .glassCard(cornerRadius: 20)
+                .ignoresSafeArea()
+
+                if onRoute {
+                    AppPanel()
+                        .padding(.leading, 12)
+                        .padding(.bottom, 12)
+                        .padding(.top, 8)
+                    VStack {
+                        ProblemBanner()
+                        Spacer()
+                    }
                     .padding(.top, 8)
+                    .padding(.leading, AppPanel.width + 24)
                     .frame(maxWidth: .infinity)
+                } else {
+                    BridgesView()
+                        .frame(width: 480)
+                        .frame(maxHeight: 560)
+                        .glassCard(cornerRadius: 20)
+                        .padding(.top, 8)
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
         .toolbar {
             ToolbarItem(placement: .principal) { SectionSwitch(section: $model.section) }
             ToolbarItem(placement: .primaryAction) { StatusPill(showsGuard: true) }
         }
-        .navigationTitle("")
+        .navigationTitle("Tortuga")
+        .toolbar(removing: .title)
         .frame(minWidth: 700, minHeight: 640)
         .sheet(isPresented: Binding(get: { !didShowWelcome }, set: { if !$0 { didShowWelcome = true } })) {
             FirstRunView { didShowWelcome = true }

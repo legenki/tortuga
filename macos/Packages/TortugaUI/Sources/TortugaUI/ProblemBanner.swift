@@ -44,6 +44,7 @@ struct ProblemBanner: View {
                             Button("Bridges…") {
                                 model.section = .bridges
                                 openWindow(id: "main")
+                                NSApp.activate()
                             }
                         }
                     }

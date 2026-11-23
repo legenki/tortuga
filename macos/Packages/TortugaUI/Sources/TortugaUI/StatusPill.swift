@@ -54,21 +54,25 @@ struct StatusPill: View {
 
     @Environment(AppModel.self) private var model
     var showsGuard: Bool
+    /// Fills the width it is given (the menu panel) instead of hugging its text.
+    var fillsWidth = false
 
     var body: some View {
         let content = Content(state: model.state, now: .now, showsGuard: showsGuard)
         Button { toggle(content) } label: {
             HStack(spacing: 8) {
                 dot(content.tone)
-                Text(content.title).font(.callout.weight(.semibold)).lineLimit(1)
+                Text(content.title).font(.callout.weight(.semibold)).lineLimit(1).layoutPriority(1)
                 if !content.detail.isEmpty {
                     Text("· \(content.detail)").font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 }
+                if fillsWidth { Spacer(minLength: 0) }
                 Image(systemName: "power").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
             .padding(.leading, 12)
             .padding(.trailing, 10)
             .padding(.vertical, 6)
+            .frame(maxWidth: fillsWidth ? .infinity : 320)
             .background(alignment: .leading) {
                 if let progress = content.progress {
                     GeometryReader { geo in

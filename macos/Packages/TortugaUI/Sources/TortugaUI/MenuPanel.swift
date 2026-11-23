@@ -6,7 +6,7 @@ import TortugaKit
 @MainActor @Observable
 final class FrontApp {
     private(set) var app: AppID?
-    @ObservationIgnored private var observer: (any NSObjectProtocol)?
+    @ObservationIgnored nonisolated(unsafe) private var observer: (any NSObjectProtocol)?
 
     init() {
         update(NSWorkspace.shared.frontmostApplication)
@@ -16,6 +16,10 @@ final class FrontApp {
             let running = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated { self?.update(running) }
         }
+    }
+
+    deinit {
+        if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
     }
 
     private func update(_ running: NSRunningApplication?) {
@@ -39,7 +43,7 @@ public struct MenuPanel: View {
         let listed = app.map { state.torApps.contains($0) } ?? false
         let route = listed ? app.flatMap { app in state.apps.first { $0.app == app } } : nil
         VStack(alignment: .leading, spacing: 12) {
-            StatusPill(showsGuard: false)
+            StatusPill(showsGuard: false, fillsWidth: true)
             ProblemBanner()
             if let app {
                 VStack(alignment: .leading, spacing: 8) {
@@ -56,7 +60,8 @@ public struct MenuPanel: View {
                     if let route, state.status == .on {
                         VerticalRoute(stops: VerticalRoute.stops(state.trunk, route), color: .app(route.id))
                     } else if listed {
-                        Text("No traffic from \(AppInfo.name(app)) yet.").font(.caption).foregroundStyle(.secondary)
+                        Text(state.status == .on ? "No traffic from \(AppInfo.name(app)) yet."
+                                                 : "\(AppInfo.name(app)) is waiting for Tor.").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Text("\(AppInfo.name(app)) connects directly: it isn't in Tortuga.")
                             .font(.caption).foregroundStyle(.secondary)
