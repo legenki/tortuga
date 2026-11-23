@@ -123,3 +123,25 @@ private func app(_ id: String, _ middle: String, _ exit: String) -> AppRoute {
     let r = MapRoute(state: state(apps: [app("a", "FR", "SE")]), region: "AT", map: map)
     #expect(Set(r.places) == Set(["AT", "DE", "FR", "SE"].compactMap(map.place(country:))))
 }
+
+@Test func focusPlacesAreTheAppsRouteAndTheMac() {
+    let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "NL")])
+    let r = MapRoute(state: s, region: "AT", map: map)
+    #expect(r.focusPlaces(for: "a") == ["AT", "DE", "FR", "SE"].compactMap(map.place(country:)))
+    #expect(!r.focusPlaces(for: "a").contains(map.place(country: "NL")!))
+}
+
+@Test func focusPlacesWithoutAGuardStartAtTheMac() {
+    let r = MapRoute(state: state(apps: [app("a", "FR", "SE")], guardCountry: nil), region: "AT", map: map)
+    #expect(Set(r.focusPlaces(for: "a")) == Set(["AT", "FR", "SE"].compactMap(map.place(country:))))
+}
+
+@Test func focusPlacesAreEmptyForAnAppWithoutARoute() {
+    let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE"), app("c", "XX", "??")], exceptions: [AppID("b")])
+    let r = MapRoute(state: s, region: "AT", map: map)
+    #expect(r.focusPlaces(for: "nope").isEmpty)
+    #expect(r.focusPlaces(for: "b").isEmpty)  // excepted
+    #expect(r.focusPlaces(for: "c").isEmpty)  // no known middle or exit
+    #expect(MapRoute(state: state(apps: [app("a", "FR", "SE")], mode: .direct), region: "AT", map: map)
+        .focusPlaces(for: "a").isEmpty)
+}
