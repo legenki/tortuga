@@ -22,6 +22,10 @@ public actor ProxyCore {
     private let launcher: any HelperLauncher
     private let retryDelay: Duration
     private let now: @Sendable () -> Date
+    /// Apps that went direct, by when they last did.
+    private var direct: [String: Date] = [:]
+    static let directWindow: TimeInterval = 3600
+    static let directLimit = 200
 
     private var config: ProxyConfiguration?
     private var state = ExtensionState.idle
@@ -78,6 +82,7 @@ public actor ProxyCore {
         stopHelper()
         state = .idle
         pending = [:]
+        direct = [:]
         publishRoutes()
         publish()
     }
@@ -125,6 +130,23 @@ public actor ProxyCore {
             publish()
         } else if let entry = pending[app] {
             pending[app] = (max(0, entry.connections - 1), entry.last)
+        }
+    }
+
+    /// An unlisted app's connection went directly. Published only when the
+    /// set of apps changes, not on every connection.
+    public func sawDirect(app: String) {
+        let at = now()
+        let before = Set(direct.keys)
+        direct[app] = at
+        direct = direct.filter { at.timeIntervalSince($0.value) <= Self.directWindow }
+        if direct.count > Self.directLimit {
+            let oldest = direct.sorted { $0.value > $1.value }.dropFirst(Self.directLimit).map(\.key)
+            for key in oldest { direct[key] = nil }
+        }
+        if Set(direct.keys) != before || state.seenDirect.first != app {
+            state.seenDirect = direct.sorted { $0.value > $1.value }.map(\.key)
+            publish()
         }
     }
 

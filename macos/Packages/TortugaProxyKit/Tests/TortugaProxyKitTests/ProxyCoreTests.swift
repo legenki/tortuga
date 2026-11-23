@@ -16,6 +16,31 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
 }
 
 @Suite struct ProxyCoreTests {
+    @Test func appsGoingDirectAreRememberedForAnHour() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        await core.sawDirect(app: "com.apple.mail")
+        clock.now += 10
+        await core.sawDirect(app: "com.apple.Music")
+        #expect(await core.current.seenDirect == ["com.apple.Music", "com.apple.mail"])
+        clock.now += 3595
+        await core.sawDirect(app: "com.apple.Music")
+        #expect(await core.current.seenDirect == ["com.apple.Music"])
+    }
+
+    @Test func atMost200AppsAreRemembered() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        for i in 0..<205 {
+            clock.now += 1
+            await core.sawDirect(app: "app\(i)")
+        }
+        let seen = await core.current.seenDirect
+        #expect(seen.count == 200)
+        #expect(seen.first == "app204")
+        #expect(!seen.contains("app4"))
+    }
+
     @Test func noTrafficUntilACircuitWorks() async throws {
         let launcher = FakeLauncher()
         let core = ProxyCore(launcher: launcher, retryDelay: .zero)
@@ -141,5 +166,14 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         await configuring.value
         let start = try #require(launcher.transports[1].requests.first { $0["type"] as? String == "tor.start" })
         #expect(((start["payload"] as? [String: Any])?["bridge"] as? [String: Any])?["kind"] as? String == "none")
+    }
+}
+
+final class TestClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = Date(timeIntervalSince1970: 1_800_000_000)
+    var now: Date {
+        get { lock.withLock { value } }
+        set { lock.withLock { value = newValue } }
     }
 }

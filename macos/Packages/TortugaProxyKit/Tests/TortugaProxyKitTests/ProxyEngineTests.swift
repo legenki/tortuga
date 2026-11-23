@@ -105,6 +105,19 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         #expect(await engine.current.status == .off)
     }
 
+    @Test func seenDirectComesFromTheExtensionWithoutListedApps() async throws {
+        let control = FakeControl()
+        let store = MemoryStore()
+        var saved = StoredSettings()
+        saved.torApps = [AppID("com.apple.Safari")]
+        store.save(saved)
+        let engine = ProxyEngine(control: control, store: store)
+        try await engine.setMode(.tor)
+        control.link.push(ExtensionState(status: .on, trunk: Trunk(), apps: [],
+                                         seenDirect: ["com.apple.mail", "com.apple.Safari"]))
+        try await eventually { await engine.current.seenDirect == [AppID("com.apple.mail")] }
+    }
+
     @Test func settingsAreSavedAndReachTheExtension() async throws {
         let control = FakeControl()
         let store = MemoryStore()

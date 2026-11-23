@@ -40,11 +40,15 @@ public struct ExtensionState: Codable, Sendable, Equatable {
     public var status: Status
     public var trunk: Trunk
     public var apps: [AppRoute]
+    /// Signing identifiers of apps that went direct in the last hour (not
+    /// in the Tor list), most recent first.
+    public var seenDirect: [String]
 
-    public init(status: Status, trunk: Trunk, apps: [AppRoute]) {
+    public init(status: Status, trunk: Trunk, apps: [AppRoute], seenDirect: [String] = []) {
         self.status = status
         self.trunk = trunk
         self.apps = apps
+        self.seenDirect = seenDirect
     }
 
     public static let idle = ExtensionState(status: .off, trunk: Trunk(), apps: [])

@@ -63,7 +63,11 @@ final class TransparentProxy: NETransparentProxyProvider {
         let kind: String = switch decision { case .direct: "direct"; case .unlisted: "unlisted"; case .refuse: "refuse"; case .tor: "tor" }
         proxyLog.notice("flow \(info.isUDP ? "udp" : "tcp", privacy: .public) from \(info.app, privacy: .public): \(kind, privacy: .public), by name: \(info.remoteHost != nil)")
         switch decision {
-        case .direct, .unlisted:
+        case .direct:
+            return false
+        case .unlisted:
+            let app = info.app
+            Task { await Shared.core.sawDirect(app: app) }
             return false
         case .refuse:
             Self.refuse(flow)
