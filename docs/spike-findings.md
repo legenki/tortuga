@@ -168,3 +168,43 @@ Fixed after the live check: the core now shows "Tor on" only after a lookup
 through Tor (`www.torproject.org`) works; until then "Building circuits",
 with apps refused quickly instead of hanging. Re-checked on the user's Mac:
 Safari loaded check.torproject.org at once, right at "Tor on".
+
+## Replacing the extension while Tor is on (2026-11-23)
+
+Extension 0.2.1, macOS 27, dev build. Two curl loops
+(`curl -s --max-time 5 https://check.torproject.org/api/ip`, every 0.3 s,
+staggered) and a `log stream` ran while `install-dev.sh` reinstalled the app
+in Tor mode.
+
+**Traffic went out directly for about 2 s**: `IsTor:false` from 00:58:37.4
+to 00:58:39.2, then DNS failures (blocked, as designed) until Tor was back.
+The timeline, from sysextd, nesessionmanager and syspolicyd:
+
+| time      | what happens |
+|-----------|--------------|
+| 36.80     | the new app asks to activate; sysextd stages the new extension |
+| 36.97     | sysextd terminates the old extension; both NE sessions stop ("Plugin was disabled") |
+| 37.04     | the sessions are already "connecting" again; launchd asks Gatekeeper to assess the new executable |
+| 37.05–38.59 | Gatekeeper looks up a notarization ticket online (CloudKit, 3 s timeout; none for a dev build). This lookup itself goes out directly |
+| 38.59–38.99 | XProtect scan |
+| 39.00     | the new extension process starts |
+| 39.26     | transparent proxy and DNS proxy connected; flows are blocked until Tor is ready |
+
+The swap itself is quick: sysextd replaces it in 0.2 s, and the app (and
+nesessionmanager) start the sessions again within 0.1 s, so starting the
+providers on `didFinishWithResult` or keeping the configuration enabled
+doesn't shorten it. The gap is the new extension's first launch.
+Nothing holds flows meanwhile: Apple says `includeAllNetworks` isn't supported
+for `NETransparentProxyManager`, and on-demand only restarts the session.
+A notarized build with a stapled ticket probably skips the online lookup
+(not measured).
+
+The earlier report of a gap of about a minute (00:47–00:48 the same night)
+wasn't a replacement: Tortuga was in Direct then (the DNS configuration was
+"disabled" from 00:24), and the user switched to Tor at 00:48:17.
+
+So the gap can't be closed from the app. With Tor on, a new app now keeps the
+running extension (`actionForReplacingExtension` returns `.cancel`) and shows
+"Update ready" with a warning, and replaces it when the user clicks
+**Update now**. Switching from Direct to Tor replaces it at once, since then
+nothing goes through the extension.

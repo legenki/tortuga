@@ -36,18 +36,41 @@ final class FakeLink: ExtensionLink, @unchecked Sendable {
 }
 
 final class FakeControl: ProxyControl, @unchecked Sendable {
-    let link = FakeLink()
     private let lock = NSLock()
+    private var current = FakeLink()
     private var calls: [Bool] = []
+    private var replaces: [Bool] = []
+    private var waiting: ExtensionUpdate?
     var asksForApproval = false
     var activationError: (any Error)?
 
+    /// The running extension's link; replacing the extension starts a new one.
+    var link: FakeLink { lock.withLock { current } }
     var enabled: [Bool] { lock.withLock { calls } }
+    /// `replace` of each activation.
+    var activations: [Bool] { lock.withLock { replaces } }
+    /// A newer extension in the app than the one running.
+    var waitingUpdate: ExtensionUpdate? {
+        get { lock.withLock { waiting } }
+        set { lock.withLock { waiting = newValue } }
+    }
     var helperPaths: (helper: String, pt: String) { ("/A/helper", "/A/pt") }
 
-    func activate(onNeedsApproval: @escaping @Sendable () -> Void) async throws {
+    func activate(replace: Bool, onNeedsApproval: @escaping @Sendable () -> Void) async throws -> ActivationOutcome {
         if asksForApproval { onNeedsApproval() }
         if let activationError { throw activationError }
+        return lock.withLock {
+            replaces.append(replace)
+            guard let update = waiting else { return .active }
+            if replace {
+                // The old extension ends, and its connection with it.
+                waiting = nil
+                current.close()
+                current = FakeLink()
+                return .active
+            }
+            return .updateWaiting(update)
+        }
     }
 
     func setEnabled(_ on: Bool, configuration: ProxyConfiguration) async throws {
@@ -274,5 +297,108 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         let engine = ProxyEngine(control: control, store: MemoryStore(saved))
         await engine.resume()
         #expect(control.enabled == [true])
+    }
+
+    @Test func anUpdateAtLaunchWaitsAndTheRunningExtensionKeepsGoing() async throws {
+        let control = FakeControl()
+        let update = ExtensionUpdate(from: "0.2.1", to: "0.2.2")
+        control.waitingUpdate = update
+        var saved = StoredSettings()
+        saved.mode = .tor
+        let engine = ProxyEngine(control: control, store: MemoryStore(saved))
+        await engine.resume()
+        #expect(control.activations == [false])
+        #expect(control.enabled == [true])
+        #expect(await engine.current.pendingUpdate == update)
+        guard case .configure = control.link.commands.first else {
+            Issue.record("the running extension wasn't configured")
+            return
+        }
+    }
+
+    @Test func switchingToTorReplacesTheExtensionAtOnce() async throws {
+        let control = FakeControl()
+        control.waitingUpdate = ExtensionUpdate(from: "0.2.1", to: "0.2.2")
+        let engine = ProxyEngine(control: control, store: MemoryStore())
+        try await engine.setMode(.tor)
+        #expect(control.activations == [true])
+        #expect(await engine.current.pendingUpdate == nil)
+    }
+
+    @Test func finishingAnUpdateReplacesTheExtensionAndReconnects() async throws {
+        let control = FakeControl()
+        control.waitingUpdate = ExtensionUpdate(from: "0.2.1", to: "0.2.2")
+        var saved = StoredSettings()
+        saved.mode = .tor
+        let engine = ProxyEngine(control: control, store: MemoryStore(saved))
+        await engine.resume()
+        let old = control.link
+        try await engine.finishUpdate()
+        #expect(control.activations == [false, true])
+        #expect(control.enabled == [true, true])
+        #expect(old.closed)
+        #expect(control.link !== old)
+        guard case .configure = control.link.commands.first else {
+            Issue.record("the new extension wasn't configured")
+            return
+        }
+        #expect(await engine.current.pendingUpdate == nil)
+        control.link.push(ExtensionState(status: .on, trunk: Trunk(bridge: .snowflake, guardRelay: nil), apps: []))
+        try await eventually { await engine.current.status == .on }
+    }
+
+    @Test func aWaitingUpdateDoesNotStopReconnecting() async throws {
+        let control = FakeControl()
+        let update = ExtensionUpdate(from: "0.2.1", to: "0.2.2")
+        control.waitingUpdate = update
+        var saved = StoredSettings()
+        saved.mode = .tor
+        let engine = ProxyEngine(control: control, store: MemoryStore(saved), retryDelay: .zero)
+        await engine.resume()
+        let running = control.link
+        control.failingConnects = 2
+        // The running extension restarts: the app reaches it again, still
+        // without replacing it.
+        running.close()
+        try await eventually { control.failingConnects == 0 }
+        #expect(control.activations == [false])
+        #expect(await engine.current.pendingUpdate == update)
+    }
+
+    @Test func finishingAnUpdateWaitsForTheNewExtensionToAnswer() async throws {
+        let control = FakeControl()
+        control.waitingUpdate = ExtensionUpdate(from: "0.2.1", to: "0.2.2")
+        var saved = StoredSettings()
+        saved.mode = .tor
+        let engine = ProxyEngine(control: control, store: MemoryStore(saved), retryDelay: .zero)
+        await engine.resume()
+        // The new extension's Mach service lags behind its first launch.
+        control.failingConnects = 3
+        try await engine.finishUpdate()
+        #expect(control.failingConnects == 0)
+        guard case .configure = control.link.commands.first else {
+            Issue.record("the new extension wasn't configured")
+            return
+        }
+        control.link.push(ExtensionState(status: .on, trunk: Trunk(), apps: []))
+        try await eventually { await engine.current.status == .on }
+        #expect(await engine.current.pendingUpdate == nil)
+    }
+
+    @Test func finishingAnUpdateInDirectOnlyReplaces() async throws {
+        let control = FakeControl()
+        control.waitingUpdate = ExtensionUpdate(from: "0.2.1", to: "0.2.2")
+        var saved = StoredSettings()
+        saved.mode = .tor
+        let store = MemoryStore(saved)
+        let engine = ProxyEngine(control: control, store: store)
+        await engine.resume()
+        try await engine.setMode(.direct)
+        #expect(await engine.current.pendingUpdate != nil)
+        try await engine.finishUpdate()
+        #expect(control.activations == [false, true])
+        #expect(control.enabled == [true, false])
+        #expect(await engine.current.pendingUpdate == nil)
+        #expect(await engine.current.status == .off)
     }
 }

@@ -2,6 +2,12 @@ import Foundation
 import Testing
 @testable import TortugaKit
 
+@Test func aWaitingExtensionUpdateSaysWhatItIsAndWhatItCosts() {
+    #expect(ExtensionUpdate(from: "0.2.1", to: "0.2.2").title == "Update ready: network extension 0.2.1 → 0.2.2")
+    #expect(ExtensionUpdate.warning.contains("without Tor"))
+    #expect(EngineState.initial.pendingUpdate == nil)
+}
+
 @Test func flagFromCountryCode() {
     #expect(Flag.emoji("de") == "🇩🇪")
     #expect(Flag.emoji("NL") == "🇳🇱")
