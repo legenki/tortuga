@@ -24,7 +24,8 @@ final class FrontApp {
     }
 }
 
-/// The menu bar panel: switch, status, the front app's route, actions.
+/// The menu bar panel: the status pill, a problem if any, the front app's
+/// route (or an offer to send it through Tor), actions.
 public struct MenuPanel: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
@@ -35,31 +36,36 @@ public struct MenuPanel: View {
     public var body: some View {
         let state = model.state
         let app = front.app
-        let route = app.flatMap { app in state.apps.first { $0.app == app } }
+        let listed = app.map { state.torApps.contains($0) } ?? false
+        let route = listed ? app.flatMap { app in state.apps.first { $0.app == app } } : nil
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Tortuga").font(.headline)
-                Spacer()
-                StatusPill(showsGuard: false)
-            }
+            StatusPill(showsGuard: false)
             ProblemBanner()
             if let app {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(nsImage: AppInfo.icon(app)).resizable().frame(width: 20, height: 20)
+                        Text(AppInfo.name(app)).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Spacer()
                         if let route {
-                            Circle().fill(Color.app(route.id)).frame(width: 8, height: 8).accessibilityHidden(true)
+                            Text("\(route.connections) conn.").font(.caption).foregroundStyle(.secondary)
+                        } else if !listed {
+                            Text("direct").font(.caption).foregroundStyle(.secondary)
                         }
-                        Text(AppInfo.name(app)).font(.subheadline.weight(.semibold))
                     }
-                    if let route {
-                        MetroLine(stops: MetroLine.Stop.full(state.trunk, route), lit: true)
-                        Text("Exit \(route.exit.address) · \(route.exit.country)")
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                    } else if !state.torApps.contains(app) {
-                        Text("Connects directly: it isn't in Tortuga.").font(.caption).foregroundStyle(.secondary)
-                    } else {
+                    if let route, state.status == .on {
+                        VerticalRoute(stops: VerticalRoute.stops(state.trunk, route), color: .app(route.id))
+                    } else if listed {
                         Text("No traffic from \(AppInfo.name(app)) yet.").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("\(AppInfo.name(app)) connects directly: it isn't in Tortuga.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Button("Send \(AppInfo.name(app)) through Tor", systemImage: "plus") {
+                            Task { await model.addTorApp(app) }
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(Color.route)
+                        .accessibilityIdentifier("menu.add")
                     }
                 }
                 .padding(12)
@@ -68,7 +74,7 @@ public struct MenuPanel: View {
             }
             GlassEffectContainer(spacing: 6) {
                 HStack(spacing: 6) {
-                    Button("New circuit") {
+                    Button("New circuit", systemImage: "arrow.clockwise") {
                         guard let app = route?.app else { return }
                         Task { await model.perform(.circuit) { try await $0.newCircuit(for: app) } }
                     }

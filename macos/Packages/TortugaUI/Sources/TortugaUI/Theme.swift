@@ -21,17 +21,6 @@ extension Color {
     }
 }
 
-extension Status {
-    var color: Color {
-        switch self {
-        case .off: .secondary
-        case .starting: .caution
-        case .on: .route
-        case .blocked, .failed: .red
-        }
-    }
-}
-
 extension View {
     /// A glass card behind the content. The glass sits in the background
     /// rather than on the view itself: glassEffect on a view takes the clicks

@@ -11,7 +11,7 @@ struct FirstRunView: View {
                 .font(.title2.weight(.bold))
                 .foregroundStyle(Color.route)
             point("network",
-                  "Tortuga sends every app on this Mac through Tor, each app on its own circuit. Sites see a Tor exit, not your IP address.")
+                  "Tortuga sends your browsers through Tor, each on its own circuit, and any other app you add. Sites see a Tor exit, not your IP address.")
             point("person.crop.circle.badge.exclamationmark",
                   "It hides your IP. It doesn't make you anonymous: apps you're signed in to, like iCloud, Telegram or mail, still say who you are. It is not Tor Browser.")
             point("lock.shield",

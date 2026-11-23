@@ -57,7 +57,7 @@ targets:
         CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: $(TORTUGA_BUILD)
         TortugaTeamID: $(DEVELOPMENT_TEAM)
-        NSSystemExtensionUsageDescription: Sends this Mac's traffic through Tor.
+        NSSystemExtensionUsageDescription: Sends the apps you choose through Tor.
         NetworkExtension:
           NEMachServiceName: $(DEVELOPMENT_TEAM).org.tortuga.app.proxy
           NEProviderClasses:
