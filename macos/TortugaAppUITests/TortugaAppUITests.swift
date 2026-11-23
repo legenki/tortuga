@@ -63,6 +63,18 @@ final class TortugaAppUITests: XCTestCase {
         snap(app, "route")
     }
 
+    func testRouteScreenHasTheMap() {
+        let app = launch("normal")
+        press(app, "mode.tor")
+        waitFor(element(app, "status"), labelContaining: "Tor on")
+        waitForAllApps(app)
+        let map = element(app, "route.map")
+        XCTAssertTrue(map.waitForExistence(timeout: 5))
+        XCTAssertTrue(map.label.contains("Safari:"), map.label)
+        XCTAssertTrue(element(app, "route.guard").exists)
+        snap(app, "map")
+    }
+
     func testTorDiesThenRestartBringsItBack() {
         let app = launch("torDies")
         press(app, "mode.tor")

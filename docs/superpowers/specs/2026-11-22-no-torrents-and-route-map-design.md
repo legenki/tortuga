@@ -28,7 +28,7 @@ so the user sees at a glance which countries each app's traffic crosses.
 | Where a relay is on the map | Its country's label point: Tor only tells us the country |
 | Map data | Generated once from Natural Earth by a script, committed as a JSON resource |
 | Map tiles from a service (MapKit) | No: in Direct mode tiles would be fetched outside Tor |
-| Zoom and pan | No: the map fits itself to the routes |
+| Zoom and pan | No zooming or panning by hand: the map fits itself to the routes, and flies to the selected app's route |
 
 ## Step 1: remove torrents
 
@@ -149,6 +149,16 @@ CI green on all platforms.
 - Highlight: the app whose row is hovered or expanded is drawn at full
   opacity, the others at 30%. With none, all are full.
 - Clicking an app's exit dot expands that app's row.
+- Camera: selecting an app (expanding its row, or clicking its exit dot)
+  flies the map, in about a second with an ease-in-out, to frame only
+  that app's route: the Mac, the guard (or the start), the middle and the
+  exit, with at least 25° of longitude. Collapsing the row flies back to
+  the overview of everything; selecting another app flies from where the
+  map is to that app. Hovering a row only highlights; the camera stays.
+  With Reduce Motion the map jumps instead. An app with no known places,
+  or not on the map (excepted, gone), keeps the overview. `MapCamera`
+  (TortugaKit) is the centre and spans the view shows; `MapProjection`
+  fits a camera to the view, and SwiftUI animates the camera's numbers.
 - Accessibility: one element with a label naming each app's route by
   country, like "Safari: Germany, France, Sweden".
 
@@ -191,4 +201,4 @@ CI green on all platforms.
 
 - Signing with Developer ID and notarising the app, and the Mac App Store.
 - Real relay locations (cities); Tor reports countries only.
-- Zoom, pan, a globe, or a map in the menu bar panel.
+- Zooming or panning by hand, a globe, or a map in the menu bar panel.

@@ -12,9 +12,21 @@ struct RouteView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 StatusLine()
-                MetroLine(stops: MetroLine.Stop.trunk(state.trunk), lit: state.status == .on)
-                    .padding(14)
-                    .glassCard(cornerRadius: 20)
+                VStack(alignment: .leading, spacing: 8) {
+                    RouteMap(state: state, highlighted: model.hoveredApp ?? model.expandedApp,
+                             focused: model.expandedApp) { id in
+                        withAnimation(.snappy) { model.expandedApp = id }
+                    }
+                    .frame(height: 240)
+                    if let guardRelay = state.trunk.guardRelay {
+                        Text(guardLine(guardRelay, bridge: state.trunk.bridge))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("route.guard")
+                    }
+                }
+                .padding(14)
+                .glassCard(cornerRadius: 20)
                 if state.status == .on, list.active.isEmpty, list.idle.isEmpty {
                     Text("Apps appear here as they connect.").foregroundStyle(.secondary)
                 }
@@ -38,6 +50,12 @@ struct RouteView: View {
         }
         .navigationTitle("Route")
     }
+
+    /// "Guard 🇩🇪 Germany · via Snowflake".
+    private func guardLine(_ relay: Relay, bridge: BridgeKind?) -> String {
+        let via = bridge.map { " · via \($0.title)" } ?? ""
+        return "Guard \(relay.flag) \(RouteSummary.country(relay.country))\(via)"
+    }
 }
 
 /// One app: icon, name, its middle → exit; click for details and actions.
@@ -54,6 +72,8 @@ struct AppRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
+                Circle().fill(lit ? Color.app(route.id) : .secondary).frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
                 Image(nsImage: AppInfo.icon(route.app)).resizable().frame(width: 24, height: 24)
                 Text(AppInfo.name(route.app))
                     .font(.body.weight(.semibold))
@@ -102,6 +122,9 @@ struct AppRow: View {
                 }
                 .buttonStyle(.glass)
             }
+        }
+        .onHover { inside in
+            if inside { model.hoveredApp = route.id } else if model.hoveredApp == route.id { model.hoveredApp = nil }
         }
         .padding(12)
         .glassCard(cornerRadius: 18)

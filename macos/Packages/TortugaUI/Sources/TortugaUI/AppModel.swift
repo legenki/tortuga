@@ -14,6 +14,8 @@ public final class AppModel {
     public var section: SidebarSection = .route
     /// The Route row that's open, by app ID.
     public var expandedApp: String?
+    /// The Route row under the pointer, by app ID: its route stands out on the map.
+    public var hoveredApp: String?
     public private(set) var engine: any TortugaEngine
     @ObservationIgnored private var watcher: Task<Void, Never>?
 

@@ -45,3 +45,16 @@ struct PreviewHost<Content: View>: View {
 #Preview("First run") {
     FirstRunView {}
 }
+
+#Preview("Route map, many apps") {
+    PreviewHost(.manyApps) { RouteMapPreview() }.frame(width: 600, height: 260)
+}
+
+#Preview("Route map, Tor dies") {
+    PreviewHost(.torDies) { RouteMapPreview() }.frame(width: 600, height: 260)
+}
+
+private struct RouteMapPreview: View {
+    @Environment(AppModel.self) private var model
+    var body: some View { RouteMap(state: model.state, highlighted: model.state.apps.first?.id, region: "DE") }
+}
