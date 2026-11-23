@@ -194,7 +194,7 @@ A glass capsule button. What it shows, and what a click does:
   sections:
   - **THROUGH TOR**: active, then idle (dimmed, "idle" tag), then waiting
     ("no traffic yet"). A row has: the app colour dot (grey when not lit),
-    icon, name, `🇫🇷 → 🇸🇪` (hidden on hover), and a `−` button on hover
+    icon, name, `🇫🇷 → 🇸🇪`, and a `−` button on hover
     (`remove.<id>`).
   - Click a row to select it (`model.expandedApp`, as now). The map flies to
     it, and the row opens a **vertical route**: Mac · Guard 🇩🇪 country ·
@@ -264,7 +264,7 @@ sidebar, `RouteList.excepted`, the exception commands, `.exceptions` in
 ## The demo engine
 
 `DemoEngine` (used by previews and UI tests) follows the new model:
-`torApps` = Safari, Firefox, Chrome (idle), Telegram; `seenDirect` = Slack,
+`torApps` = Safari, Firefox, Chrome (listed, never connects: waiting), Telegram; `seenDirect` = Slack,
 Music; adding and removing work. Unlisted apps never get routes.
 
 ## Testing
