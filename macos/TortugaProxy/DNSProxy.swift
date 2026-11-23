@@ -25,19 +25,19 @@ final class DNSProxy: NEDNSProxyProvider {
             return true
         }
         let app = flow.metaData.sourceAppSigningIdentifier
-        let routing = Shared.core.routes.snapshot().state
         let system = systemDNSSettings?.flatMap(\.servers).first ?? Self.resolvConfServer() ?? "1.1.1.1"
-        let upstream = DNSRoute.upstream(app: app, torApps: routing.torApps, own: routing.own, system: system)
-        proxyLog.notice("dns flow from \(app, privacy: .public), listed: \(upstream == nil), upstream: \(upstream ?? "-", privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
+        proxyLog.notice("dns flow from \(app, privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
         let boxed = Unchecked(value: udp)
         udp.open(withLocalFlowEndpoint: nil) { error in
             if let error { proxyLog.error("dns flow didn't open: \(error.localizedDescription, privacy: .public)") }
-            if error == nil { Self.serve(boxed, upstream: upstream) }
+            if error == nil { Self.serve(boxed, app: app, system: system) }
         }
         return true
     }
 
-    private static func serve(_ boxed: Unchecked<NEAppProxyUDPFlow>, upstream: String?) {
+    /// Each query is routed by the Tor list as it is when the query comes, not
+    /// when the flow opened: a flow can outlive a change to the list.
+    private static func serve(_ boxed: Unchecked<NEAppProxyUDPFlow>, app: String, system: String) {
         boxed.value.readDatagrams { datagrams, error in
             guard let datagrams, error == nil, !datagrams.isEmpty else {
                 boxed.value.closeReadWithError(nil)
@@ -47,16 +47,17 @@ final class DNSProxy: NEDNSProxyProvider {
             for (query, endpoint) in datagrams {
                 let sender = Unchecked(value: endpoint)
                 Task {
+                    let routing = Shared.core.routes.snapshot().state
+                    let upstream = DNSRoute.upstream(app: app, torApps: routing.torApps, own: routing.own, system: system)
                     let answer: Data?
                     if let upstream {
                         answer = await forward(query, to: upstream)
                     } else {
-                        let ready = Shared.core.routes.snapshot().state.torReady
-                        answer = await DNSAnswerer.answer(query, torReady: ready, names: Shared.names) { name in
+                        answer = await DNSAnswerer.answer(query, torReady: routing.torReady, names: Shared.names) { name in
                             try await Shared.core.resolve(name)
                         }
                     }
-                    proxyLog.notice("dns answer: \(answer.map { "rcode \($0[3] & 0x0F), \($0.count) bytes" } ?? "none", privacy: .public) via \(upstream == nil ? "tor" : "system", privacy: .public)")
+                    proxyLog.notice("dns answer for \(app, privacy: .public): \(answer.map { "rcode \($0[3] & 0x0F), \($0.count) bytes" } ?? "none", privacy: .public) via \(upstream ?? "tor", privacy: .public)")
                     if let answer {
                         boxed.value.writeDatagrams([(answer, sender.value)]) { error in
                             if let error { proxyLog.error("dns write failed: \(error.localizedDescription, privacy: .public)") }
@@ -64,7 +65,7 @@ final class DNSProxy: NEDNSProxyProvider {
                     }
                 }
             }
-            serve(boxed, upstream: upstream)
+            serve(boxed, app: app, system: system)
         }
     }
 
