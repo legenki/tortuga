@@ -13,29 +13,19 @@ public enum WindowSection: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Route | Bridges, as one glass capsule in the toolbar.
+/// Route | Bridges, as the system's segmented control: in the toolbar it sits
+/// on the toolbar's own glass. The UI tests find it as `section.picker` and
+/// click a segment by its title.
 struct SectionSwitch: View {
     @Binding var section: WindowSection
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(WindowSection.allCases) { item in
-                let on = item == section
-                Button { section = item } label: {
-                    Text(item.title)
-                        .font(.callout.weight(on ? .semibold : .regular))
-                        .foregroundStyle(on ? .primary : .secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(.primary.opacity(on ? 0.14 : 0)))
-                        .contentShape(.capsule)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(on ? .isSelected : [])
-                .accessibilityIdentifier("section.\(item.rawValue)")
-            }
+        Picker("Section", selection: $section) {
+            ForEach(WindowSection.allCases) { Text($0.title).tag($0) }
         }
-        .padding(3)
-        .background { Color.clear.glassEffect(.regular, in: .capsule) }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: 180)
+        .accessibilityIdentifier("section.picker")
     }
 }

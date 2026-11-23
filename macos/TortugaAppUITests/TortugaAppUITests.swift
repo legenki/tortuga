@@ -24,6 +24,26 @@ final class TortugaAppUITests: XCTestCase {
         target.click()
     }
 
+    /// Pick Route or Bridges in the toolbar's segmented control. Depending on
+    /// the macOS version a segment shows up as a radio button or a button
+    /// inside the control (identified `section.picker`); take whichever is there.
+    private func selectSection(_ app: XCUIApplication, _ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        let picker = element(app, "section.picker")
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "no section.picker", file: file, line: line)
+        let candidates = [picker.radioButtons[title], picker.buttons[title],
+                          picker.descendants(matching: .any)[title],
+                          app.radioButtons[title], app.segmentedControls.buttons[title]]
+        let deadline = Date().addingTimeInterval(5)
+        repeat {
+            if let segment = candidates.first(where: { $0.firstMatch.exists }) {
+                segment.firstMatch.click()
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        } while Date() < deadline
+        XCTFail("no \(title) segment in section.picker", file: file, line: line)
+    }
+
     private func waitFor(_ element: XCUIElement, labelContaining text: String, timeout: TimeInterval = 15) {
         // On macOS a StaticText's words are its value, not its label.
         let found = expectation(for: NSPredicate(format: "value CONTAINS %@ OR label CONTAINS %@", text, text),
@@ -72,9 +92,9 @@ final class TortugaAppUITests: XCTestCase {
         XCTAssertTrue(map.waitForExistence(timeout: 5))
         XCTAssertTrue(map.label.contains("Safari:"), map.label)
         waitFor(element(app, "status"), labelContaining: "Guard")
-        press(app, "section.bridges")
+        selectSection(app, "Bridges")
         XCTAssertTrue(element(app, "bridge.obfs4").waitForExistence(timeout: 5))
-        press(app, "section.route")
+        selectSection(app, "Route")
         snap(app, "map")
     }
 
@@ -90,7 +110,7 @@ final class TortugaAppUITests: XCTestCase {
 
     func testABadObfs4LineIsMarkedAndAGoodOneSaved() {
         let app = launch("normal")
-        press(app, "section.bridges")
+        selectSection(app, "Bridges")
         press(app, "bridge.obfs4")
         let lines = element(app, "bridges.obfs4.lines")
         XCTAssertTrue(lines.waitForExistence(timeout: 5))

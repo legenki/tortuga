@@ -1,7 +1,9 @@
 import SwiftUI
 import TortugaKit
 
-/// The status as a glass capsule, and the button that turns Tor on or off.
+/// The status, and the button that turns Tor on or off. In the toolbar it is a
+/// plain toolbar button (the toolbar supplies the glass); on its own (the
+/// menu panel) it is a native glass button.
 struct StatusPill: View {
     /// What the pill says, worked out from the state (tested on its own).
     struct Content: Equatable {
@@ -52,16 +54,23 @@ struct StatusPill: View {
         }
     }
 
+    enum Style { case toolbar, standalone }
+
     @Environment(AppModel.self) private var model
     var showsGuard: Bool
     /// Fills the width it is given (the menu panel) instead of hugging its text.
     var fillsWidth = false
+    var style: Style = .toolbar
 
     var body: some View {
         let content = Content(state: model.state, now: .now, showsGuard: showsGuard)
-        Button { toggle(content) } label: {
+        let button = Button { toggle(content) } label: {
             HStack(spacing: 8) {
-                dot(content.tone)
+                if let progress = content.progress {
+                    ProgressView(value: progress).progressViewStyle(.circular).controlSize(.mini)
+                } else {
+                    dot(content.tone)
+                }
                 Text(content.title).font(.callout.weight(.semibold)).lineLimit(1).layoutPriority(1)
                 if !content.detail.isEmpty {
                     Text("· \(content.detail)").font(.callout).foregroundStyle(.secondary).lineLimit(1)
@@ -69,22 +78,14 @@ struct StatusPill: View {
                 if fillsWidth { Spacer(minLength: 0) }
                 Image(systemName: "power").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 10)
-            .padding(.vertical, 6)
             .frame(maxWidth: fillsWidth ? .infinity : 320)
-            .background(alignment: .leading) {
-                if let progress = content.progress {
-                    GeometryReader { geo in
-                        Color.caution.opacity(0.25).frame(width: geo.size.width * progress)
-                    }
-                }
-            }
-            .clipShape(.capsule)
-            .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
-        .background { Color.clear.glassEffect(.regular.interactive(), in: .capsule) }
+        Group {
+            switch style {
+            case .toolbar: button
+            case .standalone: button.buttonStyle(.glass).controlSize(.large)
+            }
+        }
         .accessibilityLabel(content.label)
         .accessibilityHint(content.turnsOn ? "Turns Tor on" : "Turns Tor off")
         .accessibilityIdentifier("status")

@@ -43,7 +43,7 @@ public struct MenuPanel: View {
         let listed = app.map { state.torApps.contains($0) } ?? false
         let route = listed ? app.flatMap { app in state.apps.first { $0.app == app } } : nil
         VStack(alignment: .leading, spacing: 12) {
-            StatusPill(showsGuard: false, fillsWidth: true)
+            StatusPill(showsGuard: false, fillsWidth: true, style: .standalone)
             ProblemBanner()
             if let app {
                 VStack(alignment: .leading, spacing: 8) {
