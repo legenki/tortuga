@@ -24,4 +24,4 @@ Upgrading from 0.2.0 or older on macOS? Those versions installed for every user.
 ## Good to know
 
 - **In Chrome, only Incognito windows go through Tor**, on one shared circuit. Firefox sends the whole browser, with a separate circuit for each site.
-- **Torrent downloads were removed in this version.** Files already downloaded stay in Downloads/Tortuga, but unfinished downloads won't resume. Update the extension and the helper together.
+- **Torrent downloads were removed in 0.3.0.** Files already downloaded stay in Downloads/Tortuga, but unfinished downloads won't resume. Update the extension and the helper together.
