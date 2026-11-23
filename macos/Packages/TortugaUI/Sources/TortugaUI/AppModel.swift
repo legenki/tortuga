@@ -53,6 +53,7 @@ public final class AppModel {
 
     public func removeTorApp(_ app: AppID) async {
         if expandedApp == app.id { expandedApp = nil }
+        if hoveredApp == app.id { hoveredApp = nil }
         await perform(.apps) { try await $0.removeTorApp(app) }
     }
 

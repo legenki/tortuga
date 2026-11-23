@@ -88,6 +88,9 @@ public struct MenuPanel: View {
                 }
                 .buttonStyle(.glass)
             }
+            if let error = model.errors[.circuit] {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
         }
         .padding(16)
         .frame(width: 360)

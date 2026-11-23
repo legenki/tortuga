@@ -13,9 +13,10 @@ public struct MainWindow: View {
     public var body: some View {
         @Bindable var model = model
         let onRoute = model.section == .route
+        let hovered = model.hoveredApp.flatMap { id in model.state.torApps.contains { $0.id == id } ? id : nil }
         ZStack(alignment: .topLeading) {
             RouteMap(state: model.state,
-                     highlighted: onRoute ? model.hoveredApp ?? model.expandedApp : nil,
+                     highlighted: onRoute ? hovered ?? model.expandedApp : nil,
                      focused: onRoute ? model.expandedApp : nil,
                      insets: EdgeInsets(top: 64, leading: onRoute ? AppPanel.width + 36 : 24, bottom: 24, trailing: 24),
                      dimmed: !onRoute) { id in

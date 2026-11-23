@@ -34,4 +34,14 @@ func waitUntil(_ condition: () -> Bool) async throws {
         model.replace(engine: DemoEngine(scenario: .empty))
         try await waitUntil { model.state.mode == .direct }
     }
+
+    @Test func removingAnAppClearsItsSelectionAndHover() async {
+        let model = AppModel(engine: DemoEngine())
+        let app = AppID("com.apple.Safari")
+        model.expandedApp = app.id
+        model.hoveredApp = app.id
+        await model.removeTorApp(app)
+        #expect(model.expandedApp == nil)
+        #expect(model.hoveredApp == nil)
+    }
 }

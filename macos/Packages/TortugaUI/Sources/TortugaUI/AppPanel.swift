@@ -20,8 +20,8 @@ struct AppPanel: View {
                     Text("No apps go through Tor. Add one with + Add app…")
                         .font(.caption).foregroundStyle(.secondary).padding(9)
                 }
-                ForEach(list.active) { TorAppRow(app: $0.app, route: $0, lit: lit, idle: false) }
-                ForEach(list.idle) { TorAppRow(app: $0.app, route: $0, lit: lit, idle: true) }
+                ForEach(list.active) { TorAppRow(app: listed($0.app), route: $0, lit: lit, idle: false) }
+                ForEach(list.idle) { TorAppRow(app: listed($0.app), route: $0, lit: lit, idle: true) }
                 ForEach(list.waiting) { TorAppRow(app: $0, route: nil, lit: lit, idle: false) }
                 Button(action: pickApp) {
                     Text("+ Add app…")
@@ -47,6 +47,11 @@ struct AppPanel: View {
         .scrollIndicators(.never)
         .frame(width: Self.width)
         .glassCard(cornerRadius: 18)
+    }
+
+    /// The listed AppID for a route's app, so names and icons come from the list.
+    private func listed(_ app: AppID) -> AppID {
+        model.state.torApps.first { $0 == app } ?? app
     }
 
     private func title(_ text: String, note: String? = nil) -> some View {
@@ -125,18 +130,27 @@ struct TorAppRow: View {
             .accessibilityAction(.default, toggle)
             .accessibilityIdentifier("route.row.\(app.id)")
 
-            if isOpen, let route, lit {
+            if isOpen {
                 VStack(alignment: .leading, spacing: 8) {
-                    VerticalRoute(stops: VerticalRoute.stops(model.state.trunk, route), color: .app(app.id))
-                    Text("\(route.connections) connections").font(.caption).foregroundStyle(.secondary)
+                    if let route, lit {
+                        VerticalRoute(stops: VerticalRoute.stops(model.state.trunk, route), color: .app(app.id))
+                        Text("\(route.connections) connections").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text(lit ? "No traffic yet." : "Tor is off.").font(.caption).foregroundStyle(.secondary)
+                    }
                     HStack(spacing: 6) {
-                        Button("New circuit", systemImage: "arrow.clockwise", action: newCircuit)
-                            .accessibilityIdentifier("circuit.\(app.id)")
+                        if route != nil, lit {
+                            Button("New circuit", systemImage: "arrow.clockwise", action: newCircuit)
+                                .accessibilityIdentifier("circuit.\(app.id)")
+                        }
                         TrashButton(action: remove)
                             .accessibilityIdentifier("trash.\(app.id)")
                     }
                     .buttonStyle(.glass)
                     .controlSize(.small)
+                    if let error = model.errors[.circuit] {
+                        Text(error).font(.caption).foregroundStyle(.red)
+                    }
                 }
                 .padding(.leading, 44)
                 .padding(.bottom, 8)
@@ -147,9 +161,11 @@ struct TorAppRow: View {
             if inside { model.hoveredApp = app.id } else if model.hoveredApp == app.id { model.hoveredApp = nil }
         }
         .contextMenu {
-            Button("New circuit", action: newCircuit).disabled(route == nil)
+            Button("New circuit", action: newCircuit).disabled(!(lit && route != nil))
             Button("Remove from Tortuga", action: remove)
         }
+        .accessibilityAction(named: "Remove from Tortuga", remove)
+        .onDisappear { if model.hoveredApp == app.id { model.hoveredApp = nil } }
     }
 
     private func toggle() {
