@@ -85,9 +85,12 @@ private struct RouteMapLayer: View, Animatable {
                                                          bottom: insets.bottom, trailing: insets.trailing))
         let landPath = land.path(for: projection, in: size)
         ZStack {
-            TimelineView(.animation(minimumInterval: nil, paused: !moving || !lit || dimmed)) { timeline in
+            // The land is its own layer: it redraws only when the projection
+            // (or dimming) changes, not on every animation frame.
+            LandLayer(path: landPath, dimmed: dimmed).equatable()
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !moving || !lit || dimmed)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
-                Canvas { context, _ in draw(route, projection, land: landPath, time: moving ? t : nil, in: &context) }
+                Canvas { context, _ in draw(route, projection, time: moving ? t : nil, in: &context) }
             }
             if !dimmed {
                 ForEach(route.tails) { tail in
@@ -104,8 +107,7 @@ private struct RouteMapLayer: View, Animatable {
         .frame(width: size.width, height: size.height)
     }
 
-    private func draw(_ route: MapRoute, _ projection: MapProjection, land: Path, time: Double?, in context: inout GraphicsContext) {
-        context.fill(land, with: .color(.secondary.opacity(dimmed ? 0.14 : 0.28)))
+    private func draw(_ route: MapRoute, _ projection: MapProjection, time: Double?, in context: inout GraphicsContext) {
         guard state.mode == .tor, !dimmed else { return }
         let flow = time.map { StrokeStyle(lineWidth: 1.4, lineCap: .round, dash: [3, 9], dashPhase: -RouteMap.flowPhase(at: $0)) }
 
@@ -168,6 +170,18 @@ private struct RouteMapLayer: View, Animatable {
         let circle = Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
         context.fill(circle, with: .color(Color(nsColor: .windowBackgroundColor)))
         context.stroke(circle, with: .color(color), lineWidth: 2)
+    }
+}
+
+/// The land dots, filled once per path.
+private struct LandLayer: View, Equatable {
+    let path: Path
+    let dimmed: Bool
+
+    var body: some View {
+        Canvas { context, _ in
+            context.fill(path, with: .color(.secondary.opacity(dimmed ? 0.14 : 0.28)))
+        }
     }
 }
 
