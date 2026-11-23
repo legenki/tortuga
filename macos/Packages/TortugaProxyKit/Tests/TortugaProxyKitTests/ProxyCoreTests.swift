@@ -28,6 +28,42 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         #expect(await core.current.seenDirect == ["com.apple.Music"])
     }
 
+    @Test func seenDirectIsPublishedOnlyWhenItsAppsChange() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        let seen = Recorder<[String]>()
+        let states = await core.states()
+        let watcher = Task { for await state in states { seen.append(state.seenDirect) } }
+        defer { watcher.cancel() }
+        try await eventually { seen.count == 1 }
+        await core.sawDirect(app: "com.apple.mail")
+        try await eventually { seen.count == 2 }
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.Music")
+        try await eventually { seen.count == 3 }
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.Music")
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.mail")
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(seen.values == [[], ["com.apple.mail"], ["com.apple.Music", "com.apple.mail"]])
+        clock.now += 1
+        await core.sawDirect(app: "com.apple.Notes")
+        try await eventually { seen.count == 4 }
+        // Most recently seen first, as of the publish.
+        #expect(seen.values.last == ["com.apple.Notes", "com.apple.mail", "com.apple.Music"])
+    }
+
+    @Test func stoppingForgetsTheAppsThatWentDirect() async throws {
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero)
+        await core.sawDirect(app: "com.apple.mail")
+        #expect(await core.current.seenDirect == ["com.apple.mail"])
+        await core.stop()
+        #expect(await core.current.seenDirect == [])
+        await core.sawDirect(app: "com.apple.mail")
+        #expect(await core.current.seenDirect == ["com.apple.mail"])
+    }
+
     @Test func atMost200AppsAreRemembered() async throws {
         let clock = TestClock()
         let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
@@ -176,4 +212,13 @@ final class TestClock: @unchecked Sendable {
         get { lock.withLock { value } }
         set { lock.withLock { value = newValue } }
     }
+}
+
+/// Collects what a stream yields, for tests that count publishes.
+final class Recorder<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [Value] = []
+    var values: [Value] { lock.withLock { stored } }
+    var count: Int { values.count }
+    func append(_ value: Value) { lock.withLock { stored.append(value) } }
 }

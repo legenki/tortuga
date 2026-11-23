@@ -26,6 +26,9 @@ public actor ProxyCore {
     private var direct: [String: Date] = [:]
     static let directWindow: TimeInterval = 3600
     static let directLimit = 200
+    /// Old entries are looked for at most this often, or when publishing.
+    static let pruneInterval: TimeInterval = 60
+    private var nextPrune = Date.distantPast
 
     private var config: ProxyConfiguration?
     private var state = ExtensionState.idle
@@ -83,6 +86,7 @@ public actor ProxyCore {
         state = .idle
         pending = [:]
         direct = [:]
+        nextPrune = .distantPast
         publishRoutes()
         publish()
     }
@@ -134,20 +138,33 @@ public actor ProxyCore {
     }
 
     /// An unlisted app's connection went directly. Published only when the
-    /// set of apps changes, not on every connection.
+    /// set of apps changes (a new one, or old ones dropped), not on every
+    /// connection: the order is as of the last publish.
     public func sawDirect(app: String) {
         let at = now()
-        let before = Set(direct.keys)
-        direct[app] = at
+        let isNew = direct.updateValue(at, forKey: app) == nil
+        guard isNew || at >= nextPrune else { return }
+        let dropped = pruneDirect(at)
+        if isNew || dropped { publishDirect() }
+    }
+
+    /// Drops the apps not seen within the window, then the oldest beyond the
+    /// limit. True when any went.
+    private func pruneDirect(_ at: Date) -> Bool {
+        nextPrune = at.addingTimeInterval(Self.pruneInterval)
+        let before = direct.count
         direct = direct.filter { at.timeIntervalSince($0.value) <= Self.directWindow }
         if direct.count > Self.directLimit {
             let oldest = direct.sorted { $0.value > $1.value }.dropFirst(Self.directLimit).map(\.key)
             for key in oldest { direct[key] = nil }
         }
-        if Set(direct.keys) != before || state.seenDirect.first != app {
-            state.seenDirect = direct.sorted { $0.value > $1.value }.map(\.key)
-            publish()
-        }
+        return direct.count != before
+    }
+
+    /// Callers prune first.
+    private func publishDirect() {
+        state.seenDirect = direct.sorted { $0.value > $1.value }.map(\.key)
+        publish()
     }
 
     // MARK: The helper
