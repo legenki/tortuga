@@ -28,10 +28,22 @@ private let route: MapRoute = {
     #expect(RouteMap.camera(for: route, focused: "gone") == MapCamera(fitting: route.places))
 }
 
-@Test func theCameraAnimatesThroughItsFourNumbers() {
-    var c = MapCamera(centerLon: 0, centerLat: 0, lonSpan: 100, latSpan: 50)
-    var data = c.animatableData
-    data.scale(by: 0.5)
-    c.animatableData = data
-    #expect(c == MapCamera(centerLon: 0, centerLat: 0, lonSpan: 50, latSpan: 25))
+@Test func halfwayTheZoomIsTheGeometricMean() {
+    // Spans are interpolated as logarithms: halfway from 160° to 10° shows
+    // 40°, not 85°, so the zoom runs at an even rate.
+    let from = MapCamera(centerLon: 0, centerLat: 0, lonSpan: 160, latSpan: 80)
+    let to = MapCamera(centerLon: 20, centerLat: 50, lonSpan: 10, latSpan: 5)
+    var delta = to.animatableData
+    delta -= from.animatableData
+    delta.scale(by: 0.5)
+    var halfway = from
+    halfway.animatableData = from.animatableData + delta
+    #expect(abs(halfway.centerLon - 10) < 1e-9 && abs(halfway.centerLat - 25) < 1e-9)
+    #expect(abs(halfway.lonSpan - 40) < 1e-9 && abs(halfway.latSpan - 20) < 1e-9)
+}
+
+@Test func aZeroSpanStaysFinite() {
+    var c = MapCamera(centerLon: 0, centerLat: 0, lonSpan: 40, latSpan: 0)
+    c.animatableData = c.animatableData
+    #expect(c.latSpan.isFinite && c.latSpan > 0)
 }

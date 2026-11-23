@@ -152,16 +152,23 @@ private struct RouteMapLayer: View, Animatable {
 extension MapCamera {
     typealias AnimatableData = AnimatablePair<AnimatablePair<Double, Double>, AnimatablePair<Double, Double>>
 
-    /// The four numbers SwiftUI interpolates: centre, then spans.
+    /// The four numbers SwiftUI interpolates: centre, then the spans as
+    /// logarithms, so a flight zooms at an even rate instead of rushing at
+    /// the end. A zero span is floored to keep the logarithm finite.
     var animatableData: AnimatableData {
-        get { AnimatablePair(AnimatablePair(centerLon, centerLat), AnimatablePair(lonSpan, latSpan)) }
+        get {
+            AnimatablePair(AnimatablePair(centerLon, centerLat),
+                           AnimatablePair(log(max(lonSpan, Self.minLogSpan)), log(max(latSpan, Self.minLogSpan))))
+        }
         set {
             centerLon = newValue.first.first
             centerLat = newValue.first.second
-            lonSpan = newValue.second.first
-            latSpan = newValue.second.second
+            lonSpan = exp(newValue.second.first)
+            latSpan = exp(newValue.second.second)
         }
     }
+
+    private static let minLogSpan = 0.01
 }
 
 private func + (p: CGPoint, v: CGVector) -> CGPoint { CGPoint(x: p.x + v.dx, y: p.y + v.dy) }
