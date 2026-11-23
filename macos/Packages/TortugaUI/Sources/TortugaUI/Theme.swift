@@ -52,3 +52,20 @@ extension View {
         }
     }
 }
+
+extension Color {
+    /// App route colours, by AppColor.index. Not green (the trunk) and not
+    /// blue (bridges), so an app's line never looks like either.
+    static let appPalette: [Color] = [
+        Color(light: 0x0284C7, dark: 0x38BDF8), // sky
+        Color(light: 0x7C3AED, dark: 0xA78BFA), // violet
+        Color(light: 0xDB2777, dark: 0xF472B6), // pink
+        Color(light: 0xEA580C, dark: 0xFB923C), // orange
+        Color(light: 0x0D9488, dark: 0x2DD4BF), // teal
+        Color(light: 0x4F46E5, dark: 0x818CF8), // indigo
+        Color(light: 0xCA8A04, dark: 0xFACC15), // yellow
+        Color(light: 0x65A30D, dark: 0xA3E635), // lime
+    ]
+
+    static func app(_ id: String) -> Color { appPalette[AppColor.index(for: id)] }
+}
