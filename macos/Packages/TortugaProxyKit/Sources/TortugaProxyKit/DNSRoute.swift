@@ -6,7 +6,8 @@ import TortugaKit
 public enum DNSRoute {
     /// The resolver to forward to, or nil to answer through Tor. Until the
     /// Tor list arrives (`torApps` nil), only our own programs ask the system:
-    /// the rest are answered through Tor, which fails while it isn't ready.
+    /// the rest are answered through Tor, which waits while Tor isn't ready
+    /// (DNSAnswerer.hold). An unlisted app asks the system and never waits.
     /// A listed app's child process (found through `ancestors`, the parent's,
     /// grandparent's, … signing identifiers, asked only when the app itself
     /// isn't listed) counts as the app.

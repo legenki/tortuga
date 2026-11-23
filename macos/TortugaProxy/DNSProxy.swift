@@ -57,7 +57,9 @@ final class DNSProxy: NEDNSProxyProvider {
                     if let upstream {
                         answer = await forward(query, to: upstream)
                     } else {
-                        answer = await DNSAnswerer.answer(query, torReady: routing.torReady, names: Shared.names) { name in
+                        // Read again while the query waits for Tor (DNSAnswerer.hold).
+                        answer = await DNSAnswerer.answer(query, torReady: { Shared.core.routes.snapshot().state.torReady },
+                                                          names: Shared.names) { name in
                             try await Shared.core.resolve(name)
                         }
                     }
