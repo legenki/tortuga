@@ -36,3 +36,12 @@ private func app(_ id: String, _ path: String, _ name: String) -> InstalledBrows
     ], own: nil)
     #expect(picked.map(\.path) == ["/Applications/Google Chrome.app"])
 }
+
+@Test func aBuildCopyListedFirstDoesNotShadowTheRealInstall() {
+    let picked = InstalledBrowsers.pick([
+        app("com.google.Chrome", "/Volumes/Chrome/Google Chrome.app", "Google Chrome"),
+        app("com.google.Chrome", "/Applications/Google Chrome.app", "Google Chrome"),
+    ], own: nil)
+    #expect(picked.count == 1)
+    #expect(picked.first?.path == "/Applications/Google Chrome.app")
+}

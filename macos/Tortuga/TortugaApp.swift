@@ -25,12 +25,15 @@ struct TortugaApp: App {
     nonisolated static func installedBrowsers() -> [AppID] {
         let urls = NSWorkspace.shared.urlsForApplications(toOpen: URL(string: "https://example.com")!)
         let candidates = urls.compactMap { url -> InstalledBrowsers.Candidate? in
+            // Can't be routed: the extension matches by identifier.
             guard let id = Bundle(url: url)?.bundleIdentifier else { return nil }
             let name = FileManager.default.displayName(atPath: url.path)
             return InstalledBrowsers.Candidate(id: id, path: url.path,
                                                name: name.hasSuffix(".app") ? String(name.dropLast(4)) : name)
         }
+        // No paths in the first list: Safari's moves between macOS versions, and browsers are found by identifier.
         return InstalledBrowsers.pick(candidates, own: Bundle.main.bundleIdentifier)
+            .map { AppID($0.id, name: $0.name) }
     }
 
     /// The window opens at launch the first time (for the welcome card), or
