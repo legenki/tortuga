@@ -4,9 +4,9 @@ import NetworkExtension
 import TortugaProxyKit
 
 /// Every DNS query on this Mac. Each is answered here, through Tor or with a
-/// failure; returning false would drop it (spike Q6). Queries from our own
-/// programs (the helper, lyrebird) go to the system's resolver instead:
-/// Snowflake has to find its broker before Tor can start.
+/// failure; returning false would drop it (spike Q6). Queries from apps outside
+/// the Tor list, and from our own programs (Snowflake has to find its broker
+/// before Tor can start), go to the system's resolver.
 final class DNSProxy: NEDNSProxyProvider {
     override func startProxy(options: [String: Any]? = nil, completionHandler: @escaping (Error?) -> Void) {
         proxyLog.notice("dns proxy started")
@@ -25,9 +25,10 @@ final class DNSProxy: NEDNSProxyProvider {
             return true
         }
         let app = flow.metaData.sourceAppSigningIdentifier
-        let own = ProxyCore.ownIDs.contains(app)
-        let upstream = own ? (systemDNSSettings?.flatMap(\.servers).first ?? Self.resolvConfServer() ?? "1.1.1.1") : nil
-        proxyLog.notice("dns flow from \(app, privacy: .public), own: \(own), upstream: \(upstream ?? "-", privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
+        let routing = Shared.core.routes.snapshot().state
+        let system = systemDNSSettings?.flatMap(\.servers).first ?? Self.resolvConfServer() ?? "1.1.1.1"
+        let upstream = DNSRoute.upstream(app: app, torApps: routing.torApps, own: routing.own, system: system)
+        proxyLog.notice("dns flow from \(app, privacy: .public), listed: \(upstream == nil), upstream: \(upstream ?? "-", privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
         let boxed = Unchecked(value: udp)
         udp.open(withLocalFlowEndpoint: nil) { error in
             if let error { proxyLog.error("dns flow didn't open: \(error.localizedDescription, privacy: .public)") }
