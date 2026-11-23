@@ -186,10 +186,15 @@ private struct LandLayer: View, Equatable {
 }
 
 /// The land dots as one path, kept for the last projection and size; dots
-/// off screen are skipped. Hover redraws the map without rebuilding
-/// thousands of ellipses. While the camera flies every frame has a new
-/// projection, so the path is rebuilt each frame.
+/// off screen are skipped with a cheap longitude/latitude test before they
+/// are projected. Hover redraws the map without rebuilding the path. While
+/// the camera flies every frame has a new projection, so the path is
+/// rebuilt each frame; with many dots on screen they are drawn as tiny
+/// squares (cheaper than ellipses, and the same at this size).
 @MainActor private final class LandCache {
+    /// Above this many dots on screen, squares instead of ellipses.
+    static let squaresAbove = 25_000
+
     private var projection: MapProjection?
     private var size: CGSize = .zero
     private var path = Path()
@@ -197,12 +202,21 @@ private struct LandLayer: View, Equatable {
     func path(for projection: MapProjection, in size: CGSize) -> Path {
         if projection != self.projection || size != self.size {
             let r = projection.dotRadius
-            let visible = CGRect(origin: .zero, size: size).insetBy(dx: -r, dy: -r)
+            let bounds = projection.visibleBounds(in: size, margin: r)
+            var points: [CGPoint] = []
+            points.reserveCapacity(WorldMap.shared.dots.count)
+            for dot in WorldMap.shared.dots where bounds.lon.contains(dot.lon) && bounds.lat.contains(dot.lat) {
+                points.append(projection.point(dot))
+            }
             var land = Path()
-            for dot in WorldMap.shared.dots {
-                let p = projection.point(dot)
-                guard visible.contains(p) else { continue }
-                land.addEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
+            if points.count > Self.squaresAbove {
+                // A square of the same area as the dot.
+                let side = r * Double.pi.squareRoot()
+                land.addRects(points.map { CGRect(x: $0.x - side / 2, y: $0.y - side / 2, width: side, height: side) })
+            } else {
+                for p in points {
+                    land.addEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
+                }
             }
             path = land
             self.projection = projection

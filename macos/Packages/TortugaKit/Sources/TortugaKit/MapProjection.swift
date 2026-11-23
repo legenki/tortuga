@@ -66,7 +66,17 @@ public struct MapProjection: Sendable, Equatable {
         Coordinate(lon: originLon + (p.x - offset.x) / scale, lat: originLat - (p.y - offset.y) / scale)
     }
 
-    /// How big a land dot is drawn: about a third of a degree, but at least
-    /// 0.85 points (the whole world) and at most 3.2 (close in).
-    public var dotRadius: Double { min(max(0.3 * scale, 0.85), 3.2) }
+    /// The longitudes and latitudes a view of this size shows, widened by a
+    /// margin in points on every side: a dot outside them is off screen.
+    public func visibleBounds(in size: CGSize, margin: CGFloat = 0) -> (lon: ClosedRange<Double>, lat: ClosedRange<Double>) {
+        let topLeft = coordinate(at: CGPoint(x: -margin, y: -margin))
+        let bottomRight = coordinate(at: CGPoint(x: size.width + margin, y: size.height + margin))
+        return (min(topLeft.lon, bottomRight.lon)...max(topLeft.lon, bottomRight.lon),
+                min(topLeft.lat, bottomRight.lat)...max(topLeft.lat, bottomRight.lat))
+    }
+
+    /// How big a land dot is drawn: about a seventh of a degree (the dots
+    /// are half a degree apart), but at least 0.5 points (the whole world)
+    /// and at most 1.6 (close in).
+    public var dotRadius: Double { min(max(0.15 * scale, 0.5), 1.6) }
 }

@@ -86,13 +86,29 @@ private func expectInside(_ p: MapProjection, _ view: CGSize) {
 @Test func dotsGrowWithTheZoomWithinLimits() {
     let world = MapProjection(camera: MapCamera(centerLon: 0, centerLat: 13, lonSpan: 360, latSpan: 142),
                               in: CGSize(width: 600, height: 240), padding: 0)
-    #expect(world.dotRadius == 0.85)
+    #expect(world.dotRadius == 0.5)
     let close = MapProjection(camera: MapCamera(centerLon: 10, centerLat: 50, lonSpan: 20, latSpan: 8),
                               in: CGSize(width: 600, height: 240), padding: 0)
-    #expect(close.dotRadius == 3.2)
+    #expect(close.dotRadius == 1.6)
     let middle = MapProjection(camera: MapCamera(centerLon: 10, centerLat: 50, lonSpan: 100, latSpan: 10),
                                in: CGSize(width: 600, height: 240), padding: 0)
-    #expect(abs(middle.dotRadius - 1.8) < 1e-9)
+    #expect(abs(middle.dotRadius - 0.9) < 1e-9)
+}
+
+@Test func visibleBoundsAreWhatTheViewShows() {
+    let size = CGSize(width: 600, height: 240)
+    let p = MapProjection(camera: MapCamera(centerLon: 10, centerLat: 50, lonSpan: 100, latSpan: 10), in: size, padding: 0)
+    let b = p.visibleBounds(in: size)
+    // 6 points a degree: 100° wide, 40° tall around the centre.
+    #expect(abs(b.lon.lowerBound - -40) < 1e-9 && abs(b.lon.upperBound - 60) < 1e-9)
+    #expect(abs(b.lat.lowerBound - 30) < 1e-9 && abs(b.lat.upperBound - 70) < 1e-9)
+    let wider = p.visibleBounds(in: size, margin: 6)
+    #expect(abs(wider.lon.lowerBound - -41) < 1e-9 && abs(wider.lat.upperBound - 71) < 1e-9)
+    // Every point on screen falls inside.
+    for point in [CGPoint(x: 0, y: 0), CGPoint(x: 600, y: 240), CGPoint(x: 300, y: 17)] {
+        let c = p.coordinate(at: point)
+        #expect(b.lon.contains(c.lon) && b.lat.contains(c.lat))
+    }
 }
 
 @Test func insetsMoveTheCentreIntoTheFreeSpace() {
