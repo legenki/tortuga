@@ -49,6 +49,7 @@ targets:
     dependencies:
       - package: TortugaKit
       - package: TortugaProxyKit
+      - sdk: libbsm.tbd # audit_token_to_pid, for a flow's process tree
     info:
       path: TortugaProxy/Info.plist
       properties:

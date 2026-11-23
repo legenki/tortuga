@@ -25,19 +25,22 @@ final class DNSProxy: NEDNSProxyProvider {
             return true
         }
         let app = flow.metaData.sourceAppSigningIdentifier
+        let token = flow.metaData.sourceAppAuditToken
         let system = systemDNSSettings?.flatMap(\.servers).first ?? Self.resolvConfServer() ?? "1.1.1.1"
         proxyLog.notice("dns flow from \(app, privacy: .public), system DNS: \(String(describing: self.systemDNSSettings?.flatMap(\.servers)), privacy: .public)")
         let boxed = Unchecked(value: udp)
         udp.open(withLocalFlowEndpoint: nil) { error in
             if let error { proxyLog.error("dns flow didn't open: \(error.localizedDescription, privacy: .public)") }
-            if error == nil { Self.serve(boxed, app: app, system: system) }
+            if error == nil { Self.serve(boxed, app: app, token: token, system: system) }
         }
         return true
     }
 
     /// Each query is routed by the Tor list as it is when the query comes, not
     /// when the flow opened: a flow can outlive a change to the list.
-    private static func serve(_ boxed: Unchecked<NEAppProxyUDPFlow>, app: String, system: String) {
+    /// A listed app's child process (found through `token`'s process tree)
+    /// counts as the app.
+    private static func serve(_ boxed: Unchecked<NEAppProxyUDPFlow>, app: String, token: Data?, system: String) {
         boxed.value.readDatagrams { datagrams, error in
             guard let datagrams, error == nil, !datagrams.isEmpty else {
                 boxed.value.closeReadWithError(nil)
@@ -48,7 +51,8 @@ final class DNSProxy: NEDNSProxyProvider {
                 let sender = Unchecked(value: endpoint)
                 Task {
                     let routing = Shared.core.routes.snapshot().state
-                    let upstream = DNSRoute.upstream(app: app, torApps: routing.torApps, own: routing.own, system: system)
+                    let upstream = DNSRoute.upstream(app: app, ancestors: { ProcessLineage.ancestors(auditToken: token) },
+                                                     torApps: routing.torApps, own: routing.own, system: system)
                     let answer: Data?
                     if let upstream {
                         answer = await forward(query, to: upstream)
@@ -65,7 +69,7 @@ final class DNSProxy: NEDNSProxyProvider {
                     }
                 }
             }
-            serve(boxed, app: app, system: system)
+            serve(boxed, app: app, token: token, system: system)
         }
     }
 

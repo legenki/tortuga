@@ -7,9 +7,13 @@ public enum DNSRoute {
     /// The resolver to forward to, or nil to answer through Tor. Until the
     /// Tor list arrives (`torApps` nil), only our own programs ask the system:
     /// the rest are answered through Tor, which fails while it isn't ready.
-    public static func upstream(app: String, torApps: Set<String>?, own: Set<String>, system: String) -> String? {
+    /// A listed app's child process (found through `ancestors`, the parent's,
+    /// grandparent's, … signing identifiers, asked only when the app itself
+    /// isn't listed) counts as the app.
+    public static func upstream(app: String, ancestors: () -> [String] = { [] }, torApps: Set<String>?,
+                                own: Set<String>, system: String) -> String? {
         if own.contains(app) { return system }
         guard let torApps else { return nil }
-        return TorAppMatcher.match(app, in: torApps) == nil ? system : nil
+        return FlowRouter.listedApp(app, ancestors: ancestors, in: torApps) == nil ? system : nil
     }
 }

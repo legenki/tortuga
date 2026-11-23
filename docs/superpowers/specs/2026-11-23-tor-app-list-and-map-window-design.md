@@ -69,13 +69,28 @@ returns the listed ID that the signing identifier belongs to:
   (so `com.google.Chrome.helper` → `com.google.Chrome`);
 - else nil.
 
+`TorAppMatcher.match(lineage: [String], in:) -> String?` returns the match
+for the first element of a process's lineage (the process itself, then its
+parent, grandparent, … up to launchd) that matches. An app's child
+processes, found through the process tree, count as that app, not only its
+`.`-prefixed helpers: Firefox's WebRTC runs in `org.mozilla.plugincontainer`
+(no prefix match; its UDP went out directly and leaked the Mac's address),
+and `curl` run from a listed Terminal reports `com.apple.curl`. Both now
+count as the listed ancestor, which is also their isolation. `FlowInfo`
+carries the ancestors lazily (`ancestors: () -> [String]`), consulted only
+when the process itself doesn't match, and `DNSRoute.upstream` takes the
+same lineage. The extension finds it from the flow's audit token (pid, then
+`sysctl` `KERN_PROC_PID` for each parent, and each ancestor's signing ID
+from Security), at most 16 hops, cached for 30 s. Processes launchd starts
+for an app (XPC services) aren't its children and count only by their own ID.
+
 ### Routing a connection
 
 `RouterState.exceptions` becomes `torApps: Set<String>`.
 `FlowRouter.decide` becomes, in order:
 
 1. Our own programs (helper, lyrebird), or a local address → `.direct`.
-2. `TorAppMatcher.match` gives nil → `.direct`, and the engine records the
+2. `TorAppMatcher.match` gives nil, for the process and its ancestors → `.direct`, and the engine records the
    flow's app in `seenDirect` (below).
 3. UDP, or Tor not ready → `.refuse` (as today, but now only for listed
    apps).

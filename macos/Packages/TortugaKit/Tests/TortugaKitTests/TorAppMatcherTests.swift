@@ -22,3 +22,21 @@ private let list: Set<String> = ["com.google.Chrome", "com.apple.Safari", "com.g
     #expect(TorAppMatcher.match("com.apple.mail", in: list) == nil)
     #expect(TorAppMatcher.match("", in: list) == nil)
 }
+
+@Test func aChildMatchesThroughItsAncestors() {
+    #expect(TorAppMatcher.match(lineage: ["org.mozilla.plugincontainer", "org.mozilla.firefox", "com.apple.launchd"], in: list)
+            == "org.mozilla.firefox")
+    #expect(TorAppMatcher.match(lineage: ["com.apple.curl", "com.apple.zsh", "com.google.Chrome.helper"], in: list)
+            == "com.google.Chrome")
+}
+
+@Test func theNearestMatchInTheLineageWins() {
+    #expect(TorAppMatcher.match(lineage: ["com.apple.Safari", "org.mozilla.firefox"], in: list) == "com.apple.Safari")
+    #expect(TorAppMatcher.match(lineage: ["com.apple.curl", "org.mozilla.firefox", "com.apple.Safari"], in: list)
+            == "org.mozilla.firefox")
+}
+
+@Test func aLineageWithNothingListedMatchesNothing() {
+    #expect(TorAppMatcher.match(lineage: ["com.apple.curl", "com.apple.zsh", "com.apple.Terminal"], in: list) == nil)
+    #expect(TorAppMatcher.match(lineage: [], in: list) == nil)
+}

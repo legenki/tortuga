@@ -63,12 +63,17 @@ macOS 27 the glass takes their clicks. Use `glassCard(cornerRadius:)` from
 ## Real Tor
 
 With Tor on, the apps in the Tor list go through Tor, each on its own
-circuit, along with their helpers (matched by signing identifier + `.`).
-Unlisted apps, and their DNS, go out directly, as do local networks and
-Tortuga's own helper. While Tor isn't ready only listed apps are held back.
-Matching is by the connecting process's signing ID, so a command-line tool
-such as `curl` started from a listed Terminal is not covered. The first list
-is the browsers installed on the Mac.
+circuit, along with their helpers (matched by signing identifier + `.`)
+and their child processes (found through the process tree: when the
+connecting process isn't listed, its parent, grandparent, … up to launchd
+are tried, and the nearest listed one counts). So Firefox's WebRTC, which
+runs in `org.mozilla.plugincontainer`, is Firefox's (its UDP is refused like
+Firefox's own), and `curl` started from a listed Terminal goes through Tor
+on Terminal's circuit. Unlisted apps, and their DNS, go out directly, as do
+local networks and Tortuga's own helper. While Tor isn't ready only listed
+apps are held back. Processes macOS starts for an app through launchd (XPC
+services) have launchd as their parent and count only by their own signing
+ID. The first list is the browsers installed on the Mac.
 
 It needs your team's signing (`Local.xcconfig`, from `Local.xcconfig.example`)
 and the app in /Applications:
