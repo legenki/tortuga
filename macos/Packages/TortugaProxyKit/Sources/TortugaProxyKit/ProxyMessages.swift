@@ -6,17 +6,17 @@ import TortugaKit
 public struct ProxyConfiguration: Codable, Sendable, Equatable {
     public var bridge: BridgeKind?
     public var lines: [BridgeKind: [String]]
-    /// Signing identifiers of excepted apps.
-    public var exceptions: [String]
+    /// Signing identifiers of the apps that go through Tor.
+    public var torApps: [String]
     /// tortuga-helper in the app's copy of the extension (spike Q5).
     public var helperPath: String
     /// pt/ (lyrebird, pt_config.json) next to it.
     public var ptDir: String
 
-    public init(bridge: BridgeKind?, lines: [BridgeKind: [String]], exceptions: [String], helperPath: String, ptDir: String) {
+    public init(bridge: BridgeKind?, lines: [BridgeKind: [String]], torApps: [String], helperPath: String, ptDir: String) {
         self.bridge = bridge
         self.lines = lines
-        self.exceptions = exceptions
+        self.torApps = torApps
         self.helperPath = helperPath
         self.ptDir = ptDir
     }

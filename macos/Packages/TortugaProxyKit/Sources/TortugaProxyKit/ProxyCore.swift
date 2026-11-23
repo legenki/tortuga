@@ -241,7 +241,7 @@ public actor ProxyCore {
 
     private func publishRoutes() {
         routes.update(state: RouterState(torReady: socksPort != nil && state.status == .on,
-                                         exceptions: Set(config?.exceptions ?? []),
+                                         torApps: Set(config?.torApps ?? []),
                                          own: Self.ownIDs),
                       socksPort: socksPort)
     }

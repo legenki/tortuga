@@ -4,7 +4,7 @@ import TortugaKit
 @testable import TortugaProxyKit
 
 let sampleConfig = ProxyConfiguration(bridge: .snowflake, lines: [.obfs4: ["Bridge obfs4 x"]],
-                                      exceptions: ["com.apple.mail"], helperPath: "/A/helper", ptDir: "/A/pt")
+                                      torApps: ["com.apple.Safari"], helperPath: "/A/helper", ptDir: "/A/pt")
 
 @Test func configurationTravelsInTheProviderConfiguration() throws {
     let dictionary = try sampleConfig.providerConfiguration()
@@ -31,7 +31,7 @@ let sampleConfig = ProxyConfiguration(bridge: .snowflake, lines: [.obfs4: ["Brid
     #expect(table.snapshot().socksPort == nil)
     #expect(table.snapshot().state.torReady == false)
     #expect(table.snapshot().state.own == ProxyCore.ownIDs)
-    table.update(state: RouterState(torReady: true, exceptions: ["x"], own: ProxyCore.ownIDs), socksPort: 9150)
+    table.update(state: RouterState(torReady: true, torApps: ["x"], own: ProxyCore.ownIDs), socksPort: 9150)
     #expect(table.snapshot().socksPort == 9150)
-    #expect(table.snapshot().state.exceptions == ["x"])
+    #expect(table.snapshot().state.torApps == ["x"])
 }

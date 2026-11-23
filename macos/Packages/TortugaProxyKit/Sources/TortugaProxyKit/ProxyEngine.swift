@@ -201,7 +201,7 @@ public actor ProxyEngine: TortugaEngine {
     // MARK: Helpers
 
     private func configuration() -> ProxyConfiguration {
-        ProxyConfiguration(bridge: settings.bridge, lines: settings.lines, exceptions: [],
+        ProxyConfiguration(bridge: settings.bridge, lines: settings.lines, torApps: (settings.torApps ?? []).map(\.id),
                            helperPath: control.helperPaths.helper, ptDir: control.helperPaths.pt)
     }
 

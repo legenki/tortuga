@@ -44,7 +44,7 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         let snapshot = core.routes.snapshot()
         #expect(snapshot.state.torReady)
         #expect(snapshot.socksPort == 40000)
-        #expect(snapshot.state.exceptions == ["com.apple.mail"])
+        #expect(snapshot.state.torApps == ["com.apple.Safari"])
         let start = try #require(launcher.transports[0].requests.first { $0["type"] as? String == "tor.start" })
         let bridge = (start["payload"] as? [String: Any])?["bridge"] as? [String: Any]
         #expect(bridge?["kind"] as? String == "snowflake")

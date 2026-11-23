@@ -20,7 +20,13 @@ private func flow(app: String = "com.apple.Safari", host: String? = "example.com
     FlowInfo(app: app, remoteHost: host, remoteIP: ip, port: port, isUDP: udp)
 }
 
-private let ready = RouterState(torReady: true, exceptions: ["com.apple.mail"], own: ["org.tortuga.helper"])
+private let ready = RouterState(torReady: true, torApps: ["com.apple.Safari", "com.google.Chrome"],
+                                own: ["org.tortuga.helper"])
+
+@Test func aHelperUsesItsAppsCircuit() {
+    #expect(FlowRouter.decide(flow(app: "com.google.Chrome.helper"), ready, names: NameCache(), now: t0)
+            == .tor(host: "example.com", port: 443, isolation: "com.google.Chrome"))
+}
 
 @Test func byNameThroughTorIsolatedByApp() {
     #expect(FlowRouter.decide(flow(), ready, names: NameCache(), now: t0)
@@ -39,20 +45,24 @@ private let ready = RouterState(torReady: true, exceptions: ["com.apple.mail"], 
             == .tor(host: "93.184.215.14", port: 443, isolation: "com.apple.Safari"))
 }
 
-@Test func exceptedOwnAndLocalGoDirect() {
-    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), ready, names: NameCache(), now: t0) == .direct)
+@Test func unlistedAppsGoDirect() {
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), ready, names: NameCache(), now: t0) == .unlisted)
+}
+
+@Test func ownAndLocalGoDirect() {
     #expect(FlowRouter.decide(flow(app: "org.tortuga.helper"), ready, names: NameCache(), now: t0) == .direct)
     #expect(FlowRouter.decide(flow(host: "printer.local", ip: "192.168.1.20"), ready, names: NameCache(), now: t0) == .direct)
 }
 
-@Test func nothingGoesOutWhileTorIsntReady() {
-    let notReady = RouterState(torReady: false, exceptions: [], own: [])
+@Test func onlyListedAppsWaitForTor() {
+    let notReady = RouterState(torReady: false, torApps: ["com.apple.Safari"], own: [])
     #expect(FlowRouter.decide(flow(), notReady, names: NameCache(), now: t0) == .refuse)
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), notReady, names: NameCache(), now: t0) == .unlisted)
     #expect(FlowRouter.decide(flow(host: "router.lan", ip: "192.168.1.1"), notReady, names: NameCache(), now: t0) == .direct)
 }
 
-@Test func udpIsClosed() {
-    #expect(FlowRouter.decide(flow(port: 443, udp: true), ready, names: NameCache(), now: t0) == .refuse)
+@Test func udpFromAListedAppIsRefused() {
+    #expect(FlowRouter.decide(flow(udp: true), ready, names: NameCache(), now: t0) == .refuse)
 }
 
 @Test func namesExpireAndTheCacheStaysSmall() {

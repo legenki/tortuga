@@ -4,8 +4,8 @@ import NetworkExtension
 import TortugaProxyKit
 
 /// Every TCP and UDP flow off this Mac, except local networks (excluded in
-/// the settings): to Tor by the app's own circuit, straight out for
-/// exceptions and our own programs, or closed.
+/// the settings): to Tor by the app's own circuit for the apps in the Tor list,
+/// straight out for the rest and our own programs, or closed.
 final class TransparentProxy: NETransparentProxyProvider {
     /// Loopback, private, link-local, multicast: never offered to us.
     static let localNetworks: [(String, Int)] = [
@@ -60,10 +60,10 @@ final class TransparentProxy: NETransparentProxyProvider {
         let info = FlowInfo(app: flow.metaData.sourceAppSigningIdentifier, remoteHost: flow.remoteHostname,
                             remoteIP: ip, port: port, isUDP: flow is NEAppProxyUDPFlow)
         let decision = FlowRouter.decide(info, snapshot.state, names: Shared.names)
-        let kind: String = switch decision { case .direct: "direct"; case .refuse: "refuse"; case .tor: "tor" }
+        let kind: String = switch decision { case .direct: "direct"; case .unlisted: "unlisted"; case .refuse: "refuse"; case .tor: "tor" }
         proxyLog.notice("flow \(info.isUDP ? "udp" : "tcp", privacy: .public) from \(info.app, privacy: .public): \(kind, privacy: .public), by name: \(info.remoteHost != nil)")
         switch decision {
-        case .direct:
+        case .direct, .unlisted:
             return false
         case .refuse:
             Self.refuse(flow)

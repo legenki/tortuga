@@ -119,6 +119,7 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
             return
         }
         #expect(config.bridge == nil)
+        #expect(config.torApps == ["com.apple.Safari"])
         #expect(await engine.current.torApps == [AppID("com.apple.Safari")])
         try await engine.removeTorApp(AppID("com.apple.Safari"))
         #expect(store.load().torApps == [])

@@ -1,7 +1,7 @@
 import Synchronization
 
 /// What the providers read for every flow, synchronously: whether Tor is
-/// ready, the exceptions, our own programs, and the helper's SOCKS port.
+/// ready, the Tor list, our own programs, and the helper's SOCKS port.
 /// `ProxyCore` keeps it current.
 public final class RouteTable: Sendable {
     public struct Snapshot: Sendable {
@@ -9,7 +9,7 @@ public final class RouteTable: Sendable {
         public var socksPort: Int?
     }
 
-    private let box = Mutex(Snapshot(state: RouterState(torReady: false, exceptions: [], own: ProxyCore.ownIDs), socksPort: nil))
+    private let box = Mutex(Snapshot(state: RouterState(torReady: false, torApps: [], own: ProxyCore.ownIDs), socksPort: nil))
 
     public init() {}
 

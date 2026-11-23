@@ -1,4 +1,5 @@
 import Foundation
+import TortugaKit
 
 /// A flow as the transparent proxy sees it.
 public struct FlowInfo: Sendable, Equatable {
@@ -22,14 +23,14 @@ public struct FlowInfo: Sendable, Equatable {
 /// What the router needs to know besides the flow.
 public struct RouterState: Sendable, Equatable {
     public var torReady: Bool
-    /// Apps the user excepted.
-    public var exceptions: Set<String>
+    /// Signing identifiers of the apps that go through Tor.
+    public var torApps: Set<String>
     /// The helper and lyrebird: their traffic must never go through Tor.
     public var own: Set<String>
 
-    public init(torReady: Bool, exceptions: Set<String>, own: Set<String>) {
+    public init(torReady: Bool, torApps: Set<String>, own: Set<String>) {
         self.torReady = torReady
-        self.exceptions = exceptions
+        self.torApps = torApps
         self.own = own
     }
 }
@@ -37,6 +38,8 @@ public struct RouterState: Sendable, Equatable {
 public enum FlowDecision: Sendable, Equatable {
     /// Let macOS send it as usual.
     case direct
+    /// Let macOS send it as usual: the app isn't in the Tor list.
+    case unlisted
     /// Close it: Tor isn't ready, or it's UDP.
     case refuse
     /// Through the helper's SOCKS port, isolated by `isolation`.
@@ -45,12 +48,12 @@ public enum FlowDecision: Sendable, Equatable {
 
 public enum FlowRouter {
     public static func decide(_ flow: FlowInfo, _ state: RouterState, names: NameCache, now: Date = .now) -> FlowDecision {
-        if state.own.contains(flow.app) || state.exceptions.contains(flow.app) || LocalAddress.isLocal(flow.remoteIP) {
-            return .direct
-        }
+        if state.own.contains(flow.app) || LocalAddress.isLocal(flow.remoteIP) { return .direct }
+        guard let listed = TorAppMatcher.match(flow.app, in: state.torApps) else { return .unlisted }
         if flow.isUDP || !state.torReady { return .refuse }
         let byName = flow.remoteHost.flatMap { $0.isEmpty ? nil : $0 }
         let host = byName ?? names.name(for: flow.remoteIP, now: now) ?? flow.remoteIP
-        return .tor(host: host, port: flow.port, isolation: flow.app)
+        // The listed ID, not the helper's: an app and its helpers share a circuit.
+        return .tor(host: host, port: flow.port, isolation: listed)
     }
 }
