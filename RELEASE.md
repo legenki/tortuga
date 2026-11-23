@@ -64,7 +64,8 @@ Set the repository variable `DEB_MAINTAINER` ("Name <email>") for the .deb.
 
 1. Bump the version in `helper/tortuga-helper/Cargo.toml`,
    `extension/package.json`, `extension/manifest.json`,
-   `extension/manifest.firefox.json`; commit.
+   `extension/manifest.firefox.json`, and both `CFBundleShortVersionString`
+   lines in `macos/project.yml` (the app and its system extension); commit.
 2. Tag and push: `git tag v<version> && git push origin main v<version>`.
 3. CI publishes the release with `Tortuga-Helper-<v>-macos.pkg`,
    `tortuga-helper_<v>_amd64.deb`, `tortuga-helper_<v>_arm64.deb`,
