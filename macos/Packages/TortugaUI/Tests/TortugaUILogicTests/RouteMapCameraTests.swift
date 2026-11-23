@@ -12,6 +12,7 @@ private let route: MapRoute = {
     s.trunk = Trunk(guardRelay: relay("DE"))
     s.apps = [AppRoute(app: AppID("a"), middle: relay("FR"), exit: relay("SE"), connections: 1, lastActive: .now),
               AppRoute(app: AppID("b"), middle: relay("NL"), exit: relay("JP"), connections: 1, lastActive: .now)]
+    s.torApps = s.apps.map(\.app)
     return MapRoute(state: s, region: "AT")
 }()
 

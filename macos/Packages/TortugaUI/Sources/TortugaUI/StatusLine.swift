@@ -51,7 +51,7 @@ struct StatusLine: View {
     /// " · 3 apps" while Tor is on and apps are using it, for the menu.
     private func appCount(_ state: EngineState) -> String {
         guard showsAppCount, state.status == .on else { return "" }
-        let n = RouteList(apps: state.apps, exceptions: state.exceptions, now: .now).active.count
+        let n = RouteList(apps: state.apps, torApps: state.torApps, now: .now).active.count
         return n == 0 ? "" : n == 1 ? " · 1 app" : " · \(n) apps"
     }
 }

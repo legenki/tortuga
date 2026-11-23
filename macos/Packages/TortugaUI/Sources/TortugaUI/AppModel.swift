@@ -6,7 +6,7 @@ import TortugaKit
 @MainActor @Observable
 public final class AppModel {
     public enum Control: Hashable, Sendable {
-        case mode, restart, circuit, bridges, fetch, exceptions
+        case mode, restart, circuit, bridges, fetch, apps
     }
 
     public private(set) var state = EngineState.initial
@@ -42,6 +42,17 @@ public final class AppModel {
         } catch {
             errors[control] = error.localizedDescription
         }
+    }
+
+    /// Send an app through Tor; it becomes the selected row.
+    public func addTorApp(_ app: AppID) async {
+        expandedApp = app.id
+        await perform(.apps) { try await $0.addTorApp(app) }
+    }
+
+    public func removeTorApp(_ app: AppID) async {
+        if expandedApp == app.id { expandedApp = nil }
+        await perform(.apps) { try await $0.removeTorApp(app) }
     }
 
     /// Lines from bridges.torproject.org, or nil with the error under `.fetch`.

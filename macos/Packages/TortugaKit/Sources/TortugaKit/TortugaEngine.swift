@@ -14,8 +14,10 @@ public protocol TortugaEngine: AnyObject, Sendable {
     func saveBridgeLines(_ lines: [String], for kind: BridgeKind) async throws
     /// Lines from bridges.torproject.org (Moat).
     func fetchBridgeLines(_ kind: BridgeKind) async throws -> [String]
-    func addException(_ app: AppID) async throws
-    func removeException(_ app: AppID) async throws
+    /// Send an app through Tor from its next connection.
+    func addTorApp(_ app: AppID) async throws
+    /// The app connects directly again.
+    func removeTorApp(_ app: AppID) async throws
 }
 
 /// An engine's refusal, in words to show the user as they are.

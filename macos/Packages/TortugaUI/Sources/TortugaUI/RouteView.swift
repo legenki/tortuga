@@ -1,14 +1,14 @@
 import SwiftUI
 import TortugaKit
 
-/// The shared trunk, then a row per app: active first, idle folded, excepted last.
+/// The shared trunk, then a row per app: active first, idle folded, waiting last.
 struct RouteView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
         let state = model.state
-        let list = RouteList(apps: state.apps, exceptions: state.exceptions, now: .now)
+        let list = RouteList(apps: state.apps, torApps: state.torApps, now: .now)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 StatusLine()
@@ -41,8 +41,7 @@ struct RouteView: View {
                         .padding(.top, 8)
                     }
                 }
-                ForEach(list.excepted) { ExceptedRow(app: $0) }
-                if let error = model.errors[.circuit] ?? model.errors[.exceptions] {
+                if let error = model.errors[.circuit] ?? model.errors[.apps] {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
             }
@@ -117,7 +116,7 @@ struct AppRow: View {
                 HStack {
                     Button("New circuit", action: newCircuit)
                         .accessibilityIdentifier("circuit.\(route.id)")
-                    Button("Exclude from Tor", action: exclude)
+                    Button("Remove from Tortuga", action: exclude)
                         .accessibilityIdentifier("exclude.\(route.id)")
                 }
                 .buttonStyle(.glass)
@@ -130,7 +129,7 @@ struct AppRow: View {
         .glassCard(cornerRadius: 18)
         .contextMenu {
             Button("New circuit", action: newCircuit)
-            Button("Exclude from Tor", action: exclude)
+            Button("Remove from Tortuga", action: exclude)
         }
     }
 
@@ -145,23 +144,6 @@ struct AppRow: View {
 
     private func exclude() {
         let app = route.app
-        Task { await model.perform(.exceptions) { try await $0.addException(app) } }
-    }
-}
-
-/// An excepted app at the end of the Route list: dimmed, marked direct.
-struct ExceptedRow: View {
-    let app: AppID
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(nsImage: AppInfo.icon(app)).resizable().frame(width: 24, height: 24)
-            Text(AppInfo.name(app)).font(.body.weight(.semibold))
-            Spacer()
-            Text("direct").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .opacity(0.6)
-        .glassCard(cornerRadius: 18)
+        Task { await model.removeTorApp(app) }
     }
 }

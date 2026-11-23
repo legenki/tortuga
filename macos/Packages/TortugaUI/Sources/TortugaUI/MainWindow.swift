@@ -2,7 +2,7 @@ import SwiftUI
 import TortugaKit
 
 public enum SidebarSection: String, CaseIterable, Identifiable, Sendable {
-    case route, bridges, exceptions
+    case route, bridges
 
     public var id: String { rawValue }
 
@@ -10,7 +10,6 @@ public enum SidebarSection: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .route: "Route"
         case .bridges: "Bridges"
-        case .exceptions: "Exceptions"
         }
     }
 
@@ -18,7 +17,6 @@ public enum SidebarSection: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .route: "point.topleft.down.to.point.bottomright.curvepath"
         case .bridges: "road.lanes"
-        case .exceptions: "arrow.uturn.right"
         }
     }
 }
@@ -49,7 +47,6 @@ public struct MainWindow: View {
             switch model.section {
             case .route: RouteView()
             case .bridges: BridgesView()
-            case .exceptions: ExceptionsView()
             }
         }
         .toolbar {

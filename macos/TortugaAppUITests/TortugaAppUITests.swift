@@ -85,23 +85,6 @@ final class TortugaAppUITests: XCTestCase {
         waitFor(element(app, "status"), labelContaining: "Tor on")
     }
 
-    func testAnExceptionCanBeAddedAndRemoved() {
-        let app = launch("normal")
-        press(app, "mode.tor")
-        let row = element(app, "route.row.com.apple.Safari")
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
-        waitForAllApps(app)
-        row.click()
-        press(app, "exclude.com.apple.Safari")
-        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
-        press(app, "sidebar.exceptions")
-        let entry = element(app, "exception.com.apple.Safari")
-        XCTAssertTrue(entry.waitForExistence(timeout: 5))
-        snap(app, "exceptions")
-        press(app, "remove.com.apple.Safari")
-        XCTAssertTrue(entry.waitForNonExistence(timeout: 5))
-    }
-
     func testABadObfs4LineIsMarkedAndAGoodOneSaved() {
         let app = launch("normal")
         press(app, "sidebar.bridges")

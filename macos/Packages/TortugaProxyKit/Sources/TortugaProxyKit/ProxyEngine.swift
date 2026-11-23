@@ -46,7 +46,7 @@ public actor ProxyEngine: TortugaEngine {
         var state = EngineState()
         state.mode = settings.mode
         state.bridges = BridgeSettings(selected: settings.bridge, lines: settings.lines)
-        state.exceptions = settings.exceptions
+        state.torApps = settings.torApps ?? []
         if link != nil {
             state.status = remote.status
             state.trunk = remote.trunk
@@ -111,16 +111,18 @@ public actor ProxyEngine: TortugaEngine {
         }
     }
 
-    public func addException(_ app: AppID) async throws {
-        if !settings.exceptions.contains(app) { settings.exceptions.append(app) }
+    public func addTorApp(_ app: AppID) async throws {
+        var list = settings.torApps ?? []
+        guard !list.contains(app) else { return }
+        list.append(app)
+        settings.torApps = list
         try await settingsChanged()
     }
 
-    public func removeException(_ app: AppID) async throws {
-        settings.exceptions.removeAll { $0 == app }
+    public func removeTorApp(_ app: AppID) async throws {
+        settings.torApps?.removeAll { $0 == app }
         try await settingsChanged()
     }
-
 
     // MARK: On and off
 
@@ -189,7 +191,7 @@ public actor ProxyEngine: TortugaEngine {
     // MARK: Helpers
 
     private func configuration() -> ProxyConfiguration {
-        ProxyConfiguration(bridge: settings.bridge, lines: settings.lines, exceptions: settings.exceptions.map(\.id),
+        ProxyConfiguration(bridge: settings.bridge, lines: settings.lines, exceptions: [],
                            helperPath: control.helperPaths.helper, ptDir: control.helperPaths.pt)
     }
 

@@ -106,18 +106,22 @@ private let safari = AppID("com.apple.Safari")
         await #expect(throws: EngineError("bridges.torproject.org says none are needed here")) { try await fetch.value }
     }
 
-    @Test func exceptingAnAppDropsItsRouteAndKeepsItOut() async throws {
+    @Test func removingAnAppDropsItsRouteAndKeepsItOut() async throws {
         let engine = makeEngine()
         try await engine.setMode(.tor)
         await engine.advance(by: .seconds(4))   // on
         await engine.advance(by: .seconds(1))   // Safari arrives
-        try await engine.addException(safari)
+        try await engine.removeTorApp(safari)
         #expect(await engine.current.apps.isEmpty)
-        #expect(await engine.current.exceptions.contains(safari))
+        #expect(await !engine.current.torApps.contains(safari))
+        #expect(await engine.current.seenDirect.first == safari)
         await engine.advance(by: .seconds(10))
-        #expect(await engine.current.apps.map(\.app.id) == ["ru.keepcoder.Telegram", "com.tinyspeck.slackmacgap", "com.apple.Music"])
-        try await engine.removeException(safari)
-        #expect(await !engine.current.exceptions.contains(safari))
+        #expect(await engine.current.apps.map(\.app.id) == ["ru.keepcoder.Telegram", "org.mozilla.firefox"])
+        try await engine.addTorApp(safari)
+        #expect(await engine.current.torApps.last == safari)
+        #expect(await !engine.current.seenDirect.contains(safari))
+        await engine.advance(by: .seconds(1))
+        #expect(await engine.current.apps.contains { $0.app == safari })
     }
 
     @Test func manyAppsShowsThirtyHalfOfThemIdle() async throws {
@@ -126,7 +130,7 @@ private let safari = AppID("com.apple.Safari")
         await engine.advance(by: .seconds(4))
         let s = await engine.current
         #expect(s.apps.count == 30)
-        let list = RouteList(apps: s.apps, exceptions: s.exceptions, now: t0.addingTimeInterval(4))
+        let list = RouteList(apps: s.apps, torApps: s.torApps, now: t0.addingTimeInterval(4))
         #expect(list.active.count == 15)
         #expect(list.idle.count == 15)
     }

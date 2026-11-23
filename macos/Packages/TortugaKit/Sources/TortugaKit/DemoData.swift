@@ -7,16 +7,27 @@ enum DemoData {
                             "CalyxInstitute", "emeraldonion", "nothingtohide", "Tortilla", "Spigot", "Hydra",
                             "Unnamed", "boldsuck"]
 
-    /// Apps that connect one by one in the normal scenario.
+    /// The Tor list in the demo: three browsers and Telegram.
+    static let torApps = [
+        AppID("com.apple.Safari", name: "Safari"),
+        AppID("org.mozilla.firefox", name: "Firefox"),
+        AppID("com.google.Chrome", name: "Google Chrome"),
+        AppID("ru.keepcoder.Telegram", name: "Telegram"),
+    ]
+
+    /// Listed apps that connect one by one in the normal scenario. Chrome
+    /// never does: it shows as waiting.
     static let normalApps = [
         AppID("com.apple.Safari", name: "Safari"),
         AppID("ru.keepcoder.Telegram", name: "Telegram"),
+        AppID("org.mozilla.firefox", name: "Firefox"),
+    ]
+
+    /// Unlisted apps seen going direct in the normal scenario.
+    static let direct = [
         AppID("com.tinyspeck.slackmacgap", name: "Slack"),
         AppID("com.apple.Music", name: "Music"),
     ]
-
-    /// Excepted from the start in the normal scenario.
-    static let mail = AppID("com.apple.mail", name: "Mail")
 
     static let manyApps = [
         AppID("com.apple.Safari", name: "Safari"),

@@ -121,7 +121,11 @@ public struct EngineState: Sendable, Equatable, Codable {
     public var trunk = Trunk()
     public var apps: [AppRoute] = []
     public var bridges = BridgeSettings()
-    public var exceptions: [AppID] = []
+    /// The apps that go through Tor, in the order the user sees them.
+    public var torApps: [AppID] = []
+    /// Apps whose connections went directly in the last hour (they aren't
+    /// listed), most recent first.
+    public var seenDirect: [AppID] = []
 
     public init() {}
 

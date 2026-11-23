@@ -110,17 +110,29 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         let store = MemoryStore()
         let engine = ProxyEngine(control: control, store: store)
         try await engine.setMode(.tor)
-        try await engine.addException(AppID("com.apple.mail"))
+        try await engine.addTorApp(AppID("com.apple.Safari"))
         try await engine.selectBridge(nil)
-        #expect(store.load().exceptions == [AppID("com.apple.mail")])
+        #expect(store.load().torApps == [AppID("com.apple.Safari")])
         #expect(store.load().bridge == nil)
         guard case .configure(let config) = control.link.commands.last else {
             Issue.record("no configure")
             return
         }
-        #expect(config.exceptions == ["com.apple.mail"])
         #expect(config.bridge == nil)
-        #expect(await engine.current.exceptions == [AppID("com.apple.mail")])
+        #expect(await engine.current.torApps == [AppID("com.apple.Safari")])
+        try await engine.removeTorApp(AppID("com.apple.Safari"))
+        #expect(store.load().torApps == [])
+    }
+
+    @Test func oldSettingsStillDecode() throws {
+        let old = #"{"mode":"tor","bridge":null,"lines":[],"exceptions":[{"id":"com.apple.mail"}]}"#
+        let settings = try JSONDecoder().decode(StoredSettings.self, from: Data(old.utf8))
+        #expect(settings.mode == .tor)
+        #expect(settings.bridge == nil)
+        #expect(settings.torApps == nil)
+        #expect(settings.legacyExceptions == [AppID("com.apple.mail")])
+        let written = String(decoding: try JSONEncoder().encode(settings), as: UTF8.self)
+        #expect(!written.contains("exceptions"))
     }
 
     @Test func badBridgeLinesAreRefused() async {

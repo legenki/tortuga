@@ -10,6 +10,7 @@ import TortugaKit
                        middle: Relay(nickname: "m", country: "FR", address: "192.0.2.2"),
                        exit: Relay(nickname: "e", country: "SE", address: "192.0.2.3"),
                        connections: 2, lastActive: .now)]
+    s.torApps = s.apps.map(\.app)
     #expect(RouteSummary.text(for: s, name: { $0.name ?? $0.id }) == "Safari: Germany, France, Sweden")
 }
 

@@ -56,8 +56,8 @@ public struct MenuPanel: View {
                         Text("Exit \(route.exit.address) · \(route.exit.country)")
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
-                    } else if state.exceptions.contains(app) {
-                        Text("Connects directly: it's an exception.").font(.caption).foregroundStyle(.secondary)
+                    } else if !state.torApps.contains(app) {
+                        Text("Connects directly: it isn't in Tortuga.").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Text("No traffic from \(AppInfo.name(app)) yet.").font(.caption).foregroundStyle(.secondary)
                     }

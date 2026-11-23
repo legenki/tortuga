@@ -12,7 +12,8 @@ import Testing
                            exit: Relay(nickname: "e", country: "SE", address: "3.3.3.3"),
                            connections: 2, lastActive: Date(timeIntervalSince1970: 1_800_000_000))]
     state.bridges = BridgeSettings(selected: .obfs4, lines: [.obfs4: ["Bridge obfs4 x"]])
-    state.exceptions = [AppID("com.apple.mail")]
+    state.torApps = [AppID("com.apple.Safari")]
+    state.seenDirect = [AppID("com.apple.mail")]
     let data = try JSONEncoder().encode(state)
     #expect(try JSONDecoder().decode(EngineState.self, from: data) == state)
 }

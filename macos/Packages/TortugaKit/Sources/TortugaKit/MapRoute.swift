@@ -1,7 +1,7 @@
 import Foundation
 
 /// What the route map draws for a state: the trunk from this Mac to the guard,
-/// and each routed app's tail through its middle to its exit. Places come from
+/// and each listed app's tail through its middle to its exit. Places come from
 /// the countries Tor reports; a country the map doesn't know is skipped.
 /// Outside Tor mode there are no routes: everything is empty and the whole
 /// world shows.
@@ -58,7 +58,7 @@ public struct MapRoute: Sendable, Equatable {
         }
 
         tails = state.apps
-            .filter { !state.exceptions.contains($0.app) }
+            .filter { state.torApps.contains($0.app) }
             .sorted { $0.app.id < $1.app.id }
             .map { route in
                 let middle = place(route.middle.country)

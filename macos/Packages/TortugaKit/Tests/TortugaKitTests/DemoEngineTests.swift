@@ -14,7 +14,8 @@ func makeEngine(_ scenario: Scenario = .normal) -> DemoEngine {
         #expect(s.mode == .direct)
         #expect(s.status == .off)
         #expect(s.bridges.selected == .snowflake)
-        #expect(s.exceptions == [DemoData.mail])
+        #expect(s.torApps == DemoData.torApps)
+        #expect(s.seenDirect == DemoData.direct)
     }
 
     @Test func streamStartsWithTheCurrentState() async throws {
@@ -37,7 +38,7 @@ func makeEngine(_ scenario: Scenario = .normal) -> DemoEngine {
         await engine.advance(by: .seconds(1))
         #expect(await engine.current.apps.map(\.app.id) == ["com.apple.Safari"])
         await engine.advance(by: .seconds(5))
-        #expect(await engine.current.apps.count == 4)
+        #expect(await engine.current.apps.count == 3)
     }
 
     @Test func directStopsEverything() async throws {
