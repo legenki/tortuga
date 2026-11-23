@@ -22,16 +22,6 @@ extension Color {
 }
 
 extension Status {
-    func text(bridge: BridgeKind?) -> String {
-        switch self {
-        case .off: "Direct — not using Tor"
-        case .starting(let step, let progress): "Connecting… \(Int(progress * 100))% · \(step)"
-        case .on: bridge.map { "Tor on via \($0.title)" } ?? "Tor on"
-        case .blocked(let reason): "\(reason) — traffic is blocked"
-        case .failed(let reason): reason
-        }
-    }
-
     var color: Color {
         switch self {
         case .off: .secondary

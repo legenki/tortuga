@@ -35,12 +35,3 @@ func waitUntil(_ condition: () -> Bool) async throws {
         try await waitUntil { model.state.mode == .direct }
     }
 }
-
-@Test func statusTexts() {
-    #expect(Status.on.text(bridge: .snowflake) == "Tor on via Snowflake")
-    #expect(Status.on.text(bridge: nil) == "Tor on")
-    #expect(Status.off.text(bridge: nil) == "Direct — not using Tor")
-    #expect(Status.starting(step: "Building circuits", progress: 0.45).text(bridge: nil) == "Connecting… 45% · Building circuits")
-    #expect(Status.blocked(reason: "Tor stopped").text(bridge: nil) == "Tor stopped — traffic is blocked")
-    #expect(Status.failed(reason: "Snowflake can't reach its broker").text(bridge: .snowflake) == "Snowflake can't reach its broker")
-}

@@ -40,9 +40,9 @@ public struct MenuPanel: View {
             HStack {
                 Text("Tortuga").font(.headline)
                 Spacer()
-                ModeSwitch()
+                StatusPill(showsGuard: false)
             }
-            StatusLine(showsAppCount: true)
+            ProblemBanner()
             if let app {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {

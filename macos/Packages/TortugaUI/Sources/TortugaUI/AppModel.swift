@@ -12,7 +12,7 @@ public final class AppModel {
 
     public private(set) var state = EngineState.initial
     public private(set) var errors: [Control: String] = [:]
-    public var section: SidebarSection = .route
+    public var section: WindowSection = .route
     /// The Route row that's open, by app ID.
     public var expandedApp: String?
     /// The Route row under the pointer, by app ID: its route stands out on the map.

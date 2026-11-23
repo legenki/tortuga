@@ -26,12 +26,12 @@ struct PreviewHost<Content: View>: View {
     PreviewHost(.normal) { MainWindow() }.frame(width: 760, height: 540)
 }
 
-#Preview("Route, many apps") {
-    PreviewHost(.manyApps) { RouteView() }.frame(width: 600, height: 640)
+#Preview("Window, many apps") {
+    PreviewHost(.manyApps) { MainWindow() }.frame(width: 900, height: 640)
 }
 
-#Preview("Route, Tor dies") {
-    PreviewHost(.torDies) { RouteView() }.frame(width: 600, height: 400)
+#Preview("Window, Tor dies") {
+    PreviewHost(.torDies) { MainWindow() }.frame(width: 900, height: 640)
 }
 
 #Preview("Bridges, bridge fails") {

@@ -48,3 +48,16 @@ private let route: MapRoute = {
     c.animatableData = c.animatableData
     #expect(c.latSpan.isFinite && c.latSpan > 0)
 }
+
+@Test func busierExitsPulseFaster() {
+    #expect(RouteMap.pulsePeriod(connections: 0) == 3.2)
+    #expect(abs(RouteMap.pulsePeriod(connections: 12) - 1.0) < 1e-9)
+    #expect(abs(RouteMap.pulsePeriod(connections: 40) - 1.0) < 1e-9)
+    #expect(RouteMap.pulsePeriod(connections: 6) < RouteMap.pulsePeriod(connections: 2))
+}
+
+@Test func trafficFlowsAtTwelvePointsASecond() {
+    #expect(RouteMap.flowPhase(at: 0) == 0)
+    #expect(abs(RouteMap.flowPhase(at: 0.5) - 6) < 1e-9)
+    #expect(abs(RouteMap.flowPhase(at: 1.25) - 3) < 1e-9)
+}

@@ -7,6 +7,7 @@ struct BridgesView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                Text("Bridges").font(.title3.weight(.bold))
                 Text("A bridge hides that you use Tor. Pick one if Tor is blocked where you are.")
                     .foregroundStyle(.secondary)
                 BridgeCard(kind: nil)
@@ -17,7 +18,6 @@ struct BridgesView: View {
             }
             .padding(20)
         }
-        .navigationTitle("Bridges")
     }
 }
 

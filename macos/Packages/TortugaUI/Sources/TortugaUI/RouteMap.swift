@@ -10,6 +10,10 @@ struct RouteMap: View {
     let state: EngineState
     var highlighted: String?
     var focused: String?
+    /// Space kept clear of routes (the app panel and the toolbar cover it).
+    var insets = EdgeInsets(top: 24, leading: 24, bottom: 24, trailing: 24)
+    /// The Bridges card is over the map: dim land, no routes.
+    var dimmed = false
     var region: String? = Locale.current.region?.identifier
     var onSelect: (String) -> Void = { _ in }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -20,7 +24,8 @@ struct RouteMap: View {
         let camera = Self.camera(for: route, focused: focused)
         GeometryReader { geo in
             RouteMapLayer(state: state, route: route, highlighted: highlighted, camera: camera,
-                          size: geo.size, land: land, onSelect: onSelect)
+                          size: geo.size, insets: insets, dimmed: dimmed, moving: !reduceMotion,
+                          land: land, onSelect: onSelect)
         }
         // Owns the camera's animation: a new camera (another app focused, or
         // the routes changed) flies there; the row's own animation is kept
@@ -39,6 +44,18 @@ struct RouteMap: View {
         }
         return MapCamera(fitting: route.places)
     }
+
+    /// How long an active exit's pulse takes: 3.2 s with no connections,
+    /// down to 1 s at twelve or more.
+    static func pulsePeriod(connections: Int) -> Double {
+        3.2 - Double(min(max(connections, 0), 12)) * (2.2 / 12)
+    }
+
+    /// The dash phase of the traffic flow: 12 points a second, repeating
+    /// every dash (3 on, 9 off).
+    static func flowPhase(at seconds: Double) -> Double {
+        (seconds * 12).truncatingRemainder(dividingBy: 12)
+    }
 }
 
 /// The map drawn through one camera. Animatable: SwiftUI interpolates the
@@ -49,6 +66,9 @@ private struct RouteMapLayer: View, Animatable {
     let highlighted: String?
     var camera: MapCamera
     let size: CGSize
+    let insets: EdgeInsets
+    let dimmed: Bool
+    let moving: Bool
     let land: LandCache
     let onSelect: (String) -> Void
 
@@ -60,33 +80,43 @@ private struct RouteMapLayer: View, Animatable {
     private var lit: Bool { state.status == .on }
 
     var body: some View {
-        let projection = MapProjection(camera: camera, in: size, padding: 24)
-        let landPath = land.path(for: projection)
+        let projection = MapProjection(camera: camera, in: size,
+                                       insets: MapInsets(top: insets.top, leading: insets.leading,
+                                                         bottom: insets.bottom, trailing: insets.trailing))
+        let landPath = land.path(for: projection, in: size)
         ZStack {
-            Canvas { context, _ in draw(route, projection, land: landPath, in: &context) }
-            ForEach(route.tails) { tail in
-                if let exit = tail.exit {
-                    let p = projection.point(exit) + AppColor.offset(slot: tail.exitSlot)
-                    Circle().fill(.clear).contentShape(.circle).frame(width: 16, height: 16)
-                        .position(p)
-                        .onTapGesture { onSelect(tail.id) }
-                        .accessibilityHidden(true)
+            TimelineView(.animation(minimumInterval: nil, paused: !moving || !lit || dimmed)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                Canvas { context, _ in draw(route, projection, land: landPath, time: moving ? t : nil, in: &context) }
+            }
+            if !dimmed {
+                ForEach(route.tails) { tail in
+                    if let exit = tail.exit {
+                        let p = projection.point(exit) + AppColor.offset(slot: tail.exitSlot)
+                        Circle().fill(.clear).contentShape(.circle).frame(width: 16, height: 16)
+                            .position(p)
+                            .onTapGesture { onSelect(tail.id) }
+                            .accessibilityHidden(true)
+                    }
                 }
             }
         }
         .frame(width: size.width, height: size.height)
     }
 
-    private func draw(_ route: MapRoute, _ projection: MapProjection, land: Path, in context: inout GraphicsContext) {
-        context.fill(land, with: .color(.secondary.opacity(0.28)))
-        guard state.mode == .tor else { return }
+    private func draw(_ route: MapRoute, _ projection: MapProjection, land: Path, time: Double?, in context: inout GraphicsContext) {
+        context.fill(land, with: .color(.secondary.opacity(dimmed ? 0.14 : 0.28)))
+        guard state.mode == .tor, !dimmed else { return }
+        let flow = time.map { StrokeStyle(lineWidth: 1.4, lineCap: .round, dash: [3, 9], dashPhase: -RouteMap.flowPhase(at: $0)) }
 
         if let mac = route.mac, let guardPlace = route.guardPlace {
             let color: Color = !lit ? .secondary.opacity(0.5) : route.bridge == nil ? .route : .bridge
             let style = route.bridge == .snowflake
                 ? StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [1, 5])
                 : StrokeStyle(lineWidth: 3, lineCap: .round)
-            context.stroke(curve(projection.point(mac), projection.point(guardPlace)), with: .color(color), style: style)
+            let trunk = curve(projection.point(mac), projection.point(guardPlace))
+            context.stroke(trunk, with: .color(color), style: style)
+            if lit, let flow { context.stroke(trunk, with: .color(.white.opacity(0.7)), style: flow) }
         }
 
         for tail in route.tails {
@@ -99,9 +129,22 @@ private struct RouteMapLayer: View, Animatable {
             var path = Path()
             for (a, b) in zip(points, points.dropFirst()) { path.addPath(curve(a, b)) }
             context.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: highlighted == tail.id ? 2.5 : 1.8, lineCap: .round))
+            if lit, highlighted == tail.id, let flow { context.stroke(path, with: .color(.white.opacity(0.7)), style: flow) }
             if let middle { ring(middle, color, 3, in: &context) }
             if let exit {
+                let appRoute = state.apps.first { $0.id == tail.id }
+                if lit, !faded, let time, let appRoute, appRoute.connections > 0 {
+                    let period = RouteMap.pulsePeriod(connections: appRoute.connections)
+                    let f = time.truncatingRemainder(dividingBy: period) / period
+                    let r = 4 + 9 * f
+                    context.fill(Path(ellipseIn: CGRect(x: exit.x - r, y: exit.y - r, width: 2 * r, height: 2 * r)),
+                                 with: .color(color.opacity(0.5 * (1 - f))))
+                }
                 context.fill(Path(ellipseIn: CGRect(x: exit.x - 4, y: exit.y - 4, width: 8, height: 8)), with: .color(color))
+                if lit, highlighted == tail.id, let appRoute {
+                    let label = "\(appRoute.exit.flag) \(RouteSummary.country(appRoute.exit.country))"
+                    context.draw(Text(label).font(.caption.weight(.semibold)), at: CGPoint(x: exit.x + 10, y: exit.y), anchor: .leading)
+                }
             }
         }
 
@@ -111,7 +154,7 @@ private struct RouteMapLayer: View, Animatable {
 
     /// A gentle arc from a to b: the control point is pushed sideways by a
     /// twelfth of the distance, so the arc bulges a twenty-fourth (about 23
-    /// points on a full-width line, inside the 24-point padding).
+    /// points on a full-width line, inside the 24-point insets).
     private func curve(_ a: CGPoint, _ b: CGPoint) -> Path {
         var path = Path()
         path.move(to: a)
@@ -128,22 +171,28 @@ private struct RouteMapLayer: View, Animatable {
     }
 }
 
-/// The land dots as one path, kept for the last projection: hover redraws
-/// the map without rebuilding thousands of ellipses. While the camera flies
-/// every frame has a new projection, so the path is rebuilt each frame.
+/// The land dots as one path, kept for the last projection and size; dots
+/// off screen are skipped. Hover redraws the map without rebuilding
+/// thousands of ellipses. While the camera flies every frame has a new
+/// projection, so the path is rebuilt each frame.
 @MainActor private final class LandCache {
     private var projection: MapProjection?
+    private var size: CGSize = .zero
     private var path = Path()
 
-    func path(for projection: MapProjection) -> Path {
-        if projection != self.projection {
+    func path(for projection: MapProjection, in size: CGSize) -> Path {
+        if projection != self.projection || size != self.size {
+            let r = projection.dotRadius
+            let visible = CGRect(origin: .zero, size: size).insetBy(dx: -r, dy: -r)
             var land = Path()
             for dot in WorldMap.shared.dots {
                 let p = projection.point(dot)
-                land.addEllipse(in: CGRect(x: p.x - 1, y: p.y - 1, width: 2, height: 2))
+                guard visible.contains(p) else { continue }
+                land.addEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
             }
             path = land
             self.projection = projection
+            self.size = size
         }
         return path
     }
