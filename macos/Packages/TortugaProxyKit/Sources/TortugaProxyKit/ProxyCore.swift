@@ -263,7 +263,7 @@ public actor ProxyCore {
 
     private func publishRoutes() {
         routes.update(state: RouterState(torReady: socksPort != nil && state.status == .on,
-                                         torApps: Set(config?.torApps ?? []),
+                                         torApps: config.map { Set($0.torApps) },
                                          own: Self.ownIDs),
                       socksPort: socksPort)
     }

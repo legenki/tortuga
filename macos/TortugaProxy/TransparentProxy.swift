@@ -34,10 +34,11 @@ final class TransparentProxy: NETransparentProxyProvider {
         setTunnelNetworkSettings(settings) { error in
             if let error { proxyLog.error("proxy settings failed: \(error.localizedDescription, privacy: .public)") }
             Task {
+                // Routes know the Tor list before macOS offers the first flow.
                 if let configuration { await Shared.core.configure(configuration) }
+                started.value(error)
                 await Shared.core.start()
             }
-            started.value(error)
         }
     }
 

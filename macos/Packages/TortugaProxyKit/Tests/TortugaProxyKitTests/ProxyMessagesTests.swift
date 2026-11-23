@@ -31,6 +31,7 @@ let sampleConfig = ProxyConfiguration(bridge: .snowflake, lines: [.obfs4: ["Brid
     #expect(table.snapshot().socksPort == nil)
     #expect(table.snapshot().state.torReady == false)
     #expect(table.snapshot().state.own == ProxyCore.ownIDs)
+    #expect(table.snapshot().state.torApps == nil)
     table.update(state: RouterState(torReady: true, torApps: ["x"], own: ProxyCore.ownIDs), socksPort: 9150)
     #expect(table.snapshot().socksPort == 9150)
     #expect(table.snapshot().state.torApps == ["x"])

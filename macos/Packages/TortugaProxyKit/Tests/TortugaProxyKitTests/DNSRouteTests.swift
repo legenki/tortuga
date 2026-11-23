@@ -13,3 +13,9 @@ private let own: Set<String> = ["tortuga-helper", "lyrebird"]
     #expect(DNSRoute.upstream(app: "com.apple.mail", torApps: list, own: own, system: "192.168.1.1") == "192.168.1.1")
     #expect(DNSRoute.upstream(app: "lyrebird", torApps: list, own: own, system: "192.168.1.1") == "192.168.1.1")
 }
+
+@Test func untilTheListArrivesOnlyOwnAskTheSystem() {
+    #expect(DNSRoute.upstream(app: "com.apple.mail", torApps: nil, own: own, system: "192.168.1.1") == nil)
+    #expect(DNSRoute.upstream(app: "com.apple.Safari", torApps: nil, own: own, system: "192.168.1.1") == nil)
+    #expect(DNSRoute.upstream(app: "tortuga-helper", torApps: nil, own: own, system: "192.168.1.1") == "192.168.1.1")
+}

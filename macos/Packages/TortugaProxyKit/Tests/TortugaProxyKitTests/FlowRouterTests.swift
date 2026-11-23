@@ -61,6 +61,14 @@ private let ready = RouterState(torReady: true, torApps: ["com.apple.Safari", "c
     #expect(FlowRouter.decide(flow(host: "router.lan", ip: "192.168.1.1"), notReady, names: NameCache(), now: t0) == .direct)
 }
 
+@Test func nothingButOwnAndLocalGoesOutUntilTheListArrives() {
+    let unconfigured = RouterState(torReady: false, torApps: nil, own: ["org.tortuga.helper"])
+    #expect(FlowRouter.decide(flow(), unconfigured, names: NameCache(), now: t0) == .refuse)
+    #expect(FlowRouter.decide(flow(app: "com.apple.mail"), unconfigured, names: NameCache(), now: t0) == .refuse)
+    #expect(FlowRouter.decide(flow(app: "org.tortuga.helper"), unconfigured, names: NameCache(), now: t0) == .direct)
+    #expect(FlowRouter.decide(flow(host: "printer.local", ip: "192.168.1.20"), unconfigured, names: NameCache(), now: t0) == .direct)
+}
+
 @Test func udpFromAListedAppIsRefused() {
     #expect(FlowRouter.decide(flow(udp: true), ready, names: NameCache(), now: t0) == .refuse)
 }

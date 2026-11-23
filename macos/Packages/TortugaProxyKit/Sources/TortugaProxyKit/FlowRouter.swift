@@ -23,12 +23,14 @@ public struct FlowInfo: Sendable, Equatable {
 /// What the router needs to know besides the flow.
 public struct RouterState: Sendable, Equatable {
     public var torReady: Bool
-    /// Signing identifiers of the apps that go through Tor.
-    public var torApps: Set<String>
+    /// Signing identifiers of the apps that go through Tor; nil until the
+    /// app's settings arrive, when nothing but our own and local traffic
+    /// goes out.
+    public var torApps: Set<String>?
     /// The helper and lyrebird: their traffic must never go through Tor.
     public var own: Set<String>
 
-    public init(torReady: Bool, torApps: Set<String>, own: Set<String>) {
+    public init(torReady: Bool, torApps: Set<String>?, own: Set<String>) {
         self.torReady = torReady
         self.torApps = torApps
         self.own = own
@@ -49,7 +51,8 @@ public enum FlowDecision: Sendable, Equatable {
 public enum FlowRouter {
     public static func decide(_ flow: FlowInfo, _ state: RouterState, names: NameCache, now: Date = .now) -> FlowDecision {
         if state.own.contains(flow.app) || LocalAddress.isLocal(flow.remoteIP) { return .direct }
-        guard let listed = TorAppMatcher.match(flow.app, in: state.torApps) else { return .unlisted }
+        guard let torApps = state.torApps else { return .refuse }
+        guard let listed = TorAppMatcher.match(flow.app, in: torApps) else { return .unlisted }
         if flow.isUDP || !state.torReady { return .refuse }
         let byName = flow.remoteHost.flatMap { $0.isEmpty ? nil : $0 }
         let host = byName ?? names.name(for: flow.remoteIP, now: now) ?? flow.remoteIP
