@@ -1,5 +1,24 @@
 import CoreGraphics
 
+/// Space kept clear around the map's routes, in points.
+public struct MapInsets: Sendable, Equatable {
+    public var top: CGFloat
+    public var leading: CGFloat
+    public var bottom: CGFloat
+    public var trailing: CGFloat
+
+    public init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {
+        self.top = top
+        self.leading = leading
+        self.bottom = bottom
+        self.trailing = trailing
+    }
+
+    public static func uniform(_ value: CGFloat) -> MapInsets {
+        MapInsets(top: value, leading: value, bottom: value, trailing: value)
+    }
+}
+
 /// Equirectangular projection fitted to a camera (or a set of places):
 /// degrees of longitude and latitude are the same length, and the camera's
 /// spans fill the view inside the padding.
@@ -19,19 +38,24 @@ public struct MapProjection: Sendable, Equatable {
     /// Shows at least the camera's spans around its centre, widened to the
     /// view's shape.
     public init(camera: MapCamera, in size: CGSize, padding: CGFloat) {
-        // Padding takes at most half the view; a tiny floor keeps the scale
-        // finite for an empty view.
+        // Padding takes at most half the view.
         let padding = max(0, min(padding, size.width / 2, size.height / 2))
-        let width = max(Double(size.width - 2 * padding), 0.001)
-        let height = max(Double(size.height - 2 * padding), 0.001)
+        self.init(camera: camera, in: size, insets: .uniform(padding))
+    }
+
+    /// The same, inside the rectangle the insets leave (the routes avoid a
+    /// panel over the map). A tiny floor keeps the scale finite.
+    public init(camera: MapCamera, in size: CGSize, insets: MapInsets) {
+        let width = max(Double(size.width - insets.leading - insets.trailing), 0.001)
+        let height = max(Double(size.height - insets.top - insets.bottom), 0.001)
         // Widen to the view's shape around the centre.
         let latSpan = max(camera.latSpan, camera.lonSpan * height / width)
         let lonSpan = max(camera.lonSpan, latSpan * width / height)
         scale = min(width / lonSpan, height / latSpan)
         originLon = camera.centerLon - lonSpan / 2
         originLat = camera.centerLat + latSpan / 2
-        offset = CGPoint(x: padding + (width - lonSpan * scale) / 2,
-                         y: padding + (height - latSpan * scale) / 2)
+        offset = CGPoint(x: insets.leading + (width - lonSpan * scale) / 2,
+                         y: insets.top + (height - latSpan * scale) / 2)
     }
 
     public func point(_ c: Coordinate) -> CGPoint {

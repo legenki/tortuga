@@ -94,3 +94,19 @@ private func expectInside(_ p: MapProjection, _ view: CGSize) {
                                in: CGSize(width: 600, height: 240), padding: 0)
     #expect(abs(middle.dotRadius - 1.8) < 1e-9)
 }
+
+@Test func insetsMoveTheCentreIntoTheFreeSpace() {
+    let camera = MapCamera(centerLon: 10, centerLat: 50, lonSpan: 40, latSpan: 20)
+    let p = MapProjection(camera: camera, in: CGSize(width: 900, height: 600),
+                          insets: MapInsets(top: 60, leading: 300, bottom: 20, trailing: 20))
+    let centre = p.point(Coordinate(lon: 10, lat: 50))
+    #expect(abs(centre.x - (300 + (900 - 320) / 2)) < 1e-9)
+    #expect(abs(centre.y - (60 + (600 - 80) / 2)) < 1e-9)
+}
+
+@Test func uniformInsetsMatchPadding() {
+    let camera = MapCamera(centerLon: 0, centerLat: 0, lonSpan: 60, latSpan: 30)
+    let size = CGSize(width: 600, height: 240)
+    #expect(MapProjection(camera: camera, in: size, insets: .uniform(24))
+            == MapProjection(camera: camera, in: size, padding: 24))
+}
