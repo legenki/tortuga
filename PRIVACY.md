@@ -1,9 +1,9 @@
 # Privacy Policy — Tortuga
 
-_Last updated: 2026-11-05_
+_Last updated: 2026-11-23_
 
 Tortuga ("the extension") is a browser extension for Chrome and Firefox that
-routes your browser through the Tor network and downloads torrents, using the
+routes your browser through the Tor network, using the
 Tortuga helper, a program installed on your computer. This policy explains what
 data the extension and the helper handle and how.
 
@@ -16,20 +16,17 @@ analytics and no server of its own. Your settings stay on your own device.
 ## Data stored locally
 
 The extension saves the following with the browser's local storage
-(`storage.local`, and `localStorage` for the theme and last opened tab):
+(`storage.local`, and `localStorage` for the theme):
 
 - Whether Tor is on, and which bridge you picked
 - obfs4 and WebTunnel bridge lines you fetched or pasted
-- The list of your torrent downloads (name, info hash, progress)
-- Your light or dark theme choice, and which popup tab was open last
+- Your light or dark theme choice
 
 The helper keeps, in its own data folder on your computer:
 
 - Tor's directory cache and state (public information about Tor relays)
-- The state of your torrent downloads, so they can resume after a restart
 
-Downloaded files are saved in `Downloads/Tortuga`. Nothing in this section is
-sent to us.
+Nothing in this section is sent to us.
 
 ## Network connections
 
@@ -41,14 +38,6 @@ sent to us.
 - **bridges.torproject.org**, only when you click **Get obfs4 lines** or
   **Get WebTunnel lines** on the settings page, to fetch bridge addresses. The
   request goes through Tor when Tor is on.
-- **Torrent peers, trackers and the DHT**, directly from your own IP and not
-  through Tor, only while a torrent downloads or shares (a finished download
-  shares until it has uploaded one copy of itself, then stops). Other people in the
-  swarm can see your IP address. Every place a download starts says so.
-- **.torrent links** you choose to download are fetched by the helper, without
-  your browser's cookies. While Tor covers the page the link was on, the link is
-  fetched through Tor, never directly. A magnet link can't be looked up through
-  Tor: while Tor is on, Tortuga asks before looking one up from your own IP.
 
 No other analytics, telemetry, or tracking requests are made.
 
@@ -62,12 +51,8 @@ The extension requests browser permissions only to provide its features:
   turned off
 - **nativeMessaging** — talk to the Tortuga helper on your computer
 - **storage** — save your settings locally
-- **contextMenus** — add "Download with Tortuga" to the menu of links
 - **tabs** (Firefox) — show the route for the site in the current tab
-- **host access to all sites** and the **content script** — route every site
-  through Tor (Firefox), and notice clicks on magnet and .torrent links so
-  Tortuga can ask whether to download them. The content script reads nothing
-  else on the page and sends nothing anywhere.
+- **host access to all sites** (Firefox) — route every site through Tor
 
 ## Data sharing
 

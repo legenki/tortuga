@@ -1,6 +1,6 @@
 // README screenshots, run by `run.sh screenshots`: light theme, Tor on
-// through Snowflake with a site's route, the bridge picker, the confirm
-// window and the Downloads tab. Paths on this Mac are hidden in the shots.
+// through Snowflake with a site's route, the bridge picker and the
+// settings page. Paths on this Mac are hidden in the shots.
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const [, , OUT] = process.argv;
@@ -29,7 +29,7 @@ async function waitFor(pred, ms, what) {
   for (let i = 0; i < ms / 250; i++) { const v = await pred(); if (v) return v; await sleep(250); }
   throw new Error(`timed out: ${what}`);
 }
-// Lay the page out as wide as the real popup (340) or confirm window (440)
+// Lay the page out as wide as the real popup (340) or settings page (760)
 // and clip to its content, below the fold too. SCALE=2 draws it at 2x with CSS
 // zoom: text and SVG are rendered sharp, not stretched.
 const SCALE = Number(process.env.SCALE ?? 1);
@@ -61,7 +61,7 @@ async function openPopup(select) {
 
 // Light theme (localStorage is shared by the extension's pages), then Tor on.
 const setup = await openPopup(true);
-await ev(setup, `localStorage.setItem('tortuga-theme', '${process.env.THEME ?? 'light'}'); localStorage.setItem('tortuga-tab', 'route'); 1`);
+await ev(setup, `localStorage.setItem('tortuga-theme', '${process.env.THEME ?? 'light'}'); 1`);
 await ev(setup, `chrome.runtime.sendMessage({ type: 'SET_BRIDGE', bridge: 'snowflake' }).then(() => { document.getElementById('connTor').click(); return 1; })`);
 const st = () => ev(setup, `chrome.runtime.sendMessage({ type: 'GET_STATE' }).then(s => JSON.stringify(s))`).then(JSON.parse);
 await waitFor(async () => (await st()).phase !== 'connecting', 180000, 'Tor');
@@ -83,30 +83,6 @@ await sleep(500);
 await shot(popup, 'bridges');
 await ev(popup, `document.getElementById('bridgeBtn').click(); 1`);
 
-// Confirm window from a magnet link.
-const { context: page } = await cmd('browsingContext.create', { type: 'tab' });
-await cmd('browsingContext.navigate', { context: page, url: 'http://127.0.0.1:8765/links.html', wait: 'complete' });
-await sleep(500);
-const known = new Set((await contexts()).map(c => c.context));
-await ev(page, `document.getElementById('magnet').click(); 1`);
-const confirmCtx = await waitFor(async () => (await contexts()).find(c => !known.has(c.context) && c.url.includes('confirm.html'))?.context, 10000, 'confirm window');
-await waitFor(() => ev(confirmCtx, `!document.getElementById('details').hidden`), 90000, 'torrent details');
-await ev(confirmCtx, HIDE_PATHS);
-await sleep(300);
-await shot(confirmCtx, 'confirm', 440);
-await ev(confirmCtx, `document.getElementById('download').click(); 1`);
-
-// Downloads tab with the row moving.
-await cmd('browsingContext.activate', { context: popup }).catch(() => {});
-await ev(win, `(gBrowser.selectedTab = window.__t, 1)`);
-await ev(popup, `document.getElementById('tabDownloads').click(); 1`);
-await waitFor(async () => {
-  const d = JSON.parse(await ev(popup, `chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' }).then(d => JSON.stringify(d))`));
-  return d.rows[0] && d.rows[0].state === 'downloading' && d.rows[0].done > 40e6;
-}, 90000, 'download progress');
-await sleep(1500);
-await shot(popup, 'downloads');
-
 // Settings page, with obfs4 lines fetched through the helper.
 const before = new Set((await contexts()).map(c => c.context));
 await ev(win, `(gBrowser.selectedTab = gBrowser.addTrustedTab('moz-extension://${host}/options.html'), 1)`);
@@ -114,11 +90,8 @@ const opts = await waitFor(async () => (await contexts()).find(c => !before.has(
 await sleep(1500);
 await ev(opts, `document.getElementById('getObfs4').click(); 1`);
 await waitFor(() => ev(opts, `document.getElementById('obfs4').value.trim().length > 0`), 90000, 'obfs4 lines').catch(e => log(e.message));
-// The run saves to a temp folder: show the real default instead.
-await ev(opts, `(() => { const p = document.querySelector('#downloads'); if (p && p.textContent.includes('/')) p.textContent = 'Torrents are saved in Downloads/Tortuga.'; return 1; })()`);
 log('helper line:', await ev(opts, `document.getElementById('helper').textContent`));
 await shot(opts, 'settings', 760);
-await ev(popup, `chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' }).then(d => Promise.all(d.rows.map(r => chrome.runtime.sendMessage({ type: 'TORRENT_REMOVE', id: r.id, deleteFiles: true })))).then(() => 1)`).catch(() => {});
 await ev(setup, `localStorage.removeItem('tortuga-theme'); 1`);
 await Promise.race([cmd('session.end', {}).catch(() => {}), sleep(1000)]);
 process.exit(0);

@@ -16,10 +16,6 @@ pub struct Paths {
     pub lyrebird: PathBuf,
     /// The Expert Bundle's `pt_config.json`, for the default Snowflake bridges.
     pub pt_config: PathBuf,
-    /// Where torrents are saved: `TORTUGA_DOWNLOADS`, else `~/Downloads/Tortuga`.
-    pub downloads: PathBuf,
-    /// The torrent list, resumed on the next start.
-    pub torrent_state: PathBuf,
 }
 
 impl Paths {
@@ -27,24 +23,17 @@ impl Paths {
     /// platform's data and cache dirs. Transports under `TORTUGA_PT_DIR` if
     /// set, else `pt/` next to the executable.
     pub fn discover() -> anyhow::Result<Self> {
-        let (state_dir, cache_dir, torrent_state) = match std::env::var_os("TORTUGA_DATA_DIR") {
+        let (state_dir, cache_dir) = match std::env::var_os("TORTUGA_DATA_DIR") {
             Some(d) => {
                 let d = PathBuf::from(d);
-                (d.join("state"), d.join("cache"), d.join("torrents"))
+                (d.join("state"), d.join("cache"))
             }
             None => {
                 let dirs = directories::ProjectDirs::from("org", "Tortuga", "tortuga-helper")
                     .ok_or_else(|| anyhow::anyhow!("no home directory"))?;
-                (dirs.data_dir().join("arti-state"), dirs.cache_dir().join("arti-cache"), dirs.data_dir().join("torrents"))
+                (dirs.data_dir().join("arti-state"), dirs.cache_dir().join("arti-cache"))
             }
         };
-        let user = directories::UserDirs::new();
-        let downloads = downloads_dir(
-            std::env::var_os("TORTUGA_DOWNLOADS").map(PathBuf::from),
-            user.as_ref().and_then(|u| u.download_dir().map(|d| d.to_path_buf())),
-            user.as_ref().map(|u| u.home_dir().to_path_buf()),
-        )
-        .ok_or_else(|| anyhow::anyhow!("no home folder for downloads"))?;
         let pt_dir = match std::env::var_os("TORTUGA_PT_DIR") {
             Some(d) => PathBuf::from(d),
             None => std::env::current_exe()?
@@ -53,22 +42,8 @@ impl Paths {
                 .join("pt"),
         };
         let exe = if cfg!(windows) { "lyrebird.exe" } else { "lyrebird" };
-        Ok(Self {
-            state_dir,
-            cache_dir,
-            lyrebird: pt_dir.join(exe),
-            pt_config: pt_dir.join("pt_config.json"),
-            downloads,
-            torrent_state,
-        })
+        Ok(Self { state_dir, cache_dir, lyrebird: pt_dir.join(exe), pt_config: pt_dir.join("pt_config.json") })
     }
-}
-
-/// Where torrents go: `TORTUGA_DOWNLOADS`, else `Tortuga` in the user's
-/// Downloads folder — `~/Downloads` when the system names none (servers and
-/// containers often don't set XDG user dirs; the helper must still start).
-pub fn downloads_dir(env: Option<PathBuf>, downloads: Option<PathBuf>, home: Option<PathBuf>) -> Option<PathBuf> {
-    env.or_else(|| downloads.or_else(|| home.map(|h| h.join("Downloads"))).map(|d| d.join("Tortuga")))
 }
 
 /// The default Snowflake bridge lines from the Expert Bundle's `pt_config.json`.
@@ -133,8 +108,6 @@ mod tests {
             cache_dir: "/tmp/tortuga-test/cache".into(),
             lyrebird: "/tmp/tortuga-test/pt/lyrebird".into(),
             pt_config: "/tmp/tortuga-test/pt/pt_config.json".into(),
-            downloads: "/tmp/tortuga-test/downloads".into(),
-            torrent_state: "/tmp/tortuga-test/torrents".into(),
         }
     }
 
@@ -163,16 +136,6 @@ mod tests {
     #[test]
     fn bad_line_is_an_error() {
         assert!(tor_config(&choice(BridgeKind::Obfs4, &["Bridge nonsense"]), &paths(), &[]).is_err());
-    }
-
-    #[test]
-    fn downloads_folder_falls_back_to_home() {
-        let some = |s: &str| Some(PathBuf::from(s));
-        assert_eq!(downloads_dir(some("/x"), some("/home/u/Downloads"), some("/home/u")), some("/x"));
-        assert_eq!(downloads_dir(None, some("/home/u/Downloads"), some("/home/u")), some("/home/u/Downloads/Tortuga"));
-        // No XDG download dir (servers, containers): ~/Downloads, not a failure.
-        assert_eq!(downloads_dir(None, None, some("/home/u")), some("/home/u/Downloads/Tortuga"));
-        assert_eq!(downloads_dir(None, None, None), None);
     }
 
     #[test]

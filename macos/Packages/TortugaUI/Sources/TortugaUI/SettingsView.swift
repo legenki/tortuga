@@ -9,7 +9,6 @@ public struct SettingsView: View {
     public var body: some View {
         TabView {
             Tab("General", systemImage: "gearshape") { GeneralSettings() }
-            Tab("Downloads", systemImage: "arrow.down.circle") { DownloadSettings() }
             Tab("About", systemImage: "info.circle") { AboutSettings() }
             #if DEBUG
             Tab("Demo", systemImage: "ladybug") { DemoSettings() }
@@ -43,31 +42,6 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-    }
-}
-
-struct DownloadSettings: View {
-    @AppStorage("downloadsFolder") private var folder =
-        FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads/Tortuga").path
-
-    var body: some View {
-        Form {
-            LabeledContent("Downloads folder") {
-                HStack {
-                    Text(folder).lineLimit(1).truncationMode(.middle)
-                    Button("Choose…", action: choose)
-                }
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private func choose() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.canCreateDirectories = true
-        if panel.runModal() == .OK, let url = panel.url { folder = url.path }
     }
 }
 

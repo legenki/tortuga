@@ -36,10 +36,8 @@ npm run package    # → tortuga-chrome-<version>.zip (dist/ without manifest "k
 | Output | Built from |
 |---|---|
 | `background.js` | `src/background/` |
-| `links.js` | `src/content/links.ts` (catches clicks on torrent links) |
 | `popup.html/js/css` | `src/popup/`, `src/styles/` |
 | `options.html/js/css` | `src/options/` |
-| `confirm.html/js/css` | `src/confirm/` |
 | `theme.js` | `src/lib/theme-boot.ts` |
 | `fonts/` | `public/fonts/` (Twemoji country flags, CC-BY 4.0) |
 | `icons/` | `public/icons/`, rendered from `icons/*.svg` by `scripts/icons.mjs` |

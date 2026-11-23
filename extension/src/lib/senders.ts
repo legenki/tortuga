@@ -1,18 +1,13 @@
 /**
- * Who may send what to the background. Content scripts run in every page and
- * only ever ask to put a torrent link up for confirmation; everything else
- * (Tor on / off, bridges, removing downloads…) comes from Tortuga's own pages.
+ * Who may send messages to the background: only Tortuga's own pages (popup,
+ * settings). Nothing runs in web pages any more, so nothing there may ask.
  */
-export const PAGE_MESSAGES: ReadonlySet<string> = new Set(['TORRENT_OPEN']);
-
 export interface SenderLike {
   id?: string;
   url?: string;
 }
 
 /** `ownId` / `ownUrl`: chrome.runtime.id and chrome.runtime.getURL(''). */
-export function senderAllowed(type: string, sender: SenderLike, ownId: string, ownUrl: string): boolean {
-  if (sender.id !== ownId) return false;
-  if (PAGE_MESSAGES.has(type)) return true;
-  return sender.url !== undefined && sender.url.startsWith(ownUrl);
+export function senderAllowed(sender: SenderLike, ownId: string, ownUrl: string): boolean {
+  return sender.id === ownId && sender.url !== undefined && sender.url.startsWith(ownUrl);
 }

@@ -38,10 +38,6 @@ struct PreviewHost<Content: View>: View {
     PreviewHost(.bridgeFails) { BridgesView() }.frame(width: 600, height: 640)
 }
 
-#Preview("Downloads") {
-    PreviewHost(.normal, tor: false) { DownloadsView() }.frame(width: 600, height: 360)
-}
-
 #Preview("Menu panel") {
     PreviewHost(.normal) { MenuPanel() }
 }

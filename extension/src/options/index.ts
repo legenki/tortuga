@@ -1,7 +1,7 @@
 import { fetchedText, parseLines, type LineKind } from '../lib/bridges';
 import {
   LINES_KEY, NO_LINES,
-  type BgBroadcast, type BgMessage, type BridgeLines, type BridgesMessage, type BridgesResult, type DlMessage, type DownloadsState,
+  type BgBroadcast, type BgMessage, type BridgeLines, type BridgesMessage, type BridgesResult,
 } from '../lib/messages';
 import type { TorState } from '../lib/state';
 import { chooseTheme, chosenTheme, clearTheme } from '../lib/theme';
@@ -15,22 +15,13 @@ function renderHelper(s: TorState): void {
   $('installHelper').hidden = !s.helperMissing;
 }
 
-function renderDownloads(d: DownloadsState): void {
-  if (d.folder) $('downloads').textContent = `Torrents are saved in ${d.folder}.`;
-}
-
 async function showHelper(): Promise<void> {
   renderHelper(await chrome.runtime.sendMessage({ type: 'GET_STATE' } satisfies BgMessage));
 }
 
-async function showDownloads(): Promise<void> {
-  renderDownloads(await chrome.runtime.sendMessage({ type: 'GET_DOWNLOADS' } satisfies DlMessage));
-}
-
-// Keep up with Tor turned on or off, and downloads, while this page is open.
+// Keep up with Tor turned on or off while this page is open.
 chrome.runtime.onMessage.addListener((msg: BgBroadcast) => {
   if (msg.type === 'STATE') renderHelper(msg.state);
-  else if (msg.type === 'DOWNLOADS') renderDownloads(msg.state);
 });
 
 async function loadLines(): Promise<void> {
@@ -104,4 +95,3 @@ for (const id of ['getObfs4', 'getWebtunnel']) {
 initTheme();
 void loadLines();
 void showHelper();
-void showDownloads();

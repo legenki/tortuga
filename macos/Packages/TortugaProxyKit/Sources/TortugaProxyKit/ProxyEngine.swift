@@ -25,7 +25,6 @@ public protocol ExtensionLink: AnyObject, Sendable {
 /// The real engine, on the app's side: the user's settings here, Tor's state
 /// from the extension.
 public actor ProxyEngine: TortugaEngine {
-    public static let downloadsLater = "Downloads come in a later version"
     static let extensionGone = "Tortuga's network extension isn't running"
 
     private let control: any ProxyControl
@@ -48,7 +47,6 @@ public actor ProxyEngine: TortugaEngine {
         state.mode = settings.mode
         state.bridges = BridgeSettings(selected: settings.bridge, lines: settings.lines)
         state.exceptions = settings.exceptions
-        state.downloadsAvailable = false
         if link != nil {
             state.status = remote.status
             state.trunk = remote.trunk
@@ -123,10 +121,6 @@ public actor ProxyEngine: TortugaEngine {
         try await settingsChanged()
     }
 
-    public func addDownload(_ source: DownloadSource) async throws { throw EngineError(Self.downloadsLater) }
-    public func pauseDownload(_ id: Download.ID) async throws { throw EngineError(Self.downloadsLater) }
-    public func resumeDownload(_ id: Download.ID) async throws { throw EngineError(Self.downloadsLater) }
-    public func removeDownload(_ id: Download.ID) async throws { throw EngineError(Self.downloadsLater) }
 
     // MARK: On and off
 

@@ -80,7 +80,6 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         control.link.push(ExtensionState(status: .on, trunk: Trunk(bridge: .snowflake, guardRelay: nil), apps: []))
         try await eventually { await engine.current.status == .on }
         #expect(await engine.current.mode == .tor)
-        #expect(await engine.current.downloadsAvailable == false)
     }
 
     @Test func waitingForApprovalSaysWhatToDo() async throws {
@@ -153,13 +152,6 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         await #expect(throws: EngineError("Tor isn't on")) { try await engine.restart() }
         control.link.reply = .lines(["Bridge obfs4 x"])
         #expect(try await engine.fetchBridgeLines(.obfs4) == ["Bridge obfs4 x"])
-    }
-
-    @Test func downloadsComeLater() async {
-        let engine = ProxyEngine(control: FakeControl(), store: MemoryStore())
-        await #expect(throws: EngineError("Downloads come in a later version")) {
-            try await engine.addDownload(.magnet("magnet:?xt=urn:btih:a"))
-        }
     }
 
     @Test func torComesBackAtLaunchIfItWasOn() async {

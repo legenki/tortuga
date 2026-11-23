@@ -11,11 +11,11 @@
 | Шансы | **Высокие** | **Средние** |
 | Стоимость | бесплатно | разовый взнос $5 |
 | Ревью | ручное (nativeMessaging, proxy, `<all_urls>`, собранный код) — от дней до пары недель | обычно несколько дней, с широкими правами дольше |
-| Главный риск | ревьюеру нужен помощник, чтобы проверить работу | правило **single purpose**: Tor и торренты — две функции в одном расширении |
+| Главный риск | ревьюеру нужен помощник, чтобы проверить работу | широкие права (`proxy`, `privacy`) и нужный помощник |
 
 Расширения с нативным помощником (менеджеры паролей, KeePassXC-Browser и т. п.)
 и прокси-расширения в обоих магазинах — обычное дело. Ничего запрещённого в
-Tortuga нет: Tor легален, торрент-клиент — инструмент, а не пиратство.
+Tortuga нет: Tor легален.
 
 ### Что уже исправлено под требования магазинов
 
@@ -34,30 +34,17 @@ Tortuga нет: Tor легален, торрент-клиент — инстру
 - **Политика конфиденциальности** — [PRIVACY.md](../PRIVACY.md). Ссылка на
   неё: `https://github.com/legenki/tortuga/blob/main/PRIVACY.md`.
 
-### Главный риск в Chrome: single purpose
+### Торренты убраны: риск single purpose снят
 
-Политика Chrome: «An extension must have a single purpose that is narrow and
-easy to understand», и «If two pieces of functionality are clearly separate,
-they should be put into two different extensions». Tor-маршрутизация и
-торренты ревьюер вполне может счесть двумя целями.
-
-Варианты:
-
-1. **Попробовать как есть** с формулировкой цели «private browsing and
-   downloading through a local helper». Если отклонят — письмо придёт с
-   причиной, исправить и отправить заново можно сразу.
-2. **Сделать Chrome-сборку только с Tor** (вкладку Downloads, контент-скрипт и
-   контекстное меню скрыть при `__TARGET__ === 'chrome'`), торренты оставить
-   в Firefox. Надёжнее, но меньше функций в Chrome.
-
-Рекомендация: начать с AMO, параллельно отправить в Chrome как есть (вариант
-1), и переходить к варианту 2 только если откажут.
-
-Ещё одна строка политики Chrome касается торрентов напрямую: «Do not encourage,
-facilitate, or enable the unauthorized access, download, or streaming of
-copyrighted content». Поэтому в листинге, на скриншотах и в примерах — только
-легальные раздачи (Debian, Ubuntu, Blender, Internet Archive), без фильмов и
-трекеров с пиратским контентом.
+Раньше главным риском в Chrome было правило **single purpose** («An extension
+must have a single purpose that is narrow and easy to understand»): Tor и
+торренты ревьюер мог счесть двумя целями, а политика про copyrighted content
+касалась торрентов напрямую. В 0.3.0 торренты убрали целиком (вкладка
+Downloads, контент-скрипт, контекстное меню, загрузки в помощнике), так что
+Tortuga теперь и есть «Chrome-сборка только с Tor»: цель одна — приватный
+доступ через Tor. Остаются обычные для такого расширения вопросы: широкие
+права и нужный помощник, поэтому в заметках для ревьюера — ссылки на
+установщики и открытый код помощника.
 
 ## Перед загрузкой: что подготовить
 
@@ -67,7 +54,7 @@ copyrighted content». Поэтому в листинге, на скриншот
 | Исходники для ревьюеров | `tortuga-firefox-<v>-source.zip` | ✓ | – |
 | Chrome-ключ | `~/tortuga-chrome-key.pem` (держать в бэкапе!) | – | ✓ |
 | Иконка 128 | `extension/public/icons/icon-128.png` | ✓ | ✓ |
-| Скриншоты 1280×800 | `store-assets/screenshot-1…5-*.png` | ✓ все 5 | ✓ все 5 |
+| Скриншоты 1280×800 | `store-assets/screenshot-*.png` | ✓ все 4 | ✓ все 4 |
 | Small promo tile 440×280 | `store-assets/promo-small-440x280.png` | – | ✓ |
 | Marquee promo tile 1400×560 | `store-assets/promo-marquee-1400x560.png` | – | по желанию |
 | Политика конфиденциальности | ссылка на PRIVACY.md | желательно | ✓ |
@@ -77,9 +64,8 @@ copyrighted content». Поэтому в листинге, на скриншот
 
 1. `screenshot-1-route.png` — маршрут сайта через Tor (главный кадр)
 2. `screenshot-2-bridges.png` — выбор моста
-3. `screenshot-3-downloads.png` — окно подтверждения и вкладка Downloads
-4. `screenshot-4-settings.png` — строки мостов в настройках
-5. `screenshot-5-dark.png` — тёмная тема
+3. `screenshot-4-settings.png` — строки мостов в настройках
+4. `screenshot-5-dark.png` — тёмная тема
 
 Попапы на них — настоящие снимки в 2× (`SHOTS=… THEME=… SCALE=2
 extension/scripts/live-check/run.sh screenshots`), сложенные в кадры
@@ -115,9 +101,8 @@ extension/scripts/live-check/run.sh screenshots`), сложенные в кад�
 - **Summary** (до 250 символов):
 
   > Routes Firefox through the Tor network with a separate circuit for each
-  > site, shows each site's route as a metro map, and downloads torrents from
-  > links. Needs the free Tortuga helper app. Hides your IP; it is not Tor
-  > Browser.
+  > site and shows each site's route as a metro map. Needs the free Tortuga
+  > helper app. Hides your IP; it is not Tor Browser.
 
 - **Description:**
 
@@ -132,9 +117,6 @@ extension/scripts/live-check/run.sh screenshots`), сложенные в кад�
   >   WebTunnel lines fetched from bridges.torproject.org in one click.
   > • No leaks: if Tor stops, pages are blocked instead of loading from your
   >   real IP.
-  > • Torrent downloads: click a magnet or .torrent link, see the name and
-  >   size, confirm. Torrents download directly from your own IP, not through
-  >   Tor, and Tortuga says so every time.
   >
   > Tortuga needs the Tortuga helper, a small program that runs Tor (Arti, the
   > Tor Project's Rust implementation) on your computer. Installers for macOS,
@@ -148,7 +130,7 @@ extension/scripts/live-check/run.sh screenshots`), сложенные в кад�
   > your safety depends on anonymity, use Tor Browser. Tortuga is not made by
   > or affiliated with the Tor Project.
 
-- **Categories:** Privacy & Security; второй — Download Management.
+- **Categories:** Privacy & Security.
 - **Support email / website:** почта и `https://github.com/legenki/tortuga/issues`
 - **License:** All Rights Reserved (как в README). Если позже откроешь код
   под MIT/MPL — поменяешь здесь.
@@ -160,27 +142,26 @@ extension/scripts/live-check/run.sh screenshots`), сложенные в кад�
 Вставь в поле **Notes to Reviewer**:
 
 > The extension controls a native helper (native messaging host
-> `org.tortuga.helper`) that runs Tor via Arti and downloads torrents via
-> librqbit. The helper is open source in the same repository
+> `org.tortuga.helper`) that runs Tor via Arti and fetches bridge lines.
+> The helper is open source in the same repository
 > (https://github.com/legenki/tortuga, folder helper/), and installers
 > are at https://github.com/legenki/tortuga/releases/tag/v<v> —
 > `Tortuga-Helper-<v>-macos.pkg`, `tortuga-helper_<v>_amd64.deb`, or the
 > Windows zip with `install.ps1` (per-user, no admin rights).
 >
 > To test: install the helper, open the popup, switch Direct → Tor. It
-> connects in 5–30 s; open https://check.torproject.org/ and the Route tab
-> shows that site's circuit. For downloads, click the magnet link for
-> Debian netinst on https://www.debian.org/CD/torrent-cd/ and confirm.
+> connects in 5–30 s; open https://check.torproject.org/ and the popup
+> shows that site's circuit.
 >
 > Build: see extension/BUILD.md in the source archive (`npm ci && npm run
 > build:firefox`, output in dist-firefox/).
 >
 > Permissions: proxy (route traffic via the helper's SOCKS port), privacy
 > (WebRTC off and resistFingerprinting while Tor is on, restored on Direct),
-> nativeMessaging (helper), tabs (route for the active tab's site),
-> contextMenus ("Download with Tortuga" on links), <all_urls> (proxy for all
-> sites; content script catches clicks on magnet/.torrent links only). No
-> remote code, no analytics, no data sent to the developer.
+> nativeMessaging (helper), storage (settings), tabs (route for the active
+> tab's site), <all_urls> (host access so the proxy can route every site
+> through Tor; there are no content scripts). No remote code, no analytics,
+> no data sent to the developer.
 
 Если `.pkg` не подписан, macOS у ревьюера потребует «Open Anyway» — это
 нормально, но подписанный установщик снимает лишний вопрос (секреты для
@@ -234,7 +215,7 @@ cp ~/tortuga-chrome-key.pem /tmp/key.pem
 
 - **Category:** Privacy & Security (или Tools).
 - **Language:** English.
-- **Icon:** `icon-128.png`. **Screenshots:** все пять из `store-assets/`.
+- **Icon:** `icon-128.png`. **Screenshots:** все четыре из `store-assets/`.
   **Small promo tile:** `promo-small-440x280.png`; **Marquee:** `promo-marquee-1400x560.png`.
 - **Official URL / Homepage:** `https://github.com/legenki/tortuga`.
 - **Support URL:** `https://github.com/legenki/tortuga/issues`.
@@ -243,9 +224,8 @@ cp ~/tortuga-chrome-key.pem /tmp/key.pem
 
 **Single purpose description:**
 
-> Tortuga lets you browse privately over the Tor network and download files
-> from torrent links, using a local helper app that runs Tor and the torrent
-> client on the user's computer.
+> Tortuga lets you browse privately over the Tor network, using a local helper
+> app that runs Tor on the user's computer.
 
 **Permission justification** (по одному полю на право):
 
@@ -253,10 +233,8 @@ cp ~/tortuga-chrome-key.pem /tmp/key.pem
 |---|---|
 | `proxy` | Sends Incognito windows' traffic to the local Tor SOCKS port opened by the Tortuga helper. |
 | `privacy` | While Tor is on, sets WebRTC IP handling to disable_non_proxied_udp so WebRTC can't reveal the user's real IP; restored when Tor is off. |
-| `nativeMessaging` | Talks to the Tortuga helper app on the user's computer, which runs Tor and downloads torrents. |
-| `storage` | Saves settings locally: Tor on/off, chosen bridge, bridge lines, the download list. |
-| `contextMenus` | Adds "Download with Tortuga" to the context menu of links. |
-| Host permission / content script `<all_urls>` | The content script only detects clicks on magnet and .torrent links on any page, to offer the download. It reads nothing else and sends nothing off the device. |
+| `nativeMessaging` | Talks to the Tortuga helper app on the user's computer, which runs Tor. |
+| `storage` | Saves settings locally: Tor on/off, chosen bridge, bridge lines. |
 | Remote code | **No**, I am not using remote code. |
 
 **Data usage:** не собираешь ничего — не отмечай ни одной категории. Отметь
@@ -271,7 +249,6 @@ cp ~/tortuga-chrome-key.pem /tmp/key.pem
 - **Submit for review.** Если поле «notes for reviewer» есть в форме — вставь
   тот же текст, что для AMO. Особо подчеркни, что помощник открыт и лежит в
   GitHub Releases.
-- Если отклонят по single purpose — см. вариант 2 выше.
 
 ## После публикации
 

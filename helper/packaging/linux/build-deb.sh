@@ -47,10 +47,10 @@ Depends: libc6 (>= 2.34), libgcc-s1, libssl3 | libssl3t64
 Section: net
 Priority: optional
 Homepage: https://github.com/legenki/tortuga
-Description: Tor and torrents for the Tortuga browser extension
+Description: Tor for the Tortuga browser extension
  The native messaging host the Tortuga extension starts: Tor (Arti) with
  per-site circuits and bridges (Snowflake, obfs4, WebTunnel through the
- bundled lyrebird), and torrent downloads, which go directly, not through Tor.
+ bundled lyrebird).
 CONTROL
 mkdir -p "$HELPER/dist"
 OUT="$HELPER/dist/tortuga-helper_${VERSION}_${ARCH}.deb"

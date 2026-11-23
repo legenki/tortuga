@@ -1,8 +1,7 @@
 import Foundation
 
 /// What the interface needs from whatever runs Tor: a stream of states and
-/// commands. DemoEngine implements it now; the system extension's engine will
-/// implement it in part 3.
+/// commands. DemoEngine and ProxyEngine implement it.
 public protocol TortugaEngine: AnyObject, Sendable {
     /// The current state first, then every change.
     func states() async -> AsyncStream<EngineState>
@@ -17,10 +16,6 @@ public protocol TortugaEngine: AnyObject, Sendable {
     func fetchBridgeLines(_ kind: BridgeKind) async throws -> [String]
     func addException(_ app: AppID) async throws
     func removeException(_ app: AppID) async throws
-    func addDownload(_ source: DownloadSource) async throws
-    func pauseDownload(_ id: Download.ID) async throws
-    func resumeDownload(_ id: Download.ID) async throws
-    func removeDownload(_ id: Download.ID) async throws
 }
 
 /// An engine's refusal, in words to show the user as they are.

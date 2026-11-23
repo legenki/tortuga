@@ -15,7 +15,6 @@ func makeEngine(_ scenario: Scenario = .normal) -> DemoEngine {
         #expect(s.status == .off)
         #expect(s.bridges.selected == .snowflake)
         #expect(s.exceptions == [DemoData.mail])
-        #expect(s.downloads.count == 2)
     }
 
     @Test func streamStartsWithTheCurrentState() async throws {

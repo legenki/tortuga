@@ -5,17 +5,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::hops::Hop;
 use crate::moat::{Fetched, LineKind};
-use crate::torrents::{Progress, Source, TorrentInfo};
 
 /// Bumped whenever a message changes incompatibly.
 pub const PROTOCOL_VERSION: u32 = 1;
 
 /// Additions to protocol 1 this helper understands, listed in its hello so the
 /// extension never relies on one an older helper would silently ignore.
-/// `torrent-via-tor`: `via` on `torrent.inspect` / `torrent.add`.
-/// `torrent-open`: the `torrent.open` request.
 /// `apps`: `tor.resolve`, for a client whose isolation keys are apps.
-pub const FEATURES: &[&str] = &["torrent-via-tor", "torrent-open", "apps"];
+/// (Helpers up to 0.2.1 also listed `torrent-via-tor` and `torrent-open`.)
+pub const FEATURES: &[&str] = &["apps"];
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Request {
@@ -38,61 +36,8 @@ pub enum RequestBody {
     /// Resolve a name through Tor (answered at an exit).
     #[serde(rename = "tor.resolve")]
     TorResolve { name: String },
-    #[serde(rename = "torrent.inspect")]
-    TorrentInspect {
-        source: SourceMsg,
-        #[serde(default)]
-        via: Option<Via>,
-    },
-    #[serde(rename = "torrent.add")]
-    TorrentAdd {
-        source: SourceMsg,
-        #[serde(default)]
-        via: Option<Via>,
-    },
-    /// Open the torrent session now, resuming saved downloads.
-    #[serde(rename = "torrent.open")]
-    TorrentOpen,
-    #[serde(rename = "torrent.pause")]
-    TorrentPause { id: String },
-    #[serde(rename = "torrent.resume")]
-    TorrentResume { id: String },
-    #[serde(rename = "torrent.remove", rename_all = "camelCase")]
-    TorrentRemove { id: String, delete_files: bool },
     #[serde(rename = "bridges.fetch")]
     BridgesFetch { kind: LineKind },
-}
-
-/// A torrent as the extension names it: `{ url }` (magnet or http(s) link to a
-/// `.torrent`) or `{ torrentFile }` (the file, base64).
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(untagged, rename_all = "camelCase")]
-pub enum SourceMsg {
-    Url { url: String },
-    #[serde(rename_all = "camelCase")]
-    File { torrent_file: String },
-}
-
-impl SourceMsg {
-    pub fn decode(&self) -> anyhow::Result<Source> {
-        use base64::Engine as _;
-        match self {
-            SourceMsg::Url { url } if url.starts_with("magnet:") || url.starts_with("http://") || url.starts_with("https://") => {
-                Ok(Source::Url(url.clone()))
-            }
-            SourceMsg::Url { url } => anyhow::bail!("not a magnet or http(s) link: {url}"),
-            SourceMsg::File { torrent_file } => Ok(Source::File(base64::engine::general_purpose::STANDARD.decode(torrent_file)?)),
-        }
-    }
-}
-
-/// Fetch a `.torrent` link through Tor: the Tor helper's SOCKS port, and the
-/// site whose circuits to use. Without it the link is fetched directly.
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Via {
-    pub socks_port: u16,
-    pub site: String,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -145,10 +90,6 @@ pub enum Outgoing {
     Resolved { addresses: Vec<String> },
     #[serde(rename = "circuit")]
     Circuit { site: String, bridge: Option<BridgeKind>, hops: Vec<Hop> },
-    #[serde(rename = "torrent.info")]
-    TorrentInfo(TorrentInfo),
-    #[serde(rename = "torrent.progress")]
-    TorrentProgress { torrents: Vec<Progress> },
     #[serde(rename = "bridges.lines")]
     BridgesLines(Fetched),
     #[serde(rename = "error")]
@@ -163,7 +104,6 @@ pub enum ErrorCode {
     ProtocolMismatch,
     TorFailed,
     NotRunning,
-    TorrentFailed,
     BridgesFailed,
     /// A newer `tor.start` or a `tor.stop` replaced this start.
     Cancelled,
@@ -174,6 +114,15 @@ pub enum ErrorCode {
 /// The id of a request that didn't parse, so its error can still answer it.
 pub fn id_of(raw: &[u8]) -> Option<u64> {
     serde_json::from_slice::<serde_json::Value>(raw).ok()?.get("id")?.as_u64()
+}
+
+/// Whether a request that didn't parse is one of the `torrent.*` requests an
+/// extension up to 0.2.1 still sends.
+pub fn is_removed_torrent_request(raw: &[u8]) -> bool {
+    serde_json::from_slice::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|v| v.get("type")?.as_str().map(|t| t.starts_with("torrent.")))
+        .unwrap_or(false)
 }
 
 impl Message {
@@ -230,58 +179,9 @@ mod tests {
             Request { id: 2, body: RequestBody::TorStart { bridge: BridgeChoice { kind: BridgeKind::Snowflake, lines: vec![] } } }
         );
         assert_eq!(parse(json!({"id": 3, "type": "tor.stop"})), Request { id: 3, body: RequestBody::TorStop });
-        assert_eq!(parse(json!({"id": 10, "type": "torrent.open"})), Request { id: 10, body: RequestBody::TorrentOpen });
         assert_eq!(
             parse(json!({"id": 4, "type": "tor.newCircuit", "payload": {"site": "github.com"}})),
             Request { id: 4, body: RequestBody::TorNewCircuit { site: "github.com".into() } }
-        );
-    }
-
-    #[test]
-    fn parses_torrent_requests() {
-        assert_eq!(
-            parse(json!({"id": 5, "type": "torrent.inspect", "payload": {"source": {"url": "magnet:?xt=urn:btih:abc"}}})),
-            Request { id: 5, body: RequestBody::TorrentInspect { source: SourceMsg::Url { url: "magnet:?xt=urn:btih:abc".into() }, via: None } }
-        );
-        assert_eq!(
-            parse(json!({"id": 9, "type": "torrent.add", "payload": {"source": {"url": "https://example.org/a.torrent"}, "via": {"socksPort": 9150, "site": "example.org"}}})),
-            Request {
-                id: 9,
-                body: RequestBody::TorrentAdd {
-                    source: SourceMsg::Url { url: "https://example.org/a.torrent".into() },
-                    via: Some(Via { socks_port: 9150, site: "example.org".into() }),
-                }
-            }
-        );
-        assert_eq!(
-            parse(json!({"id": 6, "type": "torrent.add", "payload": {"source": {"torrentFile": "ZDQ6aW5mb2Vl"}}})),
-            Request { id: 6, body: RequestBody::TorrentAdd { source: SourceMsg::File { torrent_file: "ZDQ6aW5mb2Vl".into() }, via: None } }
-        );
-        assert_eq!(
-            parse(json!({"id": 7, "type": "torrent.remove", "payload": {"id": "ab", "deleteFiles": true}})),
-            Request { id: 7, body: RequestBody::TorrentRemove { id: "ab".into(), delete_files: true } }
-        );
-    }
-
-    #[test]
-    fn decodes_sources() {
-        assert_eq!(SourceMsg::Url { url: "magnet:?xt=urn:btih:abc".into() }.decode().unwrap(), Source::Url("magnet:?xt=urn:btih:abc".into()));
-        assert_eq!(SourceMsg::File { torrent_file: "ZDQ6aW5mb2Vl".into() }.decode().unwrap(), Source::File(b"d4:infoee".to_vec()));
-        assert!(SourceMsg::Url { url: "javascript:alert(1)".into() }.decode().is_err());
-        assert!(SourceMsg::File { torrent_file: "%%%".into() }.decode().is_err());
-    }
-
-    #[test]
-    fn serializes_torrent_messages() {
-        let info = TorrentInfo { id: "ab".into(), name: "Sintel".into(), size: 10, files: 2, folder: "/d".into() };
-        assert_eq!(
-            serde_json::to_value(Message::reply(5, Outgoing::TorrentInfo(info))).unwrap(),
-            json!({"id": 5, "type": "torrent.info", "payload": {"id": "ab", "name": "Sintel", "size": 10, "files": 2, "folder": "/d"}})
-        );
-        let row = Progress { id: "ab".into(), name: "Sintel".into(), done: 5, size: 10, down_rate: 1, up_rate: 0, state: crate::torrents::TorrentState::Downloading, error: None };
-        assert_eq!(
-            serde_json::to_value(Message::event(Outgoing::TorrentProgress { torrents: vec![row] })).unwrap(),
-            json!({"type": "torrent.progress", "payload": {"torrents": [{"id": "ab", "name": "Sintel", "done": 5, "size": 10, "downRate": 1, "upRate": 0, "state": "downloading", "error": null}]}})
         );
     }
 
@@ -305,6 +205,20 @@ mod tests {
     }
 
     #[test]
+    fn torrent_requests_are_unknown() {
+        for t in ["torrent.open", "torrent.inspect", "torrent.add", "torrent.pause", "torrent.resume", "torrent.remove"] {
+            assert!(serde_json::from_value::<Request>(json!({"id": 1, "type": t, "payload": {"id": "ab"}})).is_err(), "{t}");
+        }
+    }
+
+    #[test]
+    fn recognises_removed_torrent_requests() {
+        assert!(is_removed_torrent_request(br#"{"id":1,"type":"torrent.add"}"#));
+        assert!(!is_removed_torrent_request(br#"{"id":1,"type":"tor.start"}"#));
+        assert!(!is_removed_torrent_request(b"not json"));
+    }
+
+    #[test]
     fn finds_the_id_of_a_bad_request() {
         assert_eq!(id_of(br#"{"id": 7, "type": "tor.explode"}"#), Some(7));
         assert_eq!(id_of(br#"{"type": "tor.explode"}"#), None);
@@ -314,7 +228,7 @@ mod tests {
     #[test]
     fn serializes_replies_and_events() {
         let hello = serde_json::to_value(Message::reply(1, Outgoing::Hello { protocol: 1, version: "0.1.1".into(), features: FEATURES.to_vec() })).unwrap();
-        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["torrent-via-tor", "torrent-open", "apps"]}}));
+        assert_eq!(hello, json!({"id": 1, "type": "hello", "payload": {"protocol": 1, "version": "0.1.1", "features": ["apps"]}}));
 
         let ok = serde_json::to_value(Message::reply(3, Outgoing::Ok)).unwrap();
         assert_eq!(ok, json!({"id": 3, "type": "ok"}));

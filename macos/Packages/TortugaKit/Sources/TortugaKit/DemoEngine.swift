@@ -30,7 +30,6 @@ public actor DemoEngine: TortugaEngine {
     private var died = false
     private var timers: [Timer] = []
     private var fetches: [Fetch] = []
-    private var uploaded: [UUID: Double] = [:]
     private var observers: [UUID: AsyncStream<EngineState>.Continuation] = [:]
     private var clock: Task<Void, Never>?
 
@@ -41,7 +40,6 @@ public actor DemoEngine: TortugaEngine {
         state.bridges.selected = .snowflake
         if scenario != .empty && scenario != .manyApps {
             state.exceptions = [DemoData.mail]
-            state.downloads = DemoData.downloads()
         }
     }
 
@@ -139,47 +137,6 @@ public actor DemoEngine: TortugaEngine {
         publish()
     }
 
-    public func addDownload(_ source: DownloadSource) throws {
-        let name: String
-        switch source {
-        case .magnet(let link):
-            guard link.hasPrefix("magnet:?") else { throw EngineError("Not a magnet link") }
-            name = URLComponents(string: link)?.queryItems?.first { $0.name == "dn" }?.value ?? "Magnet link"
-        case .file(let url):
-            guard url.pathExtension.lowercased() == "torrent" else { throw EngineError("Not a .torrent file") }
-            name = url.deletingPathExtension().lastPathComponent
-        }
-        state.downloads.append(Download(name: name, size: 1_073_741_824, downRate: 3_000_000))
-        publish()
-    }
-
-    public func pauseDownload(_ id: Download.ID) throws {
-        try update(id) { download in
-            download.state = .paused
-            download.downRate = 0
-            download.upRate = 0
-        }
-    }
-
-    public func resumeDownload(_ id: Download.ID) throws {
-        try update(id) { download in
-            if download.done >= 1 {
-                download.state = .sharing
-                download.upRate = 1_500_000
-            } else {
-                download.state = .downloading
-                download.downRate = 2_400_000
-            }
-        }
-    }
-
-    public func removeDownload(_ id: Download.ID) throws {
-        guard state.downloads.contains(where: { $0.id == id }) else { throw EngineError("No such download") }
-        state.downloads.removeAll { $0.id == id }
-        uploaded[id] = nil
-        publish()
-    }
-
     // MARK: Simulated time
 
     /// Move the simulated clock forward and apply whatever falls due.
@@ -195,7 +152,6 @@ public actor DemoEngine: TortugaEngine {
         let answered = fetches.filter { $0.at <= elapsed }
         fetches.removeAll { $0.at <= elapsed }
         for fetch in answered { answer(fetch) }
-        if stepDownloads(step) { changed = true }
         if changed { publish() }
     }
 
@@ -293,42 +249,7 @@ public actor DemoEngine: TortugaEngine {
         }
     }
 
-    private func stepDownloads(_ step: Duration) -> Bool {
-        let seconds = step.seconds
-        var changed = false
-        for i in state.downloads.indices {
-            var download = state.downloads[i]
-            switch download.state {
-            case .downloading:
-                download.done = min(1, download.done + Double(download.downRate) * seconds / Double(download.size))
-                if download.done >= 1 {
-                    download.state = .sharing
-                    download.downRate = 0
-                    download.upRate = 1_500_000
-                }
-            case .sharing:
-                let sent = (uploaded[download.id] ?? 0) + Double(download.upRate) * seconds
-                uploaded[download.id] = sent
-                if sent >= Double(download.size) {
-                    download.state = .done
-                    download.upRate = 0
-                }
-            case .paused, .done, .failed:
-                continue
-            }
-            state.downloads[i] = download
-            changed = true
-        }
-        return changed
-    }
-
     // MARK: Helpers
-
-    private func update(_ id: Download.ID, _ change: (inout Download) -> Void) throws {
-        guard let i = state.downloads.firstIndex(where: { $0.id == id }) else { throw EngineError("No such download") }
-        change(&state.downloads[i])
-        publish()
-    }
 
     private func schedule(_ after: Duration, _ event: Event) {
         timers.append(Timer(at: elapsed + after, event: event))
