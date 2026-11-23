@@ -4,37 +4,77 @@ import TortugaKit
 
 /// The world as dots, with this Mac's trunk and each app's route drawn on it.
 /// `highlighted`: the app drawn at full strength (the others fade); nil: all.
+/// `focused`: the app whose route the map flies to; nil, or an app with no
+/// known places on the map: the overview of everything.
 struct RouteMap: View {
     let state: EngineState
     var highlighted: String?
+    var focused: String?
     var region: String? = Locale.current.region?.identifier
     var onSelect: (String) -> Void = { _ in }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var land = LandCache()
 
-    private var route: MapRoute { MapRoute(state: state, region: region) }
-    private var lit: Bool { state.status == .on }
-
     var body: some View {
-        let route = route
+        let route = MapRoute(state: state, region: region)
+        let camera = Self.camera(for: route, focused: focused)
         GeometryReader { geo in
-            let projection = MapProjection(fitting: route.places, in: geo.size, padding: 24)
-            let landPath = land.path(for: projection)
-            ZStack {
-                Canvas { context, _ in draw(route, projection, land: landPath, in: &context) }
-                ForEach(route.tails) { tail in
-                    if let exit = tail.exit {
-                        let p = projection.point(exit) + AppColor.offset(slot: tail.exitSlot)
-                        Circle().fill(.clear).contentShape(.circle).frame(width: 16, height: 16)
-                            .position(p)
-                            .onTapGesture { onSelect(tail.id) }
-                            .accessibilityHidden(true)
-                    }
-                }
-            }
+            RouteMapLayer(state: state, route: route, highlighted: highlighted, camera: camera,
+                          size: geo.size, land: land, onSelect: onSelect)
         }
+        // Owns the camera's animation: a new camera (another app focused, or
+        // the routes changed) flies there; the row's own animation is kept
+        // out of the map. Reduce Motion jumps.
+        .animation(reduceMotion ? nil : .smooth(duration: 1.0), value: camera)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(RouteSummary.text(for: state, name: AppInfo.name))
         .accessibilityIdentifier("route.map")
+    }
+
+    /// The focused app's route if it has places on the map, else everything.
+    static func camera(for route: MapRoute, focused: String?) -> MapCamera {
+        if let focused {
+            let places = route.focusPlaces(for: focused)
+            if !places.isEmpty { return MapCamera(fitting: places, minSpan: 25) }
+        }
+        return MapCamera(fitting: route.places)
+    }
+}
+
+/// The map drawn through one camera. Animatable: SwiftUI interpolates the
+/// camera between frames, and the land, routes and tap targets all follow it.
+private struct RouteMapLayer: View, Animatable {
+    let state: EngineState
+    let route: MapRoute
+    let highlighted: String?
+    var camera: MapCamera
+    let size: CGSize
+    let land: LandCache
+    let onSelect: (String) -> Void
+
+    nonisolated var animatableData: MapCamera.AnimatableData {
+        get { camera.animatableData }
+        set { camera.animatableData = newValue }
+    }
+
+    private var lit: Bool { state.status == .on }
+
+    var body: some View {
+        let projection = MapProjection(camera: camera, in: size, padding: 24)
+        let landPath = land.path(for: projection)
+        ZStack {
+            Canvas { context, _ in draw(route, projection, land: landPath, in: &context) }
+            ForEach(route.tails) { tail in
+                if let exit = tail.exit {
+                    let p = projection.point(exit) + AppColor.offset(slot: tail.exitSlot)
+                    Circle().fill(.clear).contentShape(.circle).frame(width: 16, height: 16)
+                        .position(p)
+                        .onTapGesture { onSelect(tail.id) }
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .frame(width: size.width, height: size.height)
     }
 
     private func draw(_ route: MapRoute, _ projection: MapProjection, land: Path, in context: inout GraphicsContext) {
@@ -89,7 +129,8 @@ struct RouteMap: View {
 }
 
 /// The land dots as one path, kept for the last projection: hover redraws
-/// the map without rebuilding thousands of ellipses.
+/// the map without rebuilding thousands of ellipses. While the camera flies
+/// every frame has a new projection, so the path is rebuilt each frame.
 @MainActor private final class LandCache {
     private var projection: MapProjection?
     private var path = Path()
@@ -105,6 +146,21 @@ struct RouteMap: View {
             self.projection = projection
         }
         return path
+    }
+}
+
+extension MapCamera {
+    typealias AnimatableData = AnimatablePair<AnimatablePair<Double, Double>, AnimatablePair<Double, Double>>
+
+    /// The four numbers SwiftUI interpolates: centre, then spans.
+    var animatableData: AnimatableData {
+        get { AnimatablePair(AnimatablePair(centerLon, centerLat), AnimatablePair(lonSpan, latSpan)) }
+        set {
+            centerLon = newValue.first.first
+            centerLat = newValue.first.second
+            lonSpan = newValue.second.first
+            latSpan = newValue.second.second
+        }
     }
 }
 

@@ -13,7 +13,8 @@ struct RouteView: View {
             VStack(alignment: .leading, spacing: 16) {
                 StatusLine()
                 VStack(alignment: .leading, spacing: 8) {
-                    RouteMap(state: state, highlighted: model.hoveredApp ?? model.expandedApp) { id in
+                    RouteMap(state: state, highlighted: model.hoveredApp ?? model.expandedApp,
+                             focused: model.expandedApp) { id in
                         withAnimation(.snappy) { model.expandedApp = id }
                     }
                     .frame(height: 240)
