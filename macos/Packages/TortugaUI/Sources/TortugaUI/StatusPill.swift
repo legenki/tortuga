@@ -78,6 +78,8 @@ struct StatusPill: View {
                 if fillsWidth { Spacer(minLength: 0) }
                 Image(systemName: "power").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
+            // The toolbar's glass hugs the label: keep it off the edge.
+            .padding(.horizontal, style == .toolbar ? 8 : 0)
             .frame(maxWidth: fillsWidth ? .infinity : 320)
         }
         Group {

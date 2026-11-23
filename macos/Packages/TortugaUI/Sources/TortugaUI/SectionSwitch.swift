@@ -25,7 +25,7 @@ struct SectionSwitch: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .frame(width: 180)
+        .fixedSize()
         .accessibilityIdentifier("section.picker")
     }
 }
