@@ -135,6 +135,34 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         #expect(!written.contains("exceptions"))
     }
 
+    @Test func oldSettingsWithoutABridgeStillDecode() throws {
+        let old = #"{"mode":"tor","lines":[],"exceptions":[]}"#
+        let settings = try JSONDecoder().decode(StoredSettings.self, from: Data(old.utf8))
+        #expect(settings.bridge == nil)
+        #expect(settings.torApps == nil)
+    }
+
+    @Test func theFirstListIsTheBrowsersMinusOldExceptions() async throws {
+        let store = MemoryStore()
+        var old = StoredSettings()
+        old.legacyExceptions = [AppID("org.mozilla.firefox")]
+        store.save(old)
+        let engine = ProxyEngine(control: FakeControl(), store: store, installedBrowsers: {
+            [AppID("com.apple.Safari"), AppID("org.mozilla.firefox")]
+        })
+        #expect(await engine.current.torApps == [AppID("com.apple.Safari")])
+        #expect(store.load().torApps == [AppID("com.apple.Safari")])
+    }
+
+    @Test func aSavedListIsKept() async throws {
+        let store = MemoryStore()
+        var saved = StoredSettings()
+        saved.torApps = [AppID("ru.keepcoder.Telegram")]
+        store.save(saved)
+        let engine = ProxyEngine(control: FakeControl(), store: store, installedBrowsers: { [AppID("com.apple.Safari")] })
+        #expect(await engine.current.torApps == [AppID("ru.keepcoder.Telegram")])
+    }
+
     @Test func badBridgeLinesAreRefused() async {
         let engine = ProxyEngine(control: FakeControl(), store: MemoryStore())
         await #expect(throws: EngineError("Line 1: no 40-character fingerprint after the address")) {

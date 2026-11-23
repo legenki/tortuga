@@ -15,9 +15,22 @@ struct TortugaApp: App {
         if let name = UserDefaults.standard.string(forKey: "scenario"), let scenario = Scenario(rawValue: name) {
             return DemoEngine.running(scenario)
         }
-        let engine = ProxyEngine(control: SystemProxyControl(), store: DefaultsSettingsStore())
+        let engine = ProxyEngine(control: SystemProxyControl(), store: DefaultsSettingsStore(),
+                                 installedBrowsers: TortugaApp.installedBrowsers)
         Task { await engine.resume() }
         return engine
+    }
+
+    /// Apps that open https links, as the first Tor list.
+    nonisolated static func installedBrowsers() -> [AppID] {
+        let urls = NSWorkspace.shared.urlsForApplications(toOpen: URL(string: "https://example.com")!)
+        let candidates = urls.compactMap { url -> InstalledBrowsers.Candidate? in
+            guard let id = Bundle(url: url)?.bundleIdentifier else { return nil }
+            let name = FileManager.default.displayName(atPath: url.path)
+            return InstalledBrowsers.Candidate(id: id, path: url.path,
+                                               name: name.hasSuffix(".app") ? String(name.dropLast(4)) : name)
+        }
+        return InstalledBrowsers.pick(candidates, own: Bundle.main.bundleIdentifier)
     }
 
     /// The window opens at launch the first time (for the welcome card), or

@@ -88,7 +88,7 @@ private func app(_ id: String, _ middle: String, _ exit: String) -> AppRoute {
     #expect(try #require(r.tails.first).points.first == map.place(country: "AT"))
 }
 
-@Test func exceptedAppsAreLeftOut() {
+@Test func unlistedAppsAreLeftOut() {
     let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE")], unlisted: [AppID("b")])
     #expect(MapRoute(state: s, region: "AT", map: map).tails.map(\.id) == ["a"])
 }
@@ -140,7 +140,7 @@ private func app(_ id: String, _ middle: String, _ exit: String) -> AppRoute {
     let s = state(apps: [app("a", "FR", "SE"), app("b", "NL", "SE"), app("c", "XX", "??")], unlisted: [AppID("b")])
     let r = MapRoute(state: s, region: "AT", map: map)
     #expect(r.focusPlaces(for: "nope").isEmpty)
-    #expect(r.focusPlaces(for: "b").isEmpty)  // excepted
+    #expect(r.focusPlaces(for: "b").isEmpty)  // unlisted
     #expect(r.focusPlaces(for: "c").isEmpty)  // no known middle or exit
     #expect(MapRoute(state: state(apps: [app("a", "FR", "SE")], mode: .direct), region: "AT", map: map)
         .focusPlaces(for: "a").isEmpty)

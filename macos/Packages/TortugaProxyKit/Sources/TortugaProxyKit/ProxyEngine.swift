@@ -36,10 +36,20 @@ public actor ProxyEngine: TortugaEngine {
     private var linkTask: Task<Void, Never>?
     private var observers: [UUID: AsyncStream<EngineState>.Continuation] = [:]
 
-    public init(control: any ProxyControl, store: any SettingsStore) {
+    /// `installedBrowsers`: the first Tor list, asked for only when the
+    /// settings have none yet.
+    public init(control: any ProxyControl, store: any SettingsStore,
+                installedBrowsers: @Sendable () -> [AppID] = { [] }) {
         self.control = control
         self.store = store
-        self.settings = store.load()
+        var settings = store.load()
+        if settings.torApps == nil {
+            let skipped = Set(settings.legacyExceptions)
+            settings.torApps = installedBrowsers().filter { !skipped.contains($0) }
+            settings.legacyExceptions = []
+            store.save(settings)
+        }
+        self.settings = settings
     }
 
     public var current: EngineState {
