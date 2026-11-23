@@ -35,11 +35,21 @@ public actor ProxyEngine: TortugaEngine {
     private var link: (any ExtensionLink)?
     private var linkTask: Task<Void, Never>?
     private var observers: [UUID: AsyncStream<EngineState>.Continuation] = [:]
+    private var reattach: Task<Void, Never>?
+    /// Reconnections since the extension last sent a state: a link that keeps
+    /// dropping at once means the extension is gone.
+    private var reconnects = 0
+    /// Between tries to reach the extension: its Mach service can lag behind
+    /// the proxy session starting, or come back a moment after it restarts.
+    private let retryDelay: Duration
+    static let attachAttempts = 10
 
     /// `installedBrowsers`: the first Tor list, asked for only when the
     /// settings have none yet.
     public init(control: any ProxyControl, store: any SettingsStore,
-                installedBrowsers: @Sendable () -> [AppID] = { [] }) {
+                installedBrowsers: @Sendable () -> [AppID] = { [] },
+                retryDelay: Duration = .milliseconds(500)) {
+        self.retryDelay = retryDelay
         self.control = control
         self.store = store
         var settings = store.load()
@@ -160,17 +170,35 @@ public actor ProxyEngine: TortugaEngine {
     }
 
     private func turnOff() async {
-        linkTask?.cancel()
-        linkTask = nil
-        link?.close()
-        link = nil
+        reattach?.cancel()
+        reattach = nil
+        dropLink()
         remote = .idle
         try? await control.setEnabled(false, configuration: configuration())
         local = .off
         publish()
     }
 
+    /// Connect to the extension and send it the settings, trying again for a
+    /// few seconds: right after the proxy starts (or the app relaunches) its
+    /// Mach service may not answer yet.
     private func attach() async throws {
+        var lastError: (any Error)?
+        for attempt in 1...Self.attachAttempts {
+            if attempt > 1 { try? await Task.sleep(for: retryDelay) }
+            guard settings.mode == .tor else { return }
+            do {
+                try await connectOnce()
+                return
+            } catch {
+                lastError = error
+                dropLink()
+            }
+        }
+        throw lastError ?? EngineError(Self.extensionGone)
+    }
+
+    private func connectOnce() async throws {
         let link = try await control.connect()
         self.link = link
         // Listen first: configuring can restart Tor, and its progress should show.
@@ -182,6 +210,13 @@ public actor ProxyEngine: TortugaEngine {
         try check(await link.send(.configure(configuration())))
     }
 
+    private func dropLink() {
+        linkTask?.cancel()
+        linkTask = nil
+        link?.close()
+        link = nil
+    }
+
     private func waitingForApproval() {
         guard link == nil else { return }
         local = .failed(reason: Status.allowExtensionReason)
@@ -190,15 +225,43 @@ public actor ProxyEngine: TortugaEngine {
 
     private func received(_ state: ExtensionState) {
         remote = state
+        reconnects = 0
         publish()
     }
 
     private func lost(_ gone: any ExtensionLink) {
         guard let link, link === gone else { return }
         self.link = nil
+        linkTask = nil
         remote = .idle
-        local = settings.mode == .tor ? .failed(reason: Self.extensionGone) : .off
+        guard settings.mode == .tor else {
+            local = .off
+            publish()
+            return
+        }
+        // The extension restarted or the connection dropped: reach it again,
+        // unless it keeps dropping without ever answering.
+        reconnects += 1
+        guard reconnects <= Self.attachAttempts else {
+            local = .failed(reason: Self.extensionGone)
+            publish()
+            return
+        }
+        local = .starting(step: "Reconnecting to Tortuga's network extension", progress: 0)
         publish()
+        reattach?.cancel()
+        reattach = Task { [weak self] in await self?.reconnect() }
+    }
+
+    private func reconnect() async {
+        guard settings.mode == .tor, link == nil else { return }
+        do {
+            try await attach()
+        } catch {
+            guard settings.mode == .tor, link == nil else { return }
+            local = .failed(reason: Self.extensionGone)
+            publish()
+        }
     }
 
     // MARK: Helpers

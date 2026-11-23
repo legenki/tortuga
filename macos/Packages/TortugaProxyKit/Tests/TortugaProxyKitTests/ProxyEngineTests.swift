@@ -54,7 +54,18 @@ final class FakeControl: ProxyControl, @unchecked Sendable {
         lock.withLock { calls.append(on) }
     }
 
-    func connect() async throws -> any ExtensionLink { link }
+    /// How many connects fail before one works (the Mach service lagging).
+    var failingConnects = 0
+
+    func connect() async throws -> any ExtensionLink {
+        let fail = lock.withLock {
+            guard failingConnects > 0 else { return false }
+            failingConnects -= 1
+            return true
+        }
+        if fail { throw NSError(domain: NSCocoaErrorDomain, code: 4097) }
+        return link
+    }
 }
 
 final class MemoryStore: SettingsStore, @unchecked Sendable {
@@ -190,6 +201,40 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         #expect(await engine.current.torApps == [AppID("ru.keepcoder.Telegram")])
     }
 
+    @Test func connectingIsRetriedWhileTheExtensionComesUp() async throws {
+        let control = FakeControl()
+        control.failingConnects = 3
+        let engine = ProxyEngine(control: control, store: MemoryStore(), retryDelay: .zero)
+        try await engine.setMode(.tor)
+        guard case .configure = control.link.commands.first else {
+            Issue.record("no configure after the retries")
+            return
+        }
+        control.link.push(ExtensionState(status: .on, trunk: Trunk(), apps: []))
+        try await eventually { await engine.current.status == .on }
+    }
+
+    @Test func connectingGivesUpAfterTenTries() async throws {
+        let control = FakeControl()
+        control.failingConnects = 100
+        let engine = ProxyEngine(control: control, store: MemoryStore(), retryDelay: .zero)
+        await #expect(throws: (any Error).self) { try await engine.setMode(.tor) }
+        #expect(control.failingConnects == 100 - ProxyEngine.attachAttempts)
+        if case .failed = await engine.current.status {} else { Issue.record("not failed") }
+    }
+
+    @Test func aDroppedLinkIsReconnected() async throws {
+        let control = FakeControl()
+        let engine = ProxyEngine(control: control, store: MemoryStore(), retryDelay: .zero)
+        try await engine.setMode(.tor)
+        let before = control.link.commands.count
+        control.link.close()
+        // The fake hands back the same (closed) link, so each reconnect drops
+        // at once; the engine tries again, then gives up instead of spinning.
+        try await eventually { await engine.current.status == .failed(reason: "Tortuga's network extension isn't running") }
+        #expect(control.link.commands.count > before)
+    }
+
     @Test func badBridgeLinesAreRefused() async {
         let engine = ProxyEngine(control: FakeControl(), store: MemoryStore())
         await #expect(throws: EngineError("Line 1: no 40-character fingerprint after the address")) {
@@ -199,8 +244,9 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
 
     @Test func aGoneExtensionIsReported() async throws {
         let control = FakeControl()
-        let engine = ProxyEngine(control: control, store: MemoryStore())
+        let engine = ProxyEngine(control: control, store: MemoryStore(), retryDelay: .zero)
         try await engine.setMode(.tor)
+        control.failingConnects = 100
         control.link.close()
         try await eventually { await engine.current.status == .failed(reason: "Tortuga's network extension isn't running") }
     }
