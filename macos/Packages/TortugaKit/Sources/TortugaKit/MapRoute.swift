@@ -78,7 +78,7 @@ public struct MapRoute: Sendable, Equatable {
 
     /// One app's route, for flying the map to it: the Mac, then the tail's
     /// start, middle and exit, the known ones. Empty when the app has no tail
-    /// (not routed, excepted, gone) or neither its middle nor its exit is
+    /// (not routed, not listed, gone) or neither its middle nor its exit is
     /// known, so the map keeps the overview.
     public func focusPlaces(for appID: String) -> [Coordinate] {
         guard let tail = tails.first(where: { $0.id == appID }), tail.middle != nil || tail.exit != nil else { return [] }

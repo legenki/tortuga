@@ -10,7 +10,7 @@ public enum Status: Sendable, Equatable, Codable {
     case off
     case starting(step: String, progress: Double)
     case on
-    /// Tor stopped; traffic is held back until it runs again.
+    /// Tor stopped; listed apps' traffic is held back until it runs again.
     case blocked(reason: String)
     /// Tor could not start.
     case failed(reason: String)

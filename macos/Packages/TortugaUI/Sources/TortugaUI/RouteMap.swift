@@ -156,7 +156,7 @@ private struct RouteMapLayer: View, Animatable {
 
     /// A gentle arc from a to b: the control point is pushed sideways by a
     /// twelfth of the distance, so the arc bulges a twenty-fourth (about 23
-    /// points on a full-width line, inside the 24-point insets).
+    /// points on a full-width line, inside the 24-point minimum insets).
     private func curve(_ a: CGPoint, _ b: CGPoint) -> Path {
         var path = Path()
         path.move(to: a)

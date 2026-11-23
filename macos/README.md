@@ -1,6 +1,6 @@
 # Tortuga for macOS
 
-A native app that will send the whole Mac through Tor
+A native app that will send the apps you choose through Tor
 (design: `docs/superpowers/specs/2026-11-09-macos-app-design.md`). This is
 part 1: the full interface on `DemoEngine`, a simulated engine. **It does not
 use Tor or the network yet.**
@@ -33,7 +33,7 @@ Debug builds have a Demo tab in Settings (⌘,). You can also launch with
 
 | Scenario | What happens |
 |---|---|
-| `normal` | Tor connects in ~4 s, four apps appear, Mail is an exception |
+| `normal` | Tor connects in ~4 s, Safari, Telegram and Firefox connect, Chrome waits (listed, never connects), Slack and Music go direct |
 | `slowBootstrap` | connecting takes 30 s |
 | `bridgeFails` | Snowflake never connects; switch to obfs4 ("Get lines") to recover |
 | `torDies` | Tor stops 5 s after connecting; Restart brings it back |
@@ -62,11 +62,13 @@ macOS 27 the glass takes their clicks. Use `glassCard(cornerRadius:)` from
 
 ## Real Tor
 
-With Tor on, every app on the Mac goes through Tor, each on its own circuit;
-DNS goes through Tor; nothing leaves directly while Tor isn't ready.
-Excepted apps, local networks, and Tortuga's own helper go out directly.
-An exception covers the process that connects: `curl` started from an
-excepted terminal still goes through Tor.
+With Tor on, the apps in the Tor list go through Tor, each on its own
+circuit, along with their helpers (matched by signing identifier + `.`).
+Unlisted apps, and their DNS, go out directly, as do local networks and
+Tortuga's own helper. While Tor isn't ready only listed apps are held back.
+Matching is by the connecting process's signing ID, so a command-line tool
+such as `curl` started from a listed Terminal is not covered. The first list
+is the browsers installed on the Mac.
 
 It needs your team's signing (`Local.xcconfig`, from `Local.xcconfig.example`)
 and the app in /Applications:
