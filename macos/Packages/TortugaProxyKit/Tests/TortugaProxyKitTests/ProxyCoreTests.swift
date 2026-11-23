@@ -54,6 +54,31 @@ private func onCore() async throws -> (ProxyCore, FakeLauncher, Task<Void, Never
         #expect(seen.values.last == ["com.apple.Notes", "com.apple.mail", "com.apple.Music"])
     }
 
+    @Test func addingAnAppClearsItAndItsHelpersFromGoingDirect() async throws {
+        let clock = TestClock()
+        let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero, now: { clock.now })
+        await core.configure(sampleConfig)
+        await core.sawDirect(app: "com.apple.mail")
+        clock.now += 1
+        await core.sawDirect(app: "com.google.Chrome.helper")
+        clock.now += 1
+        await core.sawDirect(app: "com.google.Chrome")
+        let seen = Recorder<[String]>()
+        let states = await core.states()
+        let watcher = Task { for await state in states { seen.append(state.seenDirect) } }
+        defer { watcher.cancel() }
+        try await eventually { seen.count == 1 }
+        var withChrome = sampleConfig
+        withChrome.torApps.append("com.google.Chrome")
+        await core.configure(withChrome)
+        #expect(await core.current.seenDirect == ["com.apple.mail"])
+        try await eventually { seen.count == 2 }
+        // The same list again changes nothing, and isn't published.
+        await core.configure(withChrome)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(seen.count == 2)
+    }
+
     @Test func stoppingForgetsTheAppsThatWentDirect() async throws {
         let core = ProxyCore(launcher: FakeLauncher(), retryDelay: .zero)
         await core.sawDirect(app: "com.apple.mail")

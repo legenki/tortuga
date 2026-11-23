@@ -66,6 +66,14 @@ public actor ProxyCore {
         let old = config
         config = new
         publishRoutes()
+        // Apps (and their helpers) just added to the list no longer go direct.
+        let listed = Set(new.torApps)
+        let before = direct.count
+        direct = direct.filter { TorAppMatcher.match($0.key, in: listed) == nil }
+        if direct.count != before {
+            _ = pruneDirect(now())
+            publishDirect()
+        }
         guard wanted else { return }
         if client == nil || old?.bridge != new.bridge || old?.lines != new.lines || old?.helperPath != new.helperPath {
             await startHelper()

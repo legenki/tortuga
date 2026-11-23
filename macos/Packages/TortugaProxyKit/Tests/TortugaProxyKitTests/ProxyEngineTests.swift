@@ -118,6 +118,19 @@ final class MemoryStore: SettingsStore, @unchecked Sendable {
         try await eventually { await engine.current.seenDirect == [AppID("com.apple.mail")] }
     }
 
+    @Test func aListedAppsHelpersAreNotGoingDirect() async throws {
+        let control = FakeControl()
+        let store = MemoryStore()
+        var saved = StoredSettings()
+        saved.torApps = [AppID("com.google.Chrome")]
+        store.save(saved)
+        let engine = ProxyEngine(control: control, store: store)
+        try await engine.setMode(.tor)
+        control.link.push(ExtensionState(status: .on, trunk: Trunk(), apps: [],
+                                         seenDirect: ["com.google.Chrome.helper", "com.apple.mail"]))
+        try await eventually { await engine.current.seenDirect == [AppID("com.apple.mail")] }
+    }
+
     @Test func settingsAreSavedAndReachTheExtension() async throws {
         let control = FakeControl()
         let store = MemoryStore()

@@ -61,8 +61,9 @@ public actor ProxyEngine: TortugaEngine {
             state.status = remote.status
             state.trunk = remote.trunk
             state.apps = remote.apps
-            let listed = Set(settings.torApps ?? [])
-            state.seenDirect = remote.seenDirect.map { AppID($0) }.filter { !listed.contains($0) }
+            // Not the listed apps, nor their helpers.
+            let listed = Set((settings.torApps ?? []).map(\.id))
+            state.seenDirect = remote.seenDirect.filter { TorAppMatcher.match($0, in: listed) == nil }.map { AppID($0) }
         } else {
             state.status = local
         }
