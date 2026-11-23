@@ -19,8 +19,11 @@ public struct MapProjection: Sendable, Equatable {
             lon = places.reduce(first.lon...first.lon) { min($0.lowerBound, $1.lon)...max($0.upperBound, $1.lon) }
             lat = places.reduce(first.lat...first.lat) { min($0.lowerBound, $1.lat)...max($0.upperBound, $1.lat) }
         }
-        let width = max(Double(size.width - 2 * padding), 1)
-        let height = max(Double(size.height - 2 * padding), 1)
+        // Padding takes at most half the view; a tiny floor keeps the scale
+        // finite for an empty view.
+        let padding = max(0, min(padding, size.width / 2, size.height / 2))
+        let width = max(Double(size.width - 2 * padding), 0.001)
+        let height = max(Double(size.height - 2 * padding), 0.001)
         // Widen to the minimum span, and to the view's shape, around the centre.
         let lonSpan = max(lon.upperBound - lon.lowerBound, places.isEmpty ? 0 : minSpan)
         let latSpan = max(lat.upperBound - lat.lowerBound, lonSpan * height / width)

@@ -31,7 +31,8 @@ const places = {};
 for (const f of countries.features) {
   const p = f.properties;
   const code = p.ISO_A2_EH && p.ISO_A2_EH !== '-99' ? p.ISO_A2_EH : p.ISO_A2;
-  if (!code || code === '-99' || places[code]) continue;
+  // Antarctica's label point is off the map (see SOUTH).
+  if (!code || code === '-99' || code === 'AQ' || places[code]) continue;
   places[code] = [Math.round(p.LABEL_X * 100) / 100, Math.round(p.LABEL_Y * 100) / 100];
 }
 
