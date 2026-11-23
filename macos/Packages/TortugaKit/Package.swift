@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v26)],
     products: [.library(name: "TortugaKit", targets: ["TortugaKit"])],
     targets: [
-        .target(name: "TortugaKit"),
+        .target(name: "TortugaKit", resources: [.process("Resources")]),
         .testTarget(name: "TortugaKitTests", dependencies: ["TortugaKit"]),
     ]
 )
