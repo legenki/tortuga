@@ -82,3 +82,15 @@ private func expectInside(_ p: MapProjection, _ view: CGSize) {
     let back = p.coordinate(at: p.point(c))
     #expect(abs(back.lon - c.lon) < 1e-9 && abs(back.lat - c.lat) < 1e-9)
 }
+
+@Test func dotsGrowWithTheZoomWithinLimits() {
+    let world = MapProjection(camera: MapCamera(centerLon: 0, centerLat: 13, lonSpan: 360, latSpan: 142),
+                              in: CGSize(width: 600, height: 240), padding: 0)
+    #expect(world.dotRadius == 0.85)
+    let close = MapProjection(camera: MapCamera(centerLon: 10, centerLat: 50, lonSpan: 20, latSpan: 8),
+                              in: CGSize(width: 600, height: 240), padding: 0)
+    #expect(close.dotRadius == 3.2)
+    let middle = MapProjection(camera: MapCamera(centerLon: 10, centerLat: 50, lonSpan: 100, latSpan: 10),
+                               in: CGSize(width: 600, height: 240), padding: 0)
+    #expect(abs(middle.dotRadius - 1.8) < 1e-9)
+}

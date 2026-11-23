@@ -41,4 +41,8 @@ public struct MapProjection: Sendable, Equatable {
     public func coordinate(at p: CGPoint) -> Coordinate {
         Coordinate(lon: originLon + (p.x - offset.x) / scale, lat: originLat - (p.y - offset.y) / scale)
     }
+
+    /// How big a land dot is drawn: about a third of a degree, but at least
+    /// 0.85 points (the whole world) and at most 3.2 (close in).
+    public var dotRadius: Double { min(max(0.3 * scale, 0.85), 3.2) }
 }
