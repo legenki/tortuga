@@ -1,6 +1,6 @@
 # Privacy Policy — Tortuga
 
-_Last updated: 2026-11-23_
+_Last updated: 2026-11-24_
 
 Tortuga ("the extension") is a browser extension for Chrome and Firefox that
 routes your browser through the Tor network, using the
@@ -53,6 +53,26 @@ The extension requests browser permissions only to provide its features:
 - **storage** — save your settings locally
 - **tabs** (Firefox) — show the route for the site in the current tab
 - **host access to all sites** (Firefox) — route every site through Tor
+
+## The Mac app
+
+Tortuga for Mac (on the Mac App Store as "Tortuga: Tor for Mac") runs Tor in
+its network extension on your Mac and sends the apps you choose through it.
+
+- **Stored on your Mac, never sent to us:** whether Tor is on, your bridge
+  choice and bridge lines, and the list of apps that go through Tor (in the
+  app's own container); Tor's directory cache and state (in the extension's
+  container).
+- **Kept only in memory, never stored or sent:** which apps are connecting,
+  how many connections each has, and the Tor relays of each route, to draw
+  the map and the app list; the names of apps that connected directly in the
+  last hour, for the "Going direct" list. All of it is gone when Tor is
+  turned off or the Mac restarts.
+- **Network connections:** the apps in your list connect through the Tor
+  network (or the bridge you picked); other apps connect as usual and
+  Tortuga doesn't touch their traffic. Bridge lines are fetched from
+  bridges.torproject.org only when you ask for them, through Tor.
+- No analytics, no crash reporting, no account and no servers of our own.
 
 ## Data sharing
 
