@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2933"/>
+      <stop offset="1" stop-color="#0b0f14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
+      <stop offset="0" stop-color="#16a34a" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#16a34a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#161b22"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="185" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="3"/>
+  <g transform="translate(166 190) scale(5.4)">
+    <g fill="#fff" stroke="#0b0f14" stroke-width="6" stroke-linejoin="round">
+      <rect x="25" y="82" width="22" height="24" rx="10"/>
+      <rect x="65" y="82" width="22" height="24" rx="10"/>
+      <path d="M14 80 C14 46 34 26 56 26 C78 26 98 46 98 80 Z" fill="#16a34a"/>
+      <rect x="8" y="74" width="94" height="16" rx="8"/>
+      <circle cx="103" cy="66" r="17"/>
+    </g>
+    <path d="M29 63 L50 44 L72 60" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="29" cy="63" r="6.5" fill="#16a34a" stroke="#fff" stroke-width="5"/>
+    <circle cx="50" cy="44" r="6.5" fill="#16a34a" stroke="#fff" stroke-width="5"/>
+    <circle cx="72" cy="60" r="8" fill="#fff"/>
+    <circle cx="108" cy="62" r="4.5" fill="#0b0f14"/>
+    <path d="M101 73 Q106 76 111 72" fill="none" stroke="#0b0f14" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>
